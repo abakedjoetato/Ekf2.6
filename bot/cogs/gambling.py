@@ -1382,3 +1382,14 @@ class Gambling(commands.Cog):
                 value=f"```{recommendation_display}```",
                 inline=False
             )
+
+            await interaction.response.send_message(embed=embed, file=gamble_file, ephemeral=True)
+
+        except Exception as e:
+            logger.error(f"Analytics dashboard failed: {e}")
+            await interaction.response.send_message("❌ Failed to load analytics dashboard.", ephemeral=True)
+
+
+async def setup(bot):
+    """Load the gambling cog"""
+    await bot.add_cog(GamblingCog(bot))
