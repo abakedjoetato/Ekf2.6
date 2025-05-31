@@ -1379,4 +1379,6 @@ class Gambling(commands.Cog):
 
             embed.add_field(
                 name="🤖 Personalized Recommendations",
-                value=f"```{recommendation_display}
+                value=f"```{recommendation_display}```",
+                inline=False
+            )
