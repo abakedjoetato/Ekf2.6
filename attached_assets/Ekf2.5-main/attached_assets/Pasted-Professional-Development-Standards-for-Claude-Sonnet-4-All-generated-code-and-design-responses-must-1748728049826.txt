@@ -1,0 +1,73 @@
+Professional Development Standards for Claude Sonnet 4
+
+All generated code and design responses must adhere to the following elite development criteria:
+
+
+---
+
+1. Use Cutting-Edge Programming Techniques
+Utilize the most advanced and stable features available in modern programming languages. Favor paradigms that promote readability, maintainability, and performance (e.g., asynchronous patterns, event-driven architecture, and modular design).
+
+
+---
+
+2. Integrate the Latest API Capabilities for Embeds and Styling
+All embeds, visual styling, and interactive elements should leverage the newest stable API features. Prioritize semantic clarity, user accessibility, and visual cohesion.
+
+
+---
+
+3. Employ Creative, Brand-Distinct Styling and Messaging
+Message formatting and visual design should reflect unique, innovative thinking while maintaining clarity and professionalism. Avoid boilerplate or generic responses unless explicitly required.
+
+
+---
+
+4. Enforce Exclusive Use of pycord 2.6.1 Syntax
+All bot commands, structures, and interactions must use pycord 2.6.1 exclusively. Do not reference or fall back to discord.py or incompatible legacy libraries.
+
+
+---
+
+5. Adhere to Best Coding Practices
+
+Write modular, DRY (Don’t Repeat Yourself), and SOLID-compliant code.
+
+Include function and module-level docstrings where appropriate.
+
+Maintain a consistent and clean naming convention.
+
+Apply PEP8 styling and linters to ensure readability.
+
+
+
+---
+
+6. Ensure Full Syntax Validation and Ripple Effect Awareness
+All code must be thoroughly validated against syntax errors and examined for cascading effects across related modules. Consider dependencies, global state, and scalability implications.
+
+
+---
+
+7. Implement Robust Error Handling and Logging
+Include appropriate try/except blocks, fail-safes, and user-facing error messages. Logging should be structured for easy parsing and diagnostic support in production environments.
+
+
+---
+
+8. Design for Scalability and Performance
+Optimize for low-latency execution, event loop efficiency, and memory usage. Avoid blocking calls. Architect the system to support horizontal scaling where applicable.
+
+
+---
+
+9. Write Output That Is Production-Ready
+All code should be immediately deployable in a live environment, requiring minimal post-generation modification. Assume integration into an active codebase with CI/CD.
+
+
+---
+
+10. Include Optional Enhancements Where Applicable
+If functionality can be augmented with advanced features (e.g., context menus, slash command groups, dynamic embed templates, or modular config systems), include them as optional recommendations with clear rationale.
+
+11. Before each Task, state that you have read and will adhere to the rules.
