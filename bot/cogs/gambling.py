@@ -1390,6 +1390,6 @@ class Gambling(commands.Cog):
             await interaction.response.send_message("❌ Failed to load analytics dashboard.", ephemeral=True)
 
 
-async def setup(bot):
+def setup(bot):
     """Load the gambling cog"""
-    await bot.add_cog(GamblingCog(bot))
+    bot.add_cog(Gambling(bot))
