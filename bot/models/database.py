@@ -1627,18 +1627,34 @@ class DatabaseManager:
             servers = []
             async for guild_doc in self.guilds.find({}):
                 guild_servers = guild_doc.get('servers', [])
+                guild_channels = guild_doc.get('channels', {})  # Default guild channels
+                
                 for server in guild_servers:
-                    # Check if killfeed channel is configured
-                    channels = server.get('channels', {})
-                    if channels and channels.get('killfeed'):
+                    server_channels = server.get('channels', {})
+                    
+                    # Check if killfeed channel is configured (server-specific or guild default)
+                    has_killfeed = (
+                        (server_channels and server_channels.get('killfeed')) or  # Server-specific killfeed
+                        (guild_channels and guild_channels.get('killfeed'))       # Guild default killfeed
+                    )
+                    
+                    if has_killfeed:
+                        # Use server-specific channels if available, otherwise fall back to guild defaults
+                        effective_channels = server_channels.copy() if server_channels else {}
+                        if guild_channels:
+                            for channel_type, channel_id in guild_channels.items():
+                                if channel_type not in effective_channels:
+                                    effective_channels[channel_type] = channel_id
+                        
                         servers.append({
                             'guild_id': guild_doc['guild_id'],
                             'server_id': server.get('server_id', server.get('_id', 'default')),
+                            'name': server.get('name', 'Unknown Server'),
                             'host': server.get('host', ''),
                             'port': server.get('port', 8822),
                             'username': server.get('username', ''),
                             'password': server.get('password', ''),
-                            'channels': channels
+                            'channels': effective_channels
                         })
             return servers
         except Exception as e:
