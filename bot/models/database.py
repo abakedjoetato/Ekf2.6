@@ -239,6 +239,16 @@ class DatabaseManager:
                 logger.info(f"Removed {malformed_count} malformed documents")
 
             logger.info("PHASE 1: Database cleanup completed")
+            
+            # Reset only unified log parser states to force cold starts on bot restart
+            try:
+                reset_result = await self.parser_states.update_many(
+                    {'parser_type': 'log_parser'},  # Only unified log parser
+                    {'$unset': {'last_log_size': ''}}  # Only reset log size, not last_processed
+                )
+                logger.info(f"Reset {reset_result.modified_count} unified log parser states for cold start on restart")
+            except Exception as e:
+                logger.warning(f"Unified log parser state reset failed: {e}")
 
         except Exception as e:
             logger.error(f"Bulletproof cleanup failed: {e}")
