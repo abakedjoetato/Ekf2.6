@@ -80,7 +80,7 @@ class ChannelRouter:
                 return False
             
             # Queue embed with batch sender to avoid rate limits
-            await self.bot.batch_sender.queue_embed(
+            await self.bot.batch_sender.queue_message(
                 channel_id=channel.id,
                 embed=embed,
                 file=file

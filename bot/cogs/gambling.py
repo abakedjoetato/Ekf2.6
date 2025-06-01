@@ -13,42 +13,91 @@ from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
-class GameView(discord.ui.View):
-    """Interactive view for game selection and gameplay"""
+class GamblingMainView(discord.ui.View):
+    """Main gambling interface with changeable bets and game selection"""
     
-    def __init__(self, user_id: int, bet_amount: int, gambling_cog):
+    def __init__(self, user_id: int, gambling_cog):
         super().__init__(timeout=300)
         self.user_id = user_id
-        self.bet_amount = bet_amount
         self.gambling_cog = gambling_cog
+        self.current_bet = 100  # Default bet
         
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        """Ensure only the original user can interact"""
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your game!", ephemeral=True)
             return False
         return True
         
-    @discord.ui.button(label="🎰 Slots", style=discord.ButtonStyle.primary, emoji="🎰")
+    async def update_display(self, interaction: discord.Interaction):
+        """Update the main gambling display"""
+        balance = await self.gambling_cog.get_user_balance(interaction.guild_id, interaction.user.id)
+        
+        embed = discord.Embed(
+            title="🎰 EMERALD CASINO",
+            description=f"**Current Bet:** ${self.current_bet:,}\n**Your Balance:** ${balance:,}\n\nChoose your game or adjust your bet:",
+            color=0xffd700
+        )
+        embed.add_field(
+            name="🎮 Available Games",
+            value="🎰 **Slots** - Match symbols for big wins\n🃏 **Blackjack** - Beat the dealer\n🔴 **Roulette** - Bet on colors or numbers",
+            inline=False
+        )
+        
+        # Update bet buttons based on current bet
+        self.children[3].disabled = self.current_bet <= 10
+        self.children[4].disabled = self.current_bet >= min(50000, balance)
+        
+        await interaction.edit_original_response(embed=embed, view=self)
+    
+    @discord.ui.button(label="🎰 Slots", style=discord.ButtonStyle.primary, row=0)
     async def slots_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        """Play slots game"""
         await interaction.response.defer()
-        result_embed, new_view = await self.gambling_cog.play_slots(interaction, self.bet_amount)
+        result_embed, new_view = await self.gambling_cog.play_slots(interaction, self.current_bet)
         await interaction.edit_original_response(embed=result_embed, view=new_view)
         
-    @discord.ui.button(label="🃏 Blackjack", style=discord.ButtonStyle.primary, emoji="🃏") 
+    @discord.ui.button(label="🃏 Blackjack", style=discord.ButtonStyle.primary, row=0)
     async def blackjack_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        """Play blackjack game"""
         await interaction.response.defer()
-        result_embed, new_view = await self.gambling_cog.play_blackjack(interaction, self.bet_amount)
+        result_embed, new_view = await self.gambling_cog.play_blackjack(interaction, self.current_bet)
         await interaction.edit_original_response(embed=result_embed, view=new_view)
         
-    @discord.ui.button(label="🔴 Roulette", style=discord.ButtonStyle.primary, emoji="🔴")
+    @discord.ui.button(label="🔴 Roulette", style=discord.ButtonStyle.primary, row=0)
     async def roulette_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        """Play roulette game"""
         await interaction.response.defer()
-        result_embed, new_view = await self.gambling_cog.show_roulette_options(interaction, self.bet_amount)
+        result_embed, new_view = await self.gambling_cog.show_roulette_options(interaction, self.current_bet)
         await interaction.edit_original_response(embed=result_embed, view=new_view)
+        
+    @discord.ui.button(label="➖ Lower Bet", style=discord.ButtonStyle.secondary, row=1)
+    async def lower_bet_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await interaction.response.defer()
+        if self.current_bet > 10:
+            if self.current_bet <= 100:
+                self.current_bet = max(10, self.current_bet - 10)
+            elif self.current_bet <= 1000:
+                self.current_bet = max(100, self.current_bet - 100)
+            else:
+                self.current_bet = max(1000, self.current_bet - 1000)
+        await self.update_display(interaction)
+        
+    @discord.ui.button(label="➕ Raise Bet", style=discord.ButtonStyle.secondary, row=1)
+    async def raise_bet_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await interaction.response.defer()
+        balance = await self.gambling_cog.get_user_balance(interaction.guild_id, interaction.user.id)
+        max_bet = min(50000, balance)
+        
+        if self.current_bet < max_bet:
+            if self.current_bet < 100:
+                self.current_bet = min(max_bet, self.current_bet + 10)
+            elif self.current_bet < 1000:
+                self.current_bet = min(max_bet, self.current_bet + 100)
+            else:
+                self.current_bet = min(max_bet, self.current_bet + 1000)
+        await self.update_display(interaction)
+        
+    @discord.ui.button(label="💰 Set Custom Bet", style=discord.ButtonStyle.success, row=1)
+    async def custom_bet_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        modal = CustomBetModal(self.gambling_cog, self)
+        await interaction.response.send_modal(modal)
 
 class PlayAgainView(discord.ui.View):
     """View for playing again after a game"""
@@ -81,15 +130,16 @@ class PlayAgainView(discord.ui.View):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-class BetModal(discord.ui.Modal):
-    """Modal for entering bet amount"""
+class CustomBetModal(discord.ui.Modal):
+    """Modal for setting a custom bet amount"""
     
-    def __init__(self, gambling_cog):
-        super().__init__(title="Place Your Bet")
+    def __init__(self, gambling_cog, main_view):
+        super().__init__(title="Set Custom Bet Amount")
         self.gambling_cog = gambling_cog
+        self.main_view = main_view
         
         self.bet_input = discord.ui.InputText(
-            label="Bet Amount",
+            label="Custom Bet Amount",
             placeholder="Enter amount ($10 - $50,000)",
             min_length=2,
             max_length=6
@@ -112,14 +162,9 @@ class BetModal(discord.ui.Modal):
                 await interaction.response.send_message(f"Insufficient balance. You have ${balance:,}", ephemeral=True)
                 return
                 
-            # Show game selection
-            embed = discord.Embed(
-                title="🎰 Casino Games",
-                description=f"**Bet Amount:** ${bet_amount:,}\n**Your Balance:** ${balance:,}\n\nChoose your game:",
-                color=0xffd700
-            )
-            view = GameView(interaction.user.id, bet_amount, self.gambling_cog)
-            await interaction.response.send_message(embed=embed, view=view)
+            # Update the main view with new bet amount
+            self.main_view.current_bet = bet_amount
+            await self.main_view.update_display(interaction)
             
         except ValueError:
             await interaction.response.send_message("Please enter a valid number", ephemeral=True)
@@ -167,7 +212,8 @@ class Gambling(commands.Cog):
             if new_balance < 0:
                 return False
                 
-            await self.bot.db_manager.update_wallet(guild_id, user_id, new_balance)
+            # Use the correct method signature with transaction_type
+            await self.bot.db_manager.update_wallet(guild_id, user_id, amount, 'gambling')
             
             # Log wallet event
             await self.add_wallet_event(guild_id, user_id, amount, 'gambling', description)
@@ -206,9 +252,31 @@ class Gambling(commands.Cog):
                 await ctx.respond(embed=embed, ephemeral=True)
                 return
                 
-            # Show bet input modal
-            modal = BetModal(self)
-            await ctx.response.send_modal(modal)
+            # Get user balance
+            balance = await self.get_user_balance(ctx.guild_id, ctx.user.id)
+            if balance < 10:
+                embed = discord.Embed(
+                    title="💸 Insufficient Funds",
+                    description="You need at least $10 to gamble. Use `/work` to earn money!",
+                    color=0xff0000
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+                
+            # Create main gambling interface
+            view = GamblingMainView(ctx.user.id, self)
+            embed = discord.Embed(
+                title="🎰 EMERALD CASINO",
+                description=f"**Current Bet:** ${view.current_bet:,}\n**Your Balance:** ${balance:,}\n\nChoose your game or adjust your bet:",
+                color=0xffd700
+            )
+            embed.add_field(
+                name="🎮 Available Games",
+                value="🎰 **Slots** - Match symbols for big wins\n🃏 **Blackjack** - Beat the dealer\n🔴 **Roulette** - Bet on colors or numbers",
+                inline=False
+            )
+            
+            await ctx.respond(embed=embed, view=view)
             
         except Exception as e:
             logger.error(f"Gamble command error: {e}")
