@@ -65,6 +65,7 @@ class UnifiedLogParser:
             host = server_config.get('host')
             port = server_config.get('port', 8822)
             username = server_config.get('username', 'root')
+            password = server_config.get('password')
             
             if not host:
                 logger.warning(f"No host configured for server {server_name}")
@@ -76,7 +77,7 @@ class UnifiedLogParser:
             parser_state = await self.get_parser_state(guild_id, server_id)
             
             # Connect and read logs
-            log_content = await self.read_server_logs(host, port, username, server_id)
+            log_content = await self.read_server_logs(host, port, username, server_id, password)
             if not log_content:
                 return
                 
@@ -118,18 +119,14 @@ class UnifiedLogParser:
         except Exception as e:
             logger.error(f"Error processing server {server_config.get('name', 'Unknown')}: {e}")
             
-    async def read_server_logs(self, host: str, port: int, username: str, server_id: str) -> Optional[str]:
+    async def read_server_logs(self, host: str, port: int, username: str, server_id: str, password: Optional[str] = None) -> Optional[str]:
         """Read logs from server via SFTP"""
         try:
             logger.info(f"📡 Reading SFTP: ./{host}_{server_id}/Logs/Deadside.log")
             
             async with asyncssh.connect(
-                host, port=port, username=username,
-                known_hosts=None, client_keys=None,
-                kex_algs=['diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256'],
-                encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com'],
-                mac_algs=['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
-                compression_algs=['none']
+                host, port=port, username=username, password=password,
+                known_hosts=None, client_keys=None
             ) as conn:
                 logger.info(f"✅ SFTP connected to {host}:{port}")
                 
