@@ -267,6 +267,8 @@ class UnifiedLogParser:
             active_players = self.lifecycle_manager.get_active_players(guild_id)
             player_count = len([p for p in active_players.values() if p.get('server_id') == server_id])
             
+            logger.info(f"🎯 Voice channel update: {server_name} has {player_count} players")
+            
             # Get max players from config
             max_players = 50  # Default
             
@@ -288,18 +290,40 @@ class UnifiedLogParser:
             
             # Update voice channel
             guild_config = await self.bot.db_manager.get_guild(int(guild_id))
+            logger.info(f"🔍 Guild config found: {guild_config is not None}")
+            
             if guild_config:
-                channels = guild_config.get('channels', {}).get(server_id, {})
-                vc_id = channels.get('playercountvc')
+                channels = guild_config.get('channels', {})
+                server_channels = channels.get(server_id, {})
+                vc_id = server_channels.get('playercountvc')
+                
+                logger.info(f"🔍 Server channels for {server_id}: {server_channels}")
+                logger.info(f"🔍 Voice channel ID: {vc_id}")
                 
                 if vc_id:
                     voice_channel = self.bot.get_channel(int(vc_id))
-                    if voice_channel and voice_channel.name != channel_name:
-                        await voice_channel.edit(name=channel_name)
-                        logger.info(f"✅ Voice channel updated to: {channel_name}")
+                    logger.info(f"🔍 Voice channel found: {voice_channel is not None}")
+                    
+                    if voice_channel:
+                        current_name = voice_channel.name
+                        logger.info(f"🔍 Current name: '{current_name}' -> Target: '{channel_name}'")
+                        
+                        if current_name != channel_name:
+                            await voice_channel.edit(name=channel_name)
+                            logger.info(f"✅ Voice channel updated to: {channel_name}")
+                        else:
+                            logger.info(f"🔄 Voice channel already correct: {channel_name}")
+                    else:
+                        logger.warning(f"❌ Voice channel not found with ID: {vc_id}")
+                else:
+                    logger.info(f"🔍 No voice channel configured for server {server_id}")
+            else:
+                logger.warning(f"❌ No guild config found for guild {guild_id}")
                         
         except Exception as e:
             logger.error(f"Voice channel update failed: {e}")
+            import traceback
+            logger.error(f"Voice channel traceback: {traceback.format_exc()}")
             
     async def get_parser_state(self, guild_id: int, server_id: str) -> Dict[str, Any]:
         """Get parser state from database"""
