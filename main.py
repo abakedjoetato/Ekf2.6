@@ -406,7 +406,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
         try:
             self.mongo_client = AsyncIOMotorClient(mongo_uri)
-            self.database = self.bot.db_manager.emerald_killfeed
+            self.database = self.mongo_client.emerald_killfeed
 
             # Initialize database manager with PHASE 1 architecture + Caching
             from bot.models.database import DatabaseManager
