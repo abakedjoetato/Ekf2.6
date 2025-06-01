@@ -1008,7 +1008,7 @@ class EmbedFactory:
 
     @staticmethod
     async def build_generic_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:
-        """Build enhanced generic embed - MINIMALISTIC"""
+        """Build enhanced generic embed with context-aware thumbnails"""
         try:
             embed = discord.Embed(
                 title=embed_data.get('title', '**EMERALD SERVERS**'),
@@ -1019,10 +1019,14 @@ class EmbedFactory:
 
             embed.set_footer(text="Powered by Emerald")
 
-            killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
-            embed.set_thumbnail(url="attachment://Killfeed.png")
+            # Determine appropriate thumbnail based on context
+            embed_type = embed_data.get('embed_type', 'info')
+            thumbnail_path, thumbnail_filename = EmbedFactory.get_thumbnail_for_type(embed_type)
+            
+            asset_file = discord.File(thumbnail_path, filename=thumbnail_filename)
+            embed.set_thumbnail(url=f"attachment://{thumbnail_filename}")
 
-            return embed, killfeed_file
+            return embed, asset_file
 
         except Exception as e:
             logger.error(f"Error building generic embed: {e}")
