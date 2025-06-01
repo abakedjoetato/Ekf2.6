@@ -24,6 +24,13 @@ class PremiumManagerV2:
     def __init__(self, database):
         self.db = database
         self._locks = {}
+        
+        # Initialize cache integration if available
+        try:
+            from .unified_cache import get_cache
+            self.cache = get_cache()
+        except ImportError:
+            self.cache = None
     
     def get_guild_lock(self, guild_id: int) -> asyncio.Lock:
         """Get or create a lock for guild operations to prevent race conditions"""

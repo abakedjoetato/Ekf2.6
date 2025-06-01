@@ -135,7 +135,8 @@ class EmeraldKillfeedBot(commands.Bot):
             'bot.cogs.bounties',
             'bot.cogs.factions',
             'bot.cogs.subscription_management',
-            'bot.cogs.parsers'
+            'bot.cogs.parsers',
+            'bot.cogs.cache_management'
         ]
 
         loaded_count = 0
@@ -399,9 +400,20 @@ class EmeraldKillfeedBot(commands.Bot):
             self.mongo_client = AsyncIOMotorClient(mongo_uri)
             self.database = self.mongo_client.emerald_killfeed
 
-            # Initialize database manager with PHASE 1 architecture
+            # Initialize database manager with PHASE 1 architecture + Caching
             from bot.models.database import DatabaseManager
-            self.db_manager = DatabaseManager(self.mongo_client)
+            from bot.utils.unified_cache import initialize_cache
+            from bot.utils.cache_integration import create_cached_database_manager
+            
+            # Initialize cache system
+            await initialize_cache()
+            
+            # Create base database manager
+            base_db_manager = DatabaseManager(self.mongo_client)
+            
+            # Wrap with caching layer
+            self.db_manager = create_cached_database_manager(base_db_manager)
+            
             # Ensure consistent access pattern
             self.database = self.db_manager  # Legacy compatibility
 
