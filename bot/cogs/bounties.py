@@ -425,7 +425,18 @@ class Bounties(commands.Cog):
             if not guild_config:
                 return
 
-            killfeed_channel_id = guild_config.get('channels', {}).get('killfeed')
+            # Check new server_channels structure first
+            server_channels_config = guild_config.get('server_channels', {})
+            default_server = server_channels_config.get('default', {})
+            
+            # Check legacy channels structure
+            legacy_channels = guild_config.get('channels', {})
+            
+            # Priority: default server -> legacy channels (bounties go to bounties channel or killfeed)
+            killfeed_channel_id = (default_server.get('bounties') or 
+                                  legacy_channels.get('bounties') or
+                                  default_server.get('killfeed') or 
+                                  legacy_channels.get('killfeed'))
             if not killfeed_channel_id:
                 return
 
@@ -569,7 +580,18 @@ class Bounties(commands.Cog):
             if not guild_config:
                 return
 
-            killfeed_channel_id = guild_config.get('channels', {}).get('killfeed')
+            # Check new server_channels structure first
+            server_channels_config = guild_config.get('server_channels', {})
+            default_server = server_channels_config.get('default', {})
+            
+            # Check legacy channels structure
+            legacy_channels = guild_config.get('channels', {})
+            
+            # Priority: default server -> legacy channels (bounties go to bounties channel or killfeed)
+            killfeed_channel_id = (default_server.get('bounties') or 
+                                  legacy_channels.get('bounties') or
+                                  default_server.get('killfeed') or 
+                                  legacy_channels.get('killfeed'))
             if not killfeed_channel_id:
                 return
 

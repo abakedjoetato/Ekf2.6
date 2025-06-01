@@ -87,13 +87,18 @@ class AutomatedLeaderboard(commands.Cog):
             if not guild:
                 return
 
-            # Get leaderboard channel with server-specific and default fallback
-            channels = guild_config.get('channels', {})
-            server_channels = channels.get('default', {})  # For leaderboards, use default server
-            default_channels = channels.get('default', {})
+            # Check new server_channels structure first
+            server_channels_config = guild_config.get('server_channels', {})
+            server_specific = server_channels_config.get('default', {})  # For leaderboards, use default server
+            default_server = server_channels_config.get('default', {})
             
-            # Use server-specific channel, fallback to default
-            leaderboard_channel_id = server_channels.get('leaderboard') or default_channels.get('leaderboard')
+            # Check legacy channels structure
+            legacy_channels = guild_config.get('channels', {})
+            
+            # Priority: server-specific -> default server -> legacy channels
+            leaderboard_channel_id = (server_specific.get('leaderboard') or 
+                                    default_server.get('leaderboard') or 
+                                    legacy_channels.get('leaderboard'))
             if not leaderboard_channel_id:
                 return
 
