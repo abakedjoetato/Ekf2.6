@@ -126,11 +126,16 @@
    async def revoke_premium_slot(guild_id: int, server_id: str, revoked_by: int) -> bool
    async def get_premium_subscription(guild_id: int, server_id: str) -> dict
    
+   # Incremental Slot Management
+   async def add_premium_slots(guild_id: int, slots: int, added_by: int, reason: str = None) -> bool
+   async def remove_premium_slots(guild_id: int, slots: int, removed_by: int, reason: str = None) -> bool
+   async def set_premium_slots(guild_id: int, slots: int, set_by: int, reason: str = None) -> bool
+   
    # Administrative Methods
-   async def grant_premium_slots(guild_id: int, slots: int, granted_by: int) -> bool
-   async def revoke_premium_slots(guild_id: int, slots: int, revoked_by: int) -> bool
    async def list_all_premium_subscriptions() -> list
    async def get_premium_statistics() -> dict
+   async def is_home_guild_admin(user_id: int) -> bool
+   async def get_slot_history(guild_id: int) -> list
    ```
 
 ### Phase 2: Premium Manager Rewrite (Day 2)
@@ -160,17 +165,25 @@
 ### Phase 3: Administrative Commands (Day 2)
 1. **Bot Owner Commands**
    ```python
-   /premium grant <guild_id> <slots> [reason] # Grant premium slots to guild
-   /premium revoke <guild_id> <slots> [reason] # Revoke premium slots
-   /premium list [guild_id] # List premium subscriptions
-   /premium stats # Global premium statistics
+   /premium add <guild_id> <slots> [reason]     # Add premium slots to guild (incremental)
+   /premium remove <guild_id> <slots> [reason]  # Remove premium slots from guild (incremental)
+   /premium set <guild_id> <slots> [reason]     # Set exact number of slots (override)
+   /premium list [guild_id]                     # List premium subscriptions
+   /premium stats                               # Global premium statistics
    ```
 
-2. **Guild Admin Commands**
+2. **Home Guild Admin Commands** (Special elevated permissions)
    ```python
-   /premium assign <server_id> # Assign available slot to server
-   /premium unassign <server_id> # Free up premium slot
-   /premium status # Show guild's premium status
+   /premium add <guild_id> <slots> [reason]     # Add slots (same as bot owner)
+   /premium remove <guild_id> <slots> [reason]  # Remove slots (same as bot owner)
+   /premium audit [guild_id]                    # View detailed slot history
+   ```
+
+3. **Guild Admin Commands** (Target guild admins)
+   ```python
+   /premium assign <server_id>    # Assign available slot to server
+   /premium unassign <server_id>  # Free up premium slot from server
+   /premium status                # Show guild's premium status and available slots
    ```
 
 ### Phase 4: Cog Updates (Day 3-4)
@@ -230,13 +243,91 @@
    - Create premium feature documentation
    - Update bot description
 
+## Home Guild & Permission System
+
+### Home Guild Concept
+The "Home Guild" is a special designated Discord server that acts as the administrative hub for premium management across all guilds where the bot operates.
+
+#### Home Guild Configuration
+```javascript
+// New environment variable or config
+HOME_GUILD_ID = 1234567890123456789  // The designated home guild
+
+// Home guild admin roles/users in database
+{
+  _id: ObjectId(),
+  type: "home_guild_config",
+  guild_id: 1234567890123456789,
+  admin_roles: [987654321098765432],  // Role IDs with premium admin access
+  admin_users: [123456789012345678],  // User IDs with premium admin access
+  created_at: ISODate(),
+  permissions: {
+    can_add_slots: true,
+    can_remove_slots: true,
+    can_view_all_guilds: true,
+    can_audit: true
+  }
+}
+```
+
+### Permission Hierarchy
+1. **Bot Owner** (Highest)
+   - Full access to all premium management functions
+   - Can configure Home Guild settings
+   - Emergency override capabilities
+
+2. **Home Guild Admins** (Elevated)
+   - Can add/remove premium slots for any guild
+   - Can view comprehensive audit logs
+   - Can manage premium subscriptions across all guilds
+
+3. **Guild Admins** (Local)
+   - Can only assign/unassign slots within their own guild
+   - Can only view their own guild's premium status
+   - Cannot add or remove total slot allocations
+
+### Incremental Slot Management Examples
+
+#### Adding Slots (Purchase Scenario)
+```bash
+# Customer purchases 2 additional premium slots
+/premium add 1234567890123456789 2 "Customer purchased 2 additional slots - Order #12345"
+
+# Result: Guild's available slots increased by 2
+# Before: 3 total, 2 used, 1 available
+# After:  5 total, 2 used, 3 available
+```
+
+#### Removing Slots (Expiration Scenario)  
+```bash
+# Customer's subscription expired for 1 slot
+/premium remove 1234567890123456789 1 "Subscription expired - Order #12340"
+
+# Result: Guild's total slots decreased by 1
+# Before: 5 total, 2 used, 3 available
+# After:  4 total, 2 used, 2 available
+```
+
+#### Handling Slot Conflicts
+If removing slots would result in negative available slots:
+```bash
+# Guild has: 3 total, 3 used, 0 available
+# Admin tries: /premium remove guild_id 2
+
+# System response: 
+# "⚠️ Cannot remove 2 slots. Guild currently uses 3/3 slots.
+#  Please unassign 2 servers first, or use force removal.
+#  Use: /premium remove guild_id 2 --force"
+```
+
 ## Security Considerations
 
 ### Access Control
-1. **Bot Owner Permissions**: Full premium management access
-2. **Guild Admin Permissions**: Can assign/unassign within available slots
-3. **Audit Logging**: All premium actions logged with user ID and timestamp
-4. **Rate Limiting**: Premium assignment/revocation rate limited
+1. **Bot Owner Permissions**: Full premium management access across all guilds
+2. **Home Guild Admin Permissions**: Can add/remove slots for any guild, view audit logs
+3. **Guild Admin Permissions**: Can assign/unassign within available slots in their guild only
+4. **Audit Logging**: All premium actions logged with user ID, timestamp, and reason
+5. **Rate Limiting**: Premium assignment/revocation rate limited to prevent abuse
 
 ### Data Protection
 1. **Subscription Privacy**: Premium status not publicly visible
@@ -265,56 +356,198 @@ db.premium_assignments.createIndex({ "guild_id": 1 }, { unique: true })
 
 ```python
 async def migrate_premium_system():
-    """Migration script to move from old to new premium system"""
+    """
+    Production-ready migration script to move from old to new premium system
+    Safely handles all edge cases and provides detailed logging
+    """
+    from datetime import datetime
+    import logging
     
-    # Step 1: Find all guilds with premium servers
-    guilds = await db.guild_configs.find({}).to_list(None)
+    logger = logging.getLogger(__name__)
+    migration_stats = {
+        'guilds_processed': 0,
+        'premium_servers_migrated': 0,
+        'assignments_created': 0,
+        'subscriptions_created': 0,
+        'errors': []
+    }
     
-    for guild_config in guilds:
-        guild_id = guild_config['guild_id']
-        premium_servers = []
+    try:
+        # Step 1: Create indexes for new collections
+        await db.premium_subscriptions.create_index([("guild_id", 1), ("server_id", 1)], unique=True)
+        await db.premium_subscriptions.create_index([("status", 1)])
+        await db.premium_assignments.create_index([("guild_id", 1)], unique=True)
+        logger.info("✅ Database indexes created")
         
-        # Find servers with premium status
-        for server in guild_config.get('servers', []):
-            if server.get('premium', False):
-                premium_servers.append(server)
+        # Step 2: Find all guilds with premium servers
+        guilds = await db.guild_configs.find({}).to_list(None)
+        logger.info(f"🔍 Found {len(guilds)} guilds to process")
         
-        if premium_servers:
-            # Create premium assignments entry
-            await db.premium_assignments.insert_one({
-                'guild_id': guild_id,
-                'total_slots': len(premium_servers),
-                'used_slots': len(premium_servers),
-                'available_slots': 0,
-                'assigned_by': 0,  # System migration
-                'assigned_at': datetime.utcnow(),
-                'history': [{
-                    'action': 'migrated',
-                    'slots': len(premium_servers),
-                    'by': 0,
-                    'at': datetime.utcnow(),
-                    'reason': 'System migration from old premium system'
-                }]
-            })
-            
-            # Create premium subscriptions for each server
-            for server in premium_servers:
-                await db.premium_subscriptions.insert_one({
-                    'subscription_id': f"migration_{guild_id}_{server['server_id']}",
-                    'guild_id': guild_id,
-                    'server_id': server['server_id'],
-                    'status': 'active',
-                    'tier': 'standard',
-                    'assigned_by': 0,
-                    'assigned_at': datetime.utcnow(),
-                    'expires_at': None,
-                    'metadata': {
-                        'assigned_reason': 'Migrated from old premium system',
-                        'notes': f"Server: {server.get('name', 'Unknown')}"
+        for guild_config in guilds:
+            try:
+                guild_id = guild_config['guild_id']
+                premium_servers = []
+                
+                # Find servers with premium status
+                for server in guild_config.get('servers', []):
+                    if server.get('premium', False):
+                        premium_servers.append(server)
+                
+                migration_stats['guilds_processed'] += 1
+                
+                if premium_servers:
+                    logger.info(f"🏢 Guild {guild_id}: Found {len(premium_servers)} premium servers")
+                    
+                    # Create premium assignments entry
+                    assignment_doc = {
+                        'guild_id': guild_id,
+                        'total_slots': len(premium_servers),
+                        'used_slots': len(premium_servers),
+                        'available_slots': 0,
+                        'assigned_by': 0,  # System migration
+                        'assigned_at': datetime.utcnow(),
+                        'history': [{
+                            'action': 'migrated',
+                            'slots': len(premium_servers),
+                            'by': 0,
+                            'at': datetime.utcnow(),
+                            'reason': 'System migration from old premium system'
+                        }]
                     }
-                })
+                    
+                    # Use upsert to handle potential duplicates
+                    await db.premium_assignments.replace_one(
+                        {'guild_id': guild_id}, 
+                        assignment_doc, 
+                        upsert=True
+                    )
+                    migration_stats['assignments_created'] += 1
+                    
+                    # Create premium subscriptions for each server
+                    for server in premium_servers:
+                        subscription_doc = {
+                            'subscription_id': f"migration_{guild_id}_{server['server_id']}",
+                            'guild_id': guild_id,
+                            'server_id': server['server_id'],
+                            'status': 'active',
+                            'tier': 'standard',
+                            'assigned_by': 0,
+                            'assigned_at': datetime.utcnow(),
+                            'expires_at': None,
+                            'metadata': {
+                                'assigned_reason': 'Migrated from old premium system',
+                                'notes': f"Server: {server.get('name', 'Unknown')}",
+                                'migration_date': datetime.utcnow().isoformat()
+                            }
+                        }
+                        
+                        # Use upsert to handle potential duplicates
+                        await db.premium_subscriptions.replace_one(
+                            {'guild_id': guild_id, 'server_id': server['server_id']},
+                            subscription_doc,
+                            upsert=True
+                        )
+                        migration_stats['subscriptions_created'] += 1
+                        migration_stats['premium_servers_migrated'] += 1
+                        
+                        logger.info(f"✅ Migrated premium server: {server.get('name', server['server_id'])}")
+                
+            except Exception as e:
+                error_msg = f"Error processing guild {guild_id}: {str(e)}"
+                logger.error(error_msg)
+                migration_stats['errors'].append(error_msg)
+                continue
+        
+        # Step 3: Validation phase
+        logger.info("🔍 Starting validation phase...")
+        
+        # Verify all premium servers were migrated
+        total_old_premium = 0
+        all_guilds = await db.guild_configs.find({}).to_list(None)
+        for guild in all_guilds:
+            for server in guild.get('servers', []):
+                if server.get('premium', False):
+                    total_old_premium += 1
+        
+        total_new_subscriptions = await db.premium_subscriptions.count_documents({'status': 'active'})
+        
+        if total_old_premium == total_new_subscriptions:
+            logger.info("✅ Migration validation successful: All premium servers migrated")
+        else:
+            logger.warning(f"⚠️ Migration validation warning: Old={total_old_premium}, New={total_new_subscriptions}")
+        
+        # Final statistics
+        logger.info("📊 Migration completed successfully!")
+        logger.info(f"   - Guilds processed: {migration_stats['guilds_processed']}")
+        logger.info(f"   - Premium servers migrated: {migration_stats['premium_servers_migrated']}")
+        logger.info(f"   - Assignment documents created: {migration_stats['assignments_created']}")
+        logger.info(f"   - Subscription documents created: {migration_stats['subscriptions_created']}")
+        logger.info(f"   - Errors encountered: {len(migration_stats['errors'])}")
+        
+        if migration_stats['errors']:
+            logger.error("Errors during migration:")
+            for error in migration_stats['errors']:
+                logger.error(f"   - {error}")
+        
+        return migration_stats
+        
+    except Exception as e:
+        logger.error(f"Critical migration error: {str(e)}")
+        raise
+
+
+# Additional utility functions for post-migration cleanup
+async def cleanup_old_premium_fields():
+    """Remove old premium fields after successful migration"""
     
-    print(f"Migration completed: {len(premium_servers)} premium servers migrated")
+    logger = logging.getLogger(__name__)
+    
+    # Remove premium field from all server documents
+    result = await db.guild_configs.update_many(
+        {},
+        {"$unset": {"servers.$[].premium": ""}}
+    )
+    
+    logger.info(f"✅ Cleaned up old premium fields from {result.modified_count} guild documents")
+
+
+async def verify_premium_system_integrity():
+    """Verify the integrity of the new premium system"""
+    
+    logger = logging.getLogger(__name__)
+    issues = []
+    
+    # Check 1: Verify all assignments have matching subscriptions
+    assignments = await db.premium_assignments.find({}).to_list(None)
+    for assignment in assignments:
+        guild_id = assignment['guild_id']
+        used_slots = assignment['used_slots']
+        
+        actual_subscriptions = await db.premium_subscriptions.count_documents({
+            'guild_id': guild_id,
+            'status': 'active'
+        })
+        
+        if used_slots != actual_subscriptions:
+            issues.append(f"Guild {guild_id}: Assignment shows {used_slots} used slots, but {actual_subscriptions} active subscriptions found")
+    
+    # Check 2: Verify no orphaned subscriptions
+    all_subscriptions = await db.premium_subscriptions.find({'status': 'active'}).to_list(None)
+    for subscription in all_subscriptions:
+        guild_id = subscription['guild_id']
+        assignment = await db.premium_assignments.find_one({'guild_id': guild_id})
+        
+        if not assignment:
+            issues.append(f"Orphaned subscription found: Guild {guild_id}, Server {subscription['server_id']}")
+    
+    if issues:
+        logger.warning(f"⚠️ Found {len(issues)} integrity issues:")
+        for issue in issues:
+            logger.warning(f"   - {issue}")
+    else:
+        logger.info("✅ Premium system integrity verified - no issues found")
+    
+    return issues
 ```
 
 ## Rollback Plan
