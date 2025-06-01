@@ -10,8 +10,6 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 
 import discord
-import discord
-import discord
 from discord.ext import commands
 from bot.utils.embed_factory import EmbedFactory
 from bot.cogs.autocomplete import ServerAutocomplete
@@ -608,10 +606,11 @@ class Stats(discord.Cog):
         server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
         
         # Create embed
-        embed = EmbedFactory.create_info_embed(
+        embed = discord.Embed(
             title=f"🌐 Online Players - {server_name}",
             description=f"**{len(server_players)}** players currently online",
-            guild_name=ctx.guild.name if ctx.guild else "Unknown Guild"
+            color=0x32CD32,
+            timestamp=datetime.now(timezone.utc)
         )
         
         if server_players:
@@ -665,10 +664,11 @@ class Stats(discord.Cog):
         total_players = sum(len(players) for players in servers_with_players.values())
         
         # Create embed
-        embed = EmbedFactory.create_info_embed(
+        embed = discord.Embed(
             title="🌐 Online Players - All Servers",
             description=f"**{total_players}** players currently online across all servers",
-            guild_name=ctx.guild.name if ctx.guild else "Unknown Guild"
+            color=0x32CD32,
+            timestamp=datetime.now(timezone.utc)
         )
         
         if total_players == 0:
