@@ -590,8 +590,63 @@ class EmeraldKillfeedBot(commands.Bot):
         logger.info("Commands will be available after next restart (bulletproof mode)")
 
     async def on_guild_remove(self, guild):
-        """Called when bot is removed from a guild"""
+        """Called when bot is removed from a guild - Clean up all data"""
         logger.info("Left guild: %s (ID: %s)", guild.name, guild.id)
+        
+        try:
+            # Comprehensive cleanup of all guild-related data
+            guild_id = guild.id
+            
+            # Remove guild configuration
+            result = await self.database.db.guilds.delete_one({"guild_id": guild_id})
+            logger.info("Cleaned guild config: %d documents", result.deleted_count)
+            
+            # Remove premium data
+            result = await self.database.db.premium_limits.delete_one({"guild_id": guild_id})
+            logger.info("Cleaned premium limits: %d documents", result.deleted_count)
+            
+            result = await self.database.db.server_premium_status.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned premium servers: %d documents", result.deleted_count)
+            
+            # Remove user data (stats, economy, linking)
+            result = await self.database.db.user_stats.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned user stats: %d documents", result.deleted_count)
+            
+            result = await self.database.db.user_wallets.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned user wallets: %d documents", result.deleted_count)
+            
+            result = await self.database.db.wallet_events.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned wallet events: %d documents", result.deleted_count)
+            
+            result = await self.database.db.user_linking.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned user linking: %d documents", result.deleted_count)
+            
+            # Remove faction data
+            result = await self.database.db.faction_members.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned faction members: %d documents", result.deleted_count)
+            
+            result = await self.database.db.factions.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned factions: %d documents", result.deleted_count)
+            
+            # Remove bounty data
+            result = await self.database.db.bounties.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned bounties: %d documents", result.deleted_count)
+            
+            # Remove parser and session data
+            result = await self.database.db.parser_states.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned parser states: %d documents", result.deleted_count)
+            
+            result = await self.database.db.player_sessions.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned player sessions: %d documents", result.deleted_count)
+            
+            # Remove leaderboard data
+            result = await self.database.db.leaderboard_messages.delete_many({"guild_id": guild_id})
+            logger.info("Cleaned leaderboard messages: %d documents", result.deleted_count)
+            
+            logger.info("Complete cleanup finished for guild %d", guild_id)
+            
+        except Exception as e:
+            logger.error("Failed to clean up guild data: %s", e)
 
     async def close(self):
         """Clean shutdown"""
