@@ -1603,3 +1603,27 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting user balance: {e}")
             return 0
+
+    async def get_all_servers_with_killfeed(self) -> List[Dict[str, Any]]:
+        """Get all servers that have killfeed enabled - required by killfeed parser"""
+        try:
+            servers = []
+            async for guild_doc in self.guilds.find({}):
+                guild_servers = guild_doc.get('servers', [])
+                for server in guild_servers:
+                    # Check if killfeed channel is configured
+                    channels = server.get('channels', {})
+                    if channels.get('killfeed'):
+                        servers.append({
+                            'guild_id': guild_doc['guild_id'],
+                            'server_id': server.get('server_id', server.get('_id', 'default')),
+                            'host': server.get('host', ''),
+                            'port': server.get('port', 8822),
+                            'username': server.get('username', ''),
+                            'password': server.get('password', ''),
+                            'channels': channels
+                        })
+            return servers
+        except Exception as e:
+            logger.error(f"Error getting servers with killfeed: {e}")
+            return []
