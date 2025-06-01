@@ -456,16 +456,22 @@ class GamblingUltraV2(commands.Cog):
         self.bot = bot
         
     async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has premium access"""
+        """Check if guild has premium access for gambling features"""
         try:
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
-            if not guild_config:
+            guild_doc = await self.bot.db_manager.get_guild(guild_id)
+            if not guild_doc:
                 return False
             
-            servers = guild_config.get('servers', [])
-            return any(server.get('premium', False) for server in servers)
+            # Check if any server in the guild has premium access
+            servers = guild_doc.get('servers', [])
+            for server_config in servers:
+                server_id = server_config.get('server_id', server_config.get('_id', 'default'))
+                if await self.bot.db_manager.is_premium_server(guild_id, server_id):
+                    return True
+            
+            return False
         except Exception as e:
-            logger.error(f"Failed to check premium access: {e}")
+            logger.error(f"Premium check failed: {e}")
             return False
     
     async def get_user_balance(self, guild_id: int, user_id: int) -> int:
