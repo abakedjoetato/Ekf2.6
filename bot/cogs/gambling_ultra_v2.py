@@ -208,8 +208,10 @@ class SlotsConfigModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         """Process slots configuration and launch game"""
         try:
-            bet = int(self.bet_amount.value.replace('$', '').replace(',', ''))
-            difficulty = int(self.difficulty.value)
+            bet_value = str(self.bet_amount.value or '0')
+            bet = int(bet_value.replace('$', '').replace(',', ''))
+            difficulty_value = self.difficulty.value or '1'
+            difficulty = int(difficulty_value)
             
             if bet < 100 or bet > 25000:
                 await interaction.response.send_message("❌ **Invalid bet amount**\nRange: $100 - $25,000", ephemeral=True)
@@ -263,8 +265,10 @@ class BlackjackConfigModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         """Process blackjack configuration and launch game"""
         try:
-            bet = int(self.bet_amount.value.replace('$', '').replace(',', ''))
-            strategy = self.strategy.value.lower()
+            bet_value = str(self.bet_amount.value or '0')
+            bet = int(bet_value.replace('$', '').replace(',', ''))
+            strategy_value = str(self.strategy.value or 'basic')
+            strategy = strategy_value.lower()
             
             if bet < 100 or bet > 25000:
                 await interaction.response.send_message("❌ **Invalid bet amount**", ephemeral=True)
@@ -313,8 +317,10 @@ class RouletteConfigModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         """Process roulette configuration and launch game"""
         try:
-            bet = int(self.bet_amount.value.replace('$', '').replace(',', ''))
-            bet_type = self.bet_type.value.lower()
+            bet_value = str(self.bet_amount.value or '0')
+            bet = int(bet_value.replace('$', '').replace(',', ''))
+            bet_type_value = str(self.bet_type.value or 'red')
+            bet_type = bet_type_value.lower()
             
             if bet < 100 or bet > 25000:
                 await interaction.response.send_message("❌ **Invalid bet amount**", ephemeral=True)
@@ -363,8 +369,10 @@ class RocketConfigModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         """Process rocket configuration and launch game"""
         try:
-            bet = int(self.bet_amount.value.replace('$', '').replace(',', ''))
-            target = float(self.target_multiplier.value.replace('x', '')) if self.target_multiplier.value else None
+            bet_value = str(self.bet_amount.value or '0')
+            bet = int(bet_value.replace('$', '').replace(',', ''))
+            target_value = str(self.target_multiplier.value or '2.0')
+            target = float(target_value.replace('x', '')) if target_value else None
             
             if bet < 100 or bet > 25000:
                 await interaction.response.send_message("❌ **Invalid bet amount**", ephemeral=True)
