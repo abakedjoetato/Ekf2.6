@@ -62,6 +62,9 @@ class SlotsGame:
         """Play a slots game"""
         try:
             # Validate bet
+            if not ctx.guild_id:
+                embed = discord.Embed(title="❌ Error", description="Guild context required", color=0xff0000)
+                return embed
             balance = await self.core.get_user_balance(ctx.guild_id, ctx.user.id)
             valid, error_msg = BetValidation.validate_bet_amount(bet_amount, balance)
             
