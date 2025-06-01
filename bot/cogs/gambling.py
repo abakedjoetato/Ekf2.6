@@ -1648,7 +1648,7 @@ class Gambling(commands.Cog):
             logger.error(f"Display update failed: {e}")
 
     async def _show_blackjack_result(self, interaction: discord.Interaction, game_state: Dict, result: str, message: str):
-        """Show final blackjack result"""
+        """Show final blackjack result with play again options"""
         try:
             game_state['game_over'] = True
             
@@ -1659,6 +1659,7 @@ class Gambling(commands.Cog):
             guild_id = interaction.guild.id
             discord_id = interaction.user.id
             wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            current_balance = wallet.get('balance', 0)
             
             # Color based on result
             colors = {
@@ -1716,16 +1717,118 @@ class Gambling(commands.Cog):
                 inline=False
             )
 
-            embed.set_footer(text=f"💰 Updated Balance: ${wallet.get('balance', 0):,} | Ultimate AI Gaming Engine")
+            embed.set_footer(text=f"💰 Updated Balance: ${current_balance:,} | Ultimate AI Gaming Engine")
 
-            # Remove all buttons
-            view = discord.ui.View()
+            # Create continuation view with play again options
+            view = self._create_blackjack_continuation_view(game_state['bet'], current_balance)
             
             gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
             await interaction.edit_original_response(embed=embed, file=gamble_file, view=view)
             
         except Exception as e:
             logger.error(f"Result display failed: {e}")
+
+    def _create_blackjack_continuation_view(self, last_bet: int, current_balance: int) -> discord.ui.View:
+        """Create continuation view for blackjack with play again options"""
+        view = discord.ui.View(timeout=300)
+        
+        # Same bet again (if balance allows)
+        if current_balance >= last_bet:
+            same_bet_btn = discord.ui.Button(
+                label=f"🃏 Same Bet (${last_bet:,})",
+                style=discord.ButtonStyle.primary,
+                emoji="🔄"
+            )
+            same_bet_btn.callback = lambda i: self._blackjack_play_again(i, last_bet)
+            view.add_item(same_bet_btn)
+        
+        # Double bet (if balance allows)
+        double_bet = last_bet * 2
+        if current_balance >= double_bet:
+            double_bet_btn = discord.ui.Button(
+                label=f"🔥 Double Bet (${double_bet:,})",
+                style=discord.ButtonStyle.danger,
+                emoji="⬆️"
+            )
+            double_bet_btn.callback = lambda i: self._blackjack_play_again(i, double_bet)
+            view.add_item(double_bet_btn)
+        
+        # Half bet
+        half_bet = max(100, last_bet // 2)
+        if current_balance >= half_bet:
+            half_bet_btn = discord.ui.Button(
+                label=f"💰 Half Bet (${half_bet:,})",
+                style=discord.ButtonStyle.secondary,
+                emoji="⬇️"
+            )
+            half_bet_btn.callback = lambda i: self._blackjack_play_again(i, half_bet)
+            view.add_item(half_bet_btn)
+        
+        # New bet amount
+        new_bet_btn = discord.ui.Button(
+            label="🎯 New Bet Amount",
+            style=discord.ButtonStyle.secondary,
+            emoji="🎲"
+        )
+        new_bet_btn.callback = self._blackjack_new_bet_modal
+        view.add_item(new_bet_btn)
+        
+        # Exit game
+        exit_btn = discord.ui.Button(
+            label="🚪 Exit Game",
+            style=discord.ButtonStyle.secondary,
+            emoji="❌"
+        )
+        exit_btn.callback = self._exit_game
+        view.add_item(exit_btn)
+        
+        return view
+
+    async def _blackjack_play_again(self, interaction: discord.Interaction, bet: int):
+        """Start a new blackjack game with specified bet"""
+        try:
+            game_data = {
+                'bet': bet,
+                'game_type': 'blackjack',
+                'timestamp': datetime.now(timezone.utc)
+            }
+            await self._initialize_blackjack_game(interaction, bet, game_data)
+        except Exception as e:
+            logger.error(f"Blackjack play again failed: {e}")
+            await interaction.response.send_message("❌ Failed to start new game. Please try again.", ephemeral=True)
+
+    async def _blackjack_new_bet_modal(self, interaction: discord.Interaction):
+        """Show modal for custom bet amount"""
+        try:
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            balance = wallet.get('balance', 0)
+            
+            modal = AdvancedModalSystem.create_bet_setup_modal("blackjack", balance)
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            logger.error(f"Blackjack modal failed: {e}")
+            await interaction.response.send_message("❌ Failed to open bet setup.", ephemeral=True)
+
+    async def _exit_game(self, interaction: discord.Interaction):
+        """Exit the game session"""
+        try:
+            embed_data = {
+                'title': "🎰 GAME SESSION ENDED",
+                'description': "Thanks for playing! Use `/gamble` to start a new session."
+            }
+            embed, gamble_file = await EmbedFactory.build('generic', embed_data)
+            embed.color = 0x7f5af0
+            embed.set_thumbnail(url="attachment://Gamble.png")
+            
+            view = discord.ui.View()  # Empty view
+            
+            gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
+            await interaction.response.edit_message(embed=embed, file=gamble_file, view=view)
+        except Exception as e:
+            logger.error(f"Exit game failed: {e}")
+            await interaction.response.send_message("❌ Failed to exit game.", ephemeral=True)
 
     async def _initialize_roulette_game(self, interaction: discord.Interaction, bet: int, game_data: Dict):
         """Initialize physics-based roulette game"""
@@ -1969,8 +2072,11 @@ class Gambling(commands.Cog):
             # Mark spin as complete
             game_state['spin_complete'] = True
 
+            # Create continuation view with play again options
+            view = self._create_roulette_continuation_view(bet, choice, updated_wallet.get('balance', 0))
+
             gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
-            await interaction.edit_original_response(embed=embed, file=gamble_file, view=None)
+            await interaction.edit_original_response(embed=embed, file=gamble_file, view=view)
 
         except Exception as e:
             logger.error(f"Roulette spin failed: {e}")
@@ -2058,6 +2164,136 @@ class Gambling(commands.Cog):
         except Exception as e:
             logger.error(f"Roulette payout calculation failed: {e}")
             return 0, 'loss'
+
+    def _create_roulette_continuation_view(self, last_bet: int, last_choice: str, current_balance: int) -> discord.ui.View:
+        """Create continuation view for roulette with play again options"""
+        view = discord.ui.View(timeout=300)
+        
+        # Same bet and choice again (if balance allows)
+        if current_balance >= last_bet:
+            same_bet_btn = discord.ui.Button(
+                label=f"🎯 Same Bet (${last_bet:,} on {last_choice.title()})",
+                style=discord.ButtonStyle.primary,
+                emoji="🔄"
+            )
+            same_bet_btn.callback = lambda i: self._roulette_play_again(i, last_bet, last_choice)
+            view.add_item(same_bet_btn)
+        
+        # Double bet same choice (if balance allows)
+        double_bet = last_bet * 2
+        if current_balance >= double_bet:
+            double_bet_btn = discord.ui.Button(
+                label=f"🔥 Double Bet (${double_bet:,} on {last_choice.title()})",
+                style=discord.ButtonStyle.danger,
+                emoji="⬆️"
+            )
+            double_bet_btn.callback = lambda i: self._roulette_play_again(i, double_bet, last_choice)
+            view.add_item(double_bet_btn)
+        
+        # Change choice same bet
+        if current_balance >= last_bet:
+            change_choice_btn = discord.ui.Button(
+                label=f"🎲 Change Choice (${last_bet:,})",
+                style=discord.ButtonStyle.secondary,
+                emoji="🔄"
+            )
+            change_choice_btn.callback = lambda i: self._roulette_change_choice_modal(i, last_bet)
+            view.add_item(change_choice_btn)
+        
+        # New bet and choice
+        new_bet_btn = discord.ui.Button(
+            label="🎯 New Bet & Choice",
+            style=discord.ButtonStyle.secondary,
+            emoji="🎰"
+        )
+        new_bet_btn.callback = self._roulette_new_bet_modal
+        view.add_item(new_bet_btn)
+        
+        # Exit game
+        exit_btn = discord.ui.Button(
+            label="🚪 Exit Game",
+            style=discord.ButtonStyle.secondary,
+            emoji="❌"
+        )
+        exit_btn.callback = self._exit_game
+        view.add_item(exit_btn)
+        
+        return view
+
+    async def _roulette_play_again(self, interaction: discord.Interaction, bet: int, choice: str):
+        """Start a new roulette game with specified bet and choice"""
+        try:
+            game_data = {
+                'bet': bet,
+                'choice': choice,
+                'game_type': 'roulette',
+                'timestamp': datetime.now(timezone.utc)
+            }
+            await self._initialize_roulette_game(interaction, bet, game_data)
+        except Exception as e:
+            logger.error(f"Roulette play again failed: {e}")
+            await interaction.response.send_message("❌ Failed to start new game. Please try again.", ephemeral=True)
+
+    async def _roulette_change_choice_modal(self, interaction: discord.Interaction, bet: int):
+        """Show modal for changing roulette choice with same bet"""
+        try:
+            class RouletteChoiceModal(discord.ui.Modal):
+                def __init__(self, bet_amount: int):
+                    super().__init__(title=f"🎯 Change Roulette Choice (${bet_amount:,})")
+                    self.bet_amount = bet_amount
+
+                    self.choice_input = discord.ui.TextInput(
+                        label="🎯 New Roulette Choice",
+                        placeholder="red/black/even/odd/low/high or number 0-36",
+                        min_length=1,
+                        max_length=20,
+                        style=discord.TextStyle.short
+                    )
+                    self.add_item(self.choice_input)
+
+                async def on_submit(self, modal_interaction: discord.Interaction):
+                    try:
+                        choice = self.choice_input.value.strip().lower()
+                        valid_choices = {'red', 'black', 'green', 'even', 'odd', 'low', 'high'}
+                        is_number = choice.isdigit() and 0 <= int(choice) <= 36
+
+                        if choice not in valid_choices and not is_number:
+                            await modal_interaction.response.send_message("❌ Invalid roulette choice!", ephemeral=True)
+                            return
+
+                        game_data = {
+                            'bet': self.bet_amount,
+                            'choice': choice,
+                            'game_type': 'roulette',
+                            'timestamp': datetime.now(timezone.utc)
+                        }
+                        
+                        gambling_cog = modal_interaction.client.get_cog('Gambling')
+                        await gambling_cog._initialize_roulette_game(modal_interaction, self.bet_amount, game_data)
+
+                    except Exception as e:
+                        logger.error(f"Choice modal submission error: {e}")
+                        await modal_interaction.response.send_message("❌ Failed to change choice. Please try again.", ephemeral=True)
+
+            modal = RouletteChoiceModal(bet)
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            logger.error(f"Roulette choice modal failed: {e}")
+            await interaction.response.send_message("❌ Failed to open choice setup.", ephemeral=True)
+
+    async def _roulette_new_bet_modal(self, interaction: discord.Interaction):
+        """Show modal for new bet amount and choice"""
+        try:
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            balance = wallet.get('balance', 0)
+            
+            modal = AdvancedModalSystem.create_bet_setup_modal("roulette", balance)
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            logger.error(f"Roulette modal failed: {e}")
+            await interaction.response.send_message("❌ Failed to open bet setup.", ephemeral=True)
 
     async def _show_analytics_dashboard(self, interaction: discord.Interaction):
         """Display analytics dashboard"""
