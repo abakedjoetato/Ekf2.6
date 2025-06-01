@@ -1,5 +1,6 @@
 import discord
 import discord
+import discord
 from discord.ext import commands
 from typing import List, Optional
 
@@ -128,7 +129,7 @@ class ServerAutocomplete:
         """
         for server in servers:
             # Check against name and server_name fields
-            if server.get("name") == server_name or server.get("server_name") == server_name:
+            if server and server.get("name") == server_name or server.get("server_name") == server_name:
                 # Return _id with backward compatibility fallback
                 return str(server.get("_id", server.get("server_id", "unknown")))
         return None

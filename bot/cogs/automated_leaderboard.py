@@ -5,6 +5,7 @@ Posts and updates consolidated leaderboards every 30 minutes
 
 import discord
 import discord
+import discord
 from discord.ext import commands, tasks
 import asyncio
 import logging
@@ -161,7 +162,7 @@ class AutomatedLeaderboard(discord.Cog):
                 servers = guild_doc.get('servers', [])
                 for server_config in servers:
                     server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                    if await self.bot.db_manager.is_premium_server(guild_id or 0, server_id):
+                    if await self.check_premium_access(guild_id):
                         return True
                 return False
         except Exception as e:

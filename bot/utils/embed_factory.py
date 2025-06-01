@@ -952,7 +952,7 @@ class EmbedFactory:
             for i, bounty in enumerate(embed_data['bounty_list'][:5], 1):  # Show max 5
                 target = bounty['target_character']
                 amount = bounty['amount']
-                auto_indicator = " Auto" if bounty.get('auto_generated', False) else ""
+                auto_indicator = " Auto" if bounty and bounty.get('auto_generated', False) else ""
                 bounty_list.append(f"**{i}. {target}** - **${amount:,}**{auto_indicator}")
 
             embed.add_field(name="**TOP CONTRACTS**", value="\n".join(bounty_list), inline=False)
@@ -980,7 +980,7 @@ class EmbedFactory:
                 timestamp=datetime.now(timezone.utc)
             )
 
-            faction_tag = f"**[{embed_data['faction_tag']}]**" if embed_data.get('faction_tag') else ""
+            faction_tag = f"**[{embed_data['faction_tag']}]**" if embed_data and embed_data.get('faction_tag') else ""
             embed.add_field(name="**ORGANIZATION**", value=f"**{embed_data['faction_name']}**\n**{embed_data['leader']}** • {faction_tag}", inline=False)
 
             embed.add_field(name="**ROSTER**", value=f"**{embed_data['member_count']}/{embed_data['max_members']}** Members • Active", inline=True)

@@ -406,7 +406,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
         try:
             self.mongo_client = AsyncIOMotorClient(mongo_uri)
-            self.database = self.mongo_client.emerald_killfeed
+            self.database = self.bot.db_manager.emerald_killfeed
 
             # Initialize database manager with PHASE 1 architecture + Caching
             from bot.models.database import DatabaseManager
@@ -426,7 +426,7 @@ class EmeraldKillfeedBot(commands.Bot):
             self.database = self.db_manager  # Legacy compatibility
 
             # Test connection
-            await self.mongo_client.admin.command('ping')
+            await self.bot.db_manager.admin.command('ping')
             logger.info("Successfully connected to MongoDB")
 
             # Initialize database indexes
@@ -702,7 +702,7 @@ class EmeraldKillfeedBot(commands.Bot):
                     # Cancel any pending database operations
                     await asyncio.sleep(0.1)
 
-                self.mongo_client.close()
+                self.bot.db_manager.close()
                 logger.info("MongoDB connection closed")
             except Exception as e:
                 logger.error(f"Error closing MongoDB connection: {e}")
@@ -733,7 +733,7 @@ class EmeraldKillfeedBot(commands.Bot):
                 logger.info("Scheduler stopped")
 
             if hasattr(self, 'mongo_client') and self.mongo_client:
-                self.mongo_client.close()
+                self.bot.db_manager.close()
                 logger.info("MongoDB connection closed")
 
             await super().close()

@@ -54,7 +54,7 @@ class CasinoMainView(discord.ui.View):
     
     @discord.ui.button(label="🔄 Refresh Balance", style=discord.ButtonStyle.secondary)
     async def refresh_balance(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This session belongs to another player.", ephemeral=True)
             return
         
@@ -180,7 +180,7 @@ class BetSelectionView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back to Casino", style=discord.ButtonStyle.red)
     async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This session belongs to another player.", ephemeral=True)
             return
         
@@ -348,7 +348,7 @@ class SlotsGameView(discord.ui.View):
     
     @discord.ui.button(label="🎰 SPIN", style=discord.ButtonStyle.green, emoji="🎰")
     async def spin_slots(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your game session.", ephemeral=True)
             return
         
@@ -385,7 +385,7 @@ class SlotsGameView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back to Casino", style=discord.ButtonStyle.red)
     async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your game session.", ephemeral=True)
             return
         
@@ -403,7 +403,7 @@ class SlotsGameView(discord.ui.View):
     
     async def update_balance(self, amount):
         try:
-            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, amount, 'casino_slots')
+            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, amount, 'casino_slots', "economy_operation")
         except:
             return False
 
@@ -455,7 +455,7 @@ class CoinFlipGameView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back to Casino", style=discord.ButtonStyle.red)
     async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your game session.", ephemeral=True)
             return
         
@@ -465,7 +465,7 @@ class CoinFlipGameView(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=casino_view)
     
     async def play_coinflip(self, interaction: discord.Interaction, choice: str):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your game session.", ephemeral=True)
             return
         
@@ -506,7 +506,7 @@ class CoinFlipGameView(discord.ui.View):
     
     async def update_balance(self, amount):
         try:
-            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, amount, 'casino_coinflip')
+            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, amount, 'casino_coinflip', "economy_operation")
         except:
             return False
 
@@ -555,7 +555,7 @@ class RouletteGameView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back to Casino", style=discord.ButtonStyle.red)
     async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your game session.", ephemeral=True)
             return
         
@@ -713,7 +713,7 @@ class RocketCrashGameView(discord.ui.View):
     
     @discord.ui.button(label="🚀 LAUNCH ROCKET", style=discord.ButtonStyle.danger, row=0)
     async def launch_rocket(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This rocket mission belongs to another pilot.", ephemeral=True)
             return
             
@@ -730,7 +730,7 @@ class RocketCrashGameView(discord.ui.View):
         
     @discord.ui.button(label="💰 CASH OUT", style=discord.ButtonStyle.success, row=0, disabled=True)
     async def cash_out(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This rocket mission belongs to another pilot.", ephemeral=True)
             return
             
@@ -740,7 +740,7 @@ class RocketCrashGameView(discord.ui.View):
     
     @discord.ui.button(label="🔙 Back to Casino", style=discord.ButtonStyle.secondary, row=1)
     async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This session belongs to another player.", ephemeral=True)
             return
             
@@ -825,11 +825,9 @@ class RocketCrashGameView(discord.ui.View):
         """Update user's balance"""
         try:
             return await self.bot.db_manager.update_wallet(
-                self.guild_id, 
-                self.user_id, 
-                amount, 
+                self.guild_id, self.user_id, amount, 
                 'casino_rocket'
-            )
+            , "economy_operation")
         except Exception:
             return False
 
@@ -972,7 +970,7 @@ class BlackjackGameView(discord.ui.View):
     
     @discord.ui.button(label="🎯 HIT", style=discord.ButtonStyle.primary, row=0)
     async def hit(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This blackjack table belongs to another player.", ephemeral=True)
             return
             
@@ -993,7 +991,7 @@ class BlackjackGameView(discord.ui.View):
     
     @discord.ui.button(label="✋ STAND", style=discord.ButtonStyle.secondary, row=0)
     async def stand(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This blackjack table belongs to another player.", ephemeral=True)
             return
             
@@ -1005,7 +1003,7 @@ class BlackjackGameView(discord.ui.View):
     
     @discord.ui.button(label="🔙 Back to Casino", style=discord.ButtonStyle.secondary, row=1)
     async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        if interaction.user and interaction.user.id != self.user_id:
             await interaction.response.send_message("This session belongs to another player.", ephemeral=True)
             return
             
@@ -1059,11 +1057,9 @@ class BlackjackGameView(discord.ui.View):
         """Update user's balance"""
         try:
             return await self.bot.db_manager.update_wallet(
-                self.guild_id, 
-                self.user_id, 
-                amount, 
+                self.guild_id, self.user_id, amount, 
                 'casino_blackjack'
-            )
+            , "economy_operation")
         except Exception:
             return False
 
@@ -1088,13 +1084,13 @@ class ProfessionalCasino(discord.Cog):
                     return False
                     
                 # Check if guild has premium_enabled flag
-                if guild_config.get('premium_enabled', False):
+                if guild_config and guild_config.get('premium_enabled', False):
                     return True
                 
                 # Check if any servers have premium status
                 servers = guild_config.get('servers', [])
                 for server in servers:
-                    if server.get('premium', False):
+                    if server and server.get('premium', False):
                         return True
                 
                 return False
@@ -1125,7 +1121,7 @@ class ProfessionalCasino(discord.Cog):
             
             # Get user balance
             wallet = await self.bot.db_manager.get_wallet(guild_id, user_id)
-            balance = wallet.get('balance', 0)
+            balance = wallet.get("balance", 0)
             
             if balance < 10:
                 embed = discord.Embed(

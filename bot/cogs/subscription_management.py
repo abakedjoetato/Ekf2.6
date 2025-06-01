@@ -1,8 +1,10 @@
+from typing import Dict, List, Optional, Any
 """
 Subscription Management Cog - Premium Server Limit Management
 User-friendly commands: /sub add, /sub remove, /sub view
 """
 
+import discord
 import discord
 from discord.ext import commands
 from bot.utils.premium_manager_v2 import home_guild_admin_only, bot_owner_only, guild_admin_only
@@ -315,7 +317,7 @@ class SubscriptionManagement(discord.Cog):
         """List all guild premium limits"""
         try:
             # Get all premium limits from database
-            limits_cursor = self.bot.database.premium_limits.find({})
+            limits_cursor = self.bot.db_manager.premium_limits.find({})
             limits = await limits_cursor.to_list(length=None)
             
             if not limits:
@@ -397,7 +399,7 @@ class SubscriptionManagement(discord.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
-            guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
+            guild_config = await self.bot.db_manager.db.guilds.find_one({"guild_id": guild_id})
             if guild_config and "servers" in guild_config:
                 servers = guild_config["servers"]
                 actual_server_id = ServerAutocomplete.get_server_id_from_name(server_id, servers)
@@ -451,7 +453,7 @@ class SubscriptionManagement(discord.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
-            guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
+            guild_config = await self.bot.db_manager.db.guilds.find_one({"guild_id": guild_id})
             if guild_config and "servers" in guild_config:
                 servers = guild_config["servers"]
                 actual_server_id = ServerAutocomplete.get_server_id_from_name(server_id, servers)
@@ -504,7 +506,7 @@ class SubscriptionManagement(discord.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Get guild config for server names
-            guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
+            guild_config = await self.bot.db_manager.db.guilds.find_one({"guild_id": guild_id})
             
             if not guild_config or "servers" not in guild_config:
                 await ctx.respond("❌ No servers configured for this guild", ephemeral=True)

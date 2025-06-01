@@ -4,6 +4,7 @@ Properly themed leaderboards using EmbedFactory
 """
 
 import discord
+import discord
 from discord.ext import commands
 import asyncio
 import logging
@@ -67,7 +68,7 @@ class LeaderboardsFixed(discord.Cog):
             if server:
                 selected_server = None
                 for server_config in guild_doc['servers']:
-                    if server_config.get('name', '').lower() == server.lower() or server_config.get('server_id', '') == server:
+                    if server_config and server_config.get('name', '').lower() == server.lower() or server_config.get('server_id', '') == server:
                         selected_server = server_config
                         break
 

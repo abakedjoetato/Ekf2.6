@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Any, Tuple
 
 import discord
 import discord
+import discord
 from discord.ext import commands
 
 logger = logging.getLogger(__name__)
@@ -210,7 +211,7 @@ class Bounties(discord.Cog):
                 return
 
             # Deduct money from user
-            success = await self.bot.db_manager.update_wallet(guild_id or 0, discord_id, -amount, "bounty_set")
+            success = await self.bot.db_manager.update_wallet(guild_id or 0, discord_id, -amount, "bounty_set", "economy_operation")
 
             if not success:
                 await ctx.respond("Failed to process payment. Please try again.", ephemeral=True)
@@ -330,7 +331,7 @@ class Bounties(discord.Cog):
                 target = bounty['target_character']
                 amount = bounty['amount']
                 expires = bounty['expires_at']
-                auto = " 🤖" if bounty.get('auto_generated', False) else ""
+                auto = " 🤖" if bounty and bounty.get('auto_generated', False) else ""
 
                 bounty_list.append(
                     f"**{i}.** {target} - **${amount:,}**{auto}\n"
@@ -412,7 +413,7 @@ class Bounties(discord.Cog):
             # Award money to killer
             await self.bot.db_manager.update_wallet(
                 guild_id, killer_discord_id, bounty_amount, "bounty_claim"
-            )
+            , "economy_operation")
 
             # Add wallet event
             await self.add_wallet_event(
@@ -481,7 +482,7 @@ class Bounties(discord.Cog):
                 inline=True
             )
 
-            if bounty.get('auto_generated', False):
+            if bounty and bounty.get('auto_generated', False):
                 embed.add_field(
                     name="🤖 Type",
                     value="Auto-generated bounty",
@@ -687,7 +688,7 @@ class Bounties(discord.Cog):
             target_name, target_discord_id = target_result
             
             # Deduct bounty amount
-            await self.bot.db_manager.update_wallet(guild_id or 0, discord_id, -amount, "bounty_set")
+            await self.bot.db_manager.update_wallet(guild_id or 0, discord_id, -amount, "bounty_set", "economy_operation")
             
             # Create bounty
             bounty_doc = {

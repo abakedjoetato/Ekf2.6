@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Any, Tuple
 
 import discord
 import discord
+import discord
 from discord.ext import commands
 from bot.utils.embed_factory import EmbedFactory
 from bot.cogs.autocomplete import ServerAutocomplete
@@ -508,7 +509,7 @@ class Stats(discord.Cog):
                 display_name = "Default Server"
                 # Try to find actual default server name
                 for server in servers:
-                    if server.get('id') == 'default' or server.get('is_default'):
+                    if server and server.get('id') == 'default' or server.get('is_default'):
                         display_name = server.get('name', 'Default Server')
                         break
 
@@ -521,7 +522,7 @@ class Stats(discord.Cog):
                 # Filter players for the specific server
                 server_players = []
                 for player_id, session_data in active_players.items():
-                    if session_data.get('server_id') == server_id:
+                    if session_data and session_data.get('server_id') == server_id:
                         player_name = session_data.get('player_name', f"Player{player_id[:8].upper()}")
                         join_time = session_data.get('join_time')
                         platform = session_data.get('platform', 'Unknown')

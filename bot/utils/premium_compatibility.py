@@ -7,6 +7,7 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import discord
+import discord
 from discord.ext import commands
 
 
@@ -82,7 +83,7 @@ class PremiumCompatibility:
                 
                 servers = guild_doc.get('servers', [])
                 for server_config in servers:
-                    if server_config.get('premium', False):
+                    if server_config and server_config.get('premium', False):
                         return True
                 return False
         except Exception as e:
@@ -98,7 +99,7 @@ class PremiumCompatibility:
             
             servers = guild_doc.get('servers', [])
             for server_config in servers:
-                if server_config.get('server_id', 'default') == server_id:
+                if server_config and server_config.get('server_id', 'default') == server_id:
                     return server_config.get('premium', False)
             return False
         except Exception as e:
@@ -229,7 +230,7 @@ class PremiumCompatibility:
             count = 0
             servers = guild_doc.get('servers', [])
             for server_config in servers:
-                if server_config.get('premium', False):
+                if server_config and server_config.get('premium', False):
                     count += 1
             return count
         except Exception as e:
@@ -314,7 +315,7 @@ class PremiumCompatibility:
             premium_servers = []
             servers = guild_doc.get('servers', [])
             for server_config in servers:
-                if server_config.get('premium', False):
+                if server_config and server_config.get('premium', False):
                     premium_servers.append({
                         "server_id": server_config.get('server_id', 'default'),
                         "name": server_config.get('name', 'Unknown Server')
@@ -333,7 +334,7 @@ class PremiumCompatibility:
             
             deactivated = []
             servers = guild_doc.get('servers', [])
-            premium_servers = [s for s in servers if s.get('premium', False)]
+            premium_servers = [s for s in servers if s and s.get('premium', False)]
             
             # Sort by activation date (oldest first)
             premium_servers.sort(key=lambda x: x.get('premium_activated_at', datetime.min))

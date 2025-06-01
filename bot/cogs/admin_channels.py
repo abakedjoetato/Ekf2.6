@@ -9,6 +9,7 @@ from typing import Optional
 
 import discord
 import discord
+import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
 
@@ -49,7 +50,7 @@ class AdminChannels(discord.Cog):
             servers = guild_doc.get('servers', [])
             for server_config in servers:
                 server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                if await self.bot.db_manager.is_premium_server(guild_id, server_id):
+                if await self.check_premium_access(guild_id):
                     return True
             
             return False

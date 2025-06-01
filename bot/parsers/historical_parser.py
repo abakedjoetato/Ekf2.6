@@ -15,6 +15,7 @@ import aiofiles
 import asyncssh
 import discord
 import discord
+import discord
 from discord.ext import commands
 
 from .killfeed_parser import KillfeedParser
@@ -504,7 +505,7 @@ class HistoricalParser:
             # Add processing statistics if available
             if processing_stats:
                 stats_text = f"📁 Files: {processing_stats.get('files_processed', 0)}/{processing_stats.get('files_discovered', 0)}"
-                if processing_stats.get('files_failed', 0) > 0:
+                if processing_stats and processing_stats.get('files_failed', 0) > 0:
                     stats_text += f"\n❌ Failed: {processing_stats['files_failed']}"
                 
                 embed.add_field(
@@ -546,7 +547,7 @@ class HistoricalParser:
 
             # Add file processing summary
             files_summary = f"**{processing_report.get('files_processed', 0)}**/{processing_report.get('files_discovered', 0)} files"
-            if processing_report.get('files_failed', 0) > 0:
+            if processing_report and processing_report.get('files_failed', 0) > 0:
                 files_summary += f"\n❌ {processing_report['files_failed']} failed"
             
             embed.add_field(
@@ -576,7 +577,7 @@ class HistoricalParser:
             )
 
             # Add warning if there were failures
-            if processing_report.get('files_failed', 0) > 0:
+            if processing_report and processing_report.get('files_failed', 0) > 0:
                 embed.add_field(
                     name="⚠️ Warnings",
                     value=f"Some files failed to process. Check logs for details.",
@@ -648,7 +649,7 @@ class HistoricalParser:
                         timestamp=datetime.now(timezone.utc)
                     )
                     
-                    if processing_report.get('files_discovered', 0) > 0:
+                    if processing_report and processing_report.get('files_discovered', 0) > 0:
                         failure_embed.add_field(
                             name="📁 Files Found",
                             value=f"{processing_report['files_discovered']} files discovered",
@@ -666,7 +667,7 @@ class HistoricalParser:
                             inline=False
                         )
                     
-                    if processing_report.get('failed_files'):
+                    if processing_report and processing_report.get('failed_files'):
                         failed_list = '\n'.join(processing_report['failed_files'][:3])
                         if len(processing_report['failed_files']) > 3:
                             failed_list += f"\n... and {len(processing_report['failed_files']) - 3} more"
@@ -811,7 +812,7 @@ class HistoricalParser:
             logger.info(f"   📁 Files processed: {processing_report.get('files_processed', 0)}/{processing_report.get('files_discovered', 0)}")
             logger.info(f"   📊 Success rate: {(processing_report.get('files_processed', 0) / processing_report.get('files_discovered', 1) * 100):.1f}%")
             
-            if processing_report.get('files_failed', 0) > 0:
+            if processing_report and processing_report.get('files_failed', 0) > 0:
                 logger.warning(f"   ⚠️  Failed files: {processing_report['files_failed']}")
 
             self.active_refreshes[refresh_key] = False

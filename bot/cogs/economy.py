@@ -6,6 +6,7 @@ Admin control: /eco give, /eco take, /eco reset
 """
 
 import discord
+import discord
 from discord.ext import commands
 import asyncio
 import random

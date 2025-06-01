@@ -973,7 +973,7 @@ class DatabaseManager:
         return await cursor.to_list(length=limit)
 
     # ECONOMY (Guild-scoped)
-    async def get_wallet(self, guild_id: int, discord_id: int) -> Dict[str, Any]:
+    async def get_wallet(self, guild_id: int, discord_id: int, use_cache: bool = True) -> Dict[str, Any]:
         """Get user wallet (guild-scoped)"""
         wallet = await self.economy.find_one({"guild_id": guild_id, "discord_id": discord_id})
 
@@ -1141,9 +1141,9 @@ class DatabaseManager:
             for event in recent_events:
                 event_time = event.get("timestamp")
                 if event_time and event_time > one_hour_ago:
-                    if event.get("killer"):
+                    if event and event.get("killer"):
                         recent_players.add(event.get("killer"))
-                    if event.get("victim"):
+                    if event and event.get("victim"):
                         recent_players.add(event.get("victim"))
 
             return len(recent_players)
@@ -1613,7 +1613,7 @@ class DatabaseManager:
                 for server in guild_servers:
                     # Check if killfeed channel is configured
                     channels = server.get('channels', {})
-                    if channels.get('killfeed'):
+                    if channels and channels.get('killfeed'):
                         servers.append({
                             'guild_id': guild_doc['guild_id'],
                             'server_id': server.get('server_id', server.get('_id', 'default')),

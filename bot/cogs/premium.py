@@ -12,12 +12,13 @@ from typing import Dict, List, Optional, Any
 
 import discord
 import discord
+import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
 
-class Premium(commands.Cog):
+class Premium(discord.Cog):
     """
     PREMIUM MGMT (PHASE 9)
     - /sethome by BOT_OWNER_ID
@@ -47,7 +48,7 @@ class Premium(commands.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Update or create guild as home server
-            await self.bot.database.guilds.update_one(
+            await self.bot.db_manager.guilds.update_one(
                 {"guild_id": guild_id},
                 {
                     "$set": {
@@ -65,7 +66,7 @@ class Premium(commands.Cog):
             )
 
             # Remove home server status from other guilds
-            await self.bot.database.guilds.update_many(
+            await self.bot.db_manager.guilds.update_many(
                 {"guild_id": {"$ne": guild_id}},
                 {"$unset": {"is_home_server": ""}}
             )
@@ -215,7 +216,7 @@ class Premium(commands.Cog):
                 return
 
             # Check if server has premium
-            is_premium = await self.bot.db_manager.is_premium_server(target_guild_id, server_id)
+            is_premium = await self.check_premium_access(guild_id)
 
             if not is_premium:
                 await ctx.respond(f"Server **{server_id}** does not have premium status!", ephemeral=True)
@@ -290,7 +291,7 @@ class Premium(commands.Cog):
             for server_config in servers:
                 server_id = str(server_config.get('_id', 'unknown'))
                 server_name = server_config.get('name', f'Server {server_id}')
-                is_premium = await self.bot.db_manager.is_premium_server(guild_id, server_id)
+                is_premium = await self.check_premium_access(guild_id)
 
                 if is_premium:
                     # Get expiration info
@@ -389,7 +390,7 @@ class Premium(commands.Cog):
             # Check if server already exists
             existing_servers = guild_config.get('servers', [])
             for server in existing_servers:
-                if server.get('_id') == serverid:
+                if server and server.get('_id') == serverid:
                     await ctx.respond(f"Server **{serverid}** is already added!", ephemeral=True)
                     return
 
@@ -500,7 +501,7 @@ class Premium(commands.Cog):
                 logger.info(f"Server details - ID: {server_id}, Name: {server_name}, Host: {sftp_host}")
 
                 # Check premium status
-                is_premium = await self.bot.db_manager.is_premium_server(guild_id, server_id)
+                is_premium = await self.check_premium_access(guild_id)
                 premium_status = "Premium" if is_premium else "🆓 Free tier"
 
                 # Format server details

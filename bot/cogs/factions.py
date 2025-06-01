@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Any
 
 import discord
 import discord
+import discord
 from discord.ext import commands
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ class Factions(discord.Cog):
                         combined_stats['total_suicides'] += server_stats.get('suicides', 0)
                         combined_stats['total_distance'] += server_stats.get('total_distance', 0.0)
 
-                        if server_stats.get('longest_streak', 0) > combined_stats['best_streak']:
+                        if server_stats and server_stats.get('longest_streak', 0) > combined_stats['best_streak']:
                             combined_stats['best_streak'] = server_stats.get('longest_streak', 0)
 
             # Calculate faction KDR safely
@@ -339,7 +340,7 @@ class Factions(discord.Cog):
                 inline=True
             )
 
-            if inviter_faction.get('faction_tag'):
+            if inviter_faction and inviter_faction.get('faction_tag'):
                 embed.add_field(
                     name="🏷️ Tag",
                     value=f"[{inviter_faction['faction_tag']}]",
@@ -352,7 +353,7 @@ class Factions(discord.Cog):
                 inline=True
             )
 
-            if inviter_faction.get('description'):
+            if inviter_faction and inviter_faction.get('description'):
                 embed.add_field(
                     name="Description",
                     value=inviter_faction['description'],
@@ -422,7 +423,7 @@ class Factions(discord.Cog):
                 return
 
             # Check if faction is invite-only
-            if faction.get('invite_only', False):
+            if faction and faction.get('invite_only', False):
                 await ctx.respond("This faction is invite-only! Ask a member to invite you.", ephemeral=True)
                 return
 
@@ -440,7 +441,7 @@ class Factions(discord.Cog):
                 timestamp=datetime.now(timezone.utc)
             )
 
-            if faction.get('faction_tag'):
+            if faction and faction.get('faction_tag'):
                 embed.add_field(
                     name="🏷️ Your Tag",
                     value=f"[{faction['faction_tag']}]",
@@ -590,7 +591,7 @@ class Factions(discord.Cog):
                 timestamp=datetime.now(timezone.utc)
             )
 
-            if faction.get('faction_tag'):
+            if faction and faction.get('faction_tag'):
                 embed.description = f"Tag: **[{faction['faction_tag']}]**"
 
             # Get leader info
@@ -655,7 +656,7 @@ class Factions(discord.Cog):
 
             # Settings
             settings_text = []
-            if faction.get('invite_only', False):
+            if faction and faction.get('invite_only', False):
                 settings_text.append("Invite Only")
             else:
                 settings_text.append("🌐 Open Recruitment")
@@ -666,7 +667,7 @@ class Factions(discord.Cog):
                 inline=True
             )
 
-            if faction.get('description'):
+            if faction and faction.get('description'):
                 embed.add_field(
                     name="Description",
                     value=faction['description'],
@@ -733,7 +734,7 @@ class Factions(discord.Cog):
                 timestamp=datetime.now(timezone.utc)
             )
 
-            if faction.get('faction_tag'):
+            if faction and faction.get('faction_tag'):
                 embed.description = f"Tag: **[{faction['faction_tag']}]**"
 
             # Combat Statistics
@@ -762,7 +763,7 @@ class Factions(discord.Cog):
                 value=f"**Active Members:** {stats['member_count']}\n"
                       f"**Total Capacity:** {faction.get('max_members', 20)}\n"
                       f"**Officers:** {len(faction.get('officers', []))}\n"
-                      f"**Recruitment:** {'Invite Only' if faction.get('invite_only', False) else '🌐 Open'}",
+                      f"**Recruitment:** {'Invite Only' if faction and faction.get('invite_only', False) else '🌐 Open'}",
                 inline=True
             )
 
@@ -818,11 +819,11 @@ class Factions(discord.Cog):
             faction_list = []
             for faction in factions[:15]:  # Show top 15
                 name = faction['faction_name']
-                tag = f"[{faction['faction_tag']}] " if faction.get('faction_tag') else ""
+                tag = f"[{faction['faction_tag']}] " if faction and faction.get('faction_tag') else ""
                 member_count = len(faction['members'])
                 max_members = faction.get('max_members', 20)
 
-                status = "" if faction.get('invite_only', False) else "🌐"
+                status = "" if faction and faction.get('invite_only', False) else "🌐"
 
                 faction_list.append(
                     f"**{tag}{name}** {status}\n"

@@ -104,7 +104,7 @@ class UnifiedLogParser:
                 
                 # Check if we need to rebuild player state (no active players tracked)
                 active_players = self.lifecycle_manager.get_active_players(guild_id)
-                server_players = [p for p in active_players.values() if p.get('server_id') == server_id]
+                server_players = [p for p in active_players.values() if p and p.get('server_id') == server_id]
                 
                 if len(server_players) == 0:
                     logger.info(f"🔄 No active players tracked, rebuilding state from complete log")
@@ -384,7 +384,7 @@ class UnifiedLogParser:
         try:
             # First try to get accurate count from lifecycle manager
             active_players = self.lifecycle_manager.get_active_players(guild_id)
-            server_players = [p for p in active_players.values() if p.get('server_id') == server_id]
+            server_players = [p for p in active_players.values() if p and p.get('server_id') == server_id]
             tracked_player_count = len(server_players)
             
             # Try to get real player count via server query as fallback
@@ -398,7 +398,7 @@ class UnifiedLogParser:
                 if isinstance(servers, dict):
                     server_config = servers.get(server_id, {})
                 elif isinstance(servers, list):
-                    server_config = next((s for s in servers if s.get('id') == server_id), {})
+                    server_config = next((s for s in servers if s and s.get('id') == server_id), {})
                 else:
                     server_config = {}
                 host = server_config.get('host')
