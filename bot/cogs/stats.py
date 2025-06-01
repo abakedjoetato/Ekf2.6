@@ -85,7 +85,7 @@ class Stats(discord.Cog):
         
         return None
 
-    async def get_player_combined_stats(self, guild_id: int, player_characters: List[str], server_id: str = None) -> Dict[str, Any]:
+    async def get_player_combined_stats(self, guild_id: int, player_characters: List[str], server_id: str = "default") -> Dict[str, Any]:
         """Get combined stats across all servers for a player's characters"""
         # Initialize with safe defaults - ensure these are real values from database
         combined_stats = {
@@ -193,7 +193,7 @@ class Stats(discord.Cog):
             return combined_stats
 
     async def _calculate_weapon_stats(self, guild_id: int, player_characters: List[str], 
-                                    combined_stats: Dict[str, Any], server_id: str = None):
+                                    combined_stats: Dict[str, Any], server_id: str = "default"):
         """Calculate weapon statistics from kill events (excludes suicides)"""
         try:
             weapon_counts = {}
@@ -225,7 +225,7 @@ class Stats(discord.Cog):
             logger.error(f"Failed to calculate weapon stats: {e}")
 
     async def _calculate_rivals_nemesis(self, guild_id: int, player_characters: List[str], 
-                                      combined_stats: Dict[str, Any], server_id: str = None):
+                                      combined_stats: Dict[str, Any], server_id: str = "default"):
         """Calculate enhanced rivalry intelligence"""
         try:
             kills_against = {}

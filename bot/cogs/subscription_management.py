@@ -104,12 +104,14 @@ class SubscriptionManagement(discord.Cog):
     async def view_home_guild(self, ctx: discord.ApplicationContext):
         """View current Home Guild configuration"""
         try:
-            home_guild_id = await self.premium_manager.get_home_guild()
+            # Get home guild from database
+            home_config = await self.bot.db_manager.bot_config.find_one({"_id": "home_guild"})
             
-            if not home_guild_id:
+            if not home_config or not home_config.get('guild_id'):
                 await ctx.respond("❌ No Home Guild configured", ephemeral=True)
                 return
             
+            home_guild_id = home_config['guild_id']
             home_guild = self.bot.get_guild(home_guild_id)
             guild_name = home_guild.name if home_guild else f"Unknown Guild ({home_guild_id})"
             
@@ -119,13 +121,14 @@ class SubscriptionManagement(discord.Cog):
                 color=discord.Color.blue()
             )
             
-            # Check if user can manage premium limits
-            can_manage = await self.premium_manager.can_manage_premium_limits(ctx.author.id, self.bot)
+            # Check if user is bot owner (simplified permission check)
+            app_info = await self.bot.application_info()
+            is_bot_owner = ctx.author.id == app_info.owner.id
             
-            if can_manage:
+            if is_bot_owner:
                 embed.add_field(
                     name="Your Permissions",
-                    value="✅ Can manage premium limits\n✅ Can manage cross-guild servers",
+                    value="✅ Bot Owner - Full access\n✅ Can manage premium limits\n✅ Can manage cross-guild servers",
                     inline=False
                 )
             else:

@@ -739,7 +739,7 @@ class EmbedFactory:
                 )
                 killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
                 basic_embed.set_thumbnail(url="attachment://Killfeed.png")
-                return basic_embed, main_file
+                return basic_embed, killfeed_file
             except Exception as fallback_error:
                 logger.error(f"Fallback embed creation failed: {fallback_error}")
                 # Ultimate fallback

@@ -164,7 +164,7 @@ class Factions(discord.Cog):
     faction = discord.SlashCommandGroup("faction", "Faction management commands")
 
     @faction.command(name="create", description="Create a new faction")
-    async def faction_create(self, ctx: discord.ApplicationContext, name: str, tag: str = None):
+    async def faction_create(self, ctx: discord.ApplicationContext, name: str, tag: str = ""):
         """Create a new faction"""
         try:
             guild_id = ctx.guild.id if ctx.guild else 0
