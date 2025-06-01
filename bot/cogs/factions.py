@@ -956,7 +956,7 @@ class Factions(discord.Cog):
             if faction_name:
                 faction = await self.bot.db_manager.factions.find_one({
                     "guild_id": guild_id,
-                    "name": {"$regex": f"^{faction_name}$", "$options": "i"}
+                    "faction_name": {"$regex": f"^{faction_name}$", "$options": "i"}
                 })
             else:
                 faction = await self.get_user_faction(guild_id or 0, discord_id)
@@ -970,7 +970,7 @@ class Factions(discord.Cog):
             stats = await self.generate_faction_stats(guild_id or 0, faction['members'])
             
             embed = discord.Embed(
-                title=f"{faction['name']}",
+                title=f"{faction['faction_name']}",
                 description=faction.get('description', 'No description'),
                 color=0x7f5af0
             )
@@ -1072,13 +1072,13 @@ class Factions(discord.Cog):
             # Check if user is already in a faction
             existing_faction = await self.get_user_faction(guild_id, discord_id)
             if existing_faction:
-                await ctx.respond(f"You're already in faction **{existing_faction['name']}**!", ephemeral=True)
+                await ctx.respond(f"You're already in faction **{existing_faction['faction_name']}**!", ephemeral=True)
                 return
             
-            # Find the faction
+            # Find the faction using correct field name
             faction = await self.bot.db_manager.factions.find_one({
                 "guild_id": guild_id,
-                "name": {"$regex": f"^{faction_name}$", "$options": "i"}
+                "faction_name": {"$regex": f"^{faction_name}$", "$options": "i"}
             })
             
             if not faction:
@@ -1093,7 +1093,7 @@ class Factions(discord.Cog):
             
             embed = discord.Embed(
                 title="Faction Joined",
-                description=f"You have joined faction **{faction['name']}**!",
+                description=f"You have joined faction **{faction['faction_name']}**!",
                 color=0x00d38a
             )
             await ctx.respond(embed=embed, ephemeral=True)
@@ -1132,7 +1132,7 @@ class Factions(discord.Cog):
                 else:
                     # Delete the faction if leader is the only member
                     await self.bot.db_manager.factions.delete_one({"_id": faction["_id"]})
-                    await ctx.respond(f"Faction **{faction['name']}** has been disbanded.", ephemeral=True)
+                    await ctx.respond(f"Faction **{faction['faction_name']}** has been disbanded.", ephemeral=True)
                     return
             
             # Remove user from faction
@@ -1143,7 +1143,7 @@ class Factions(discord.Cog):
             
             embed = discord.Embed(
                 title="Faction Left",
-                description=f"You have left faction **{faction['name']}**.",
+                description=f"You have left faction **{faction['faction_name']}**.",
                 color=0xffa500
             )
             await ctx.respond(embed=embed, ephemeral=True)
