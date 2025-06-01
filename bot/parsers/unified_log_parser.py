@@ -245,14 +245,18 @@ class UnifiedLogParser:
             if not guild_config:
                 return
                 
-            channels = guild_config.get('channels', {})
-            server_channels = channels.get(server_id, {})
-            default_channels = channels.get('default', {})
+            # Check new server_channels structure first
+            server_channels_config = guild_config.get('server_channels', {})
+            server_specific = server_channels_config.get(server_id, {})
+            default_server = server_channels_config.get('default', {})
             
-            # Send to killfeed channel (server-specific, default, or root level)
-            killfeed_channel_id = (server_channels.get('killfeed') or 
-                                 default_channels.get('killfeed') or 
-                                 channels.get('killfeed'))
+            # Check legacy channels structure
+            legacy_channels = guild_config.get('channels', {})
+            
+            # Priority: server-specific -> default server -> legacy channels
+            killfeed_channel_id = (server_specific.get('killfeed') or 
+                                 default_server.get('killfeed') or 
+                                 legacy_channels.get('killfeed'))
             if killfeed_channel_id and embeds:
                 channel = self.bot.get_channel(int(killfeed_channel_id))
                 if channel:
@@ -297,19 +301,23 @@ class UnifiedLogParser:
             logger.info(f"🔍 Guild config found: {guild_config is not None}")
             
             if guild_config:
-                channels = guild_config.get('channels', {})
-                server_channels = channels.get(server_id, {})
-                default_channels = channels.get('default', {})
+                # Check new server_channels structure first
+                server_channels_config = guild_config.get('server_channels', {})
+                server_specific = server_channels_config.get(server_id, {})
+                default_server = server_channels_config.get('default', {})
                 
-                # Use server-specific channel, fallback to default, then root level
-                vc_id = (server_channels.get('playercountvc') or 
-                        default_channels.get('playercountvc') or 
-                        channels.get('playercountvc'))
+                # Check legacy channels structure
+                legacy_channels = guild_config.get('channels', {})
                 
-                logger.info(f"🔍 All channels: {channels}")
-                logger.info(f"🔍 Server channels for {server_id}: {server_channels}")
-                logger.info(f"🔍 Default channels: {default_channels}")
-                logger.info(f"🔍 Root playercountvc: {channels.get('playercountvc')}")
+                # Priority: server-specific -> default server -> legacy channels
+                vc_id = (server_specific.get('playercountvc') or 
+                        default_server.get('playercountvc') or 
+                        legacy_channels.get('playercountvc'))
+                
+                logger.info(f"🔍 Legacy channels: {legacy_channels}")
+                logger.info(f"🔍 Server channels for {server_id}: {server_specific}")
+                logger.info(f"🔍 Default server channels: {default_server}")
+                logger.info(f"🔍 Legacy playercountvc: {legacy_channels.get('playercountvc')}")
                 logger.info(f"🔍 Voice channel ID: {vc_id}")
                 
                 if vc_id:
