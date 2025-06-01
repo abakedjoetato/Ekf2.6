@@ -251,6 +251,8 @@ class BetAmountMenu(discord.ui.Select):
             game_view = RouletteGameView(self.bet_view.bot, self.bet_view.guild_id, self.bet_view.user_id, self.balance, bet_amount)
         elif self.bet_view.game_type == "rocket":
             game_view = RocketCrashGameView(self.bet_view.bot, self.bet_view.guild_id, self.bet_view.user_id, self.balance, bet_amount)
+        elif self.bet_view.game_type == "blackjack":
+            game_view = BlackjackGameView(self.bet_view.bot, self.bet_view.guild_id, self.bet_view.user_id, self.balance, bet_amount)
         else:
             await interaction.response.send_message("Game coming soon!", ephemeral=True)
             return
@@ -810,6 +812,242 @@ class RocketCrashGameView(discord.ui.View):
             await interaction.edit_original_response(embed=embed, view=self)
         except:
             pass
+    
+    async def get_current_balance(self):
+        """Get user's current balance"""
+        try:
+            db = self.bot.db
+            user_doc = await db.economy.find_one({"guild_id": self.guild_id, "user_id": self.user_id})
+            return user_doc.get("balance", 0) if user_doc else 0
+        except Exception:
+            return 0
+    
+    async def update_balance(self, amount):
+        """Update user's balance"""
+        try:
+            db = self.bot.db
+            result = await db.economy.update_one(
+                {"guild_id": self.guild_id, "user_id": self.user_id},
+                {"$inc": {"balance": amount}},
+                upsert=True
+            )
+            return result.acknowledged
+        except Exception:
+            return False
+
+class BlackjackGameView(discord.ui.View):
+    """Professional blackjack game with dealer AI"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int, bet_amount: int):
+        super().__init__(timeout=300)  # 5 minute timeout for blackjack
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        self.bet_amount = bet_amount
+        self.deck = []
+        self.player_cards = []
+        self.dealer_cards = []
+        self.game_over = False
+        self.player_stood = False
+        self._create_deck()
+        self._deal_initial_cards()
+        
+    def _create_deck(self):
+        """Create a standard 52-card deck"""
+        suits = ['♠️', '♥️', '♦️', '♣️']
+        ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        self.deck = [f"{rank}{suit}" for suit in suits for rank in ranks]
+        random.shuffle(self.deck)
+    
+    def _deal_initial_cards(self):
+        """Deal initial 2 cards to player and dealer"""
+        self.player_cards = [self.deck.pop(), self.deck.pop()]
+        self.dealer_cards = [self.deck.pop(), self.deck.pop()]
+    
+    def _calculate_hand_value(self, cards):
+        """Calculate the best possible value of a hand"""
+        value = 0
+        aces = 0
+        
+        for card in cards:
+            rank = card[:-2]  # Remove suit
+            if rank in ['J', 'Q', 'K']:
+                value += 10
+            elif rank == 'A':
+                aces += 1
+                value += 11
+            else:
+                value += int(rank)
+        
+        # Adjust for aces
+        while value > 21 and aces > 0:
+            value -= 10
+            aces -= 1
+            
+        return value
+    
+    def _format_cards(self, cards, hide_first=False):
+        """Format cards for display"""
+        if hide_first and len(cards) > 0:
+            return "🎴 " + " ".join(cards[1:])
+        return " ".join(cards)
+    
+    def create_game_embed(self):
+        """Create the blackjack game embed"""
+        player_value = self._calculate_hand_value(self.player_cards)
+        dealer_value = self._calculate_hand_value(self.dealer_cards)
+        
+        if self.game_over:
+            # Show all cards when game is over
+            dealer_display = self._format_cards(self.dealer_cards)
+            dealer_value_display = f" (Value: {dealer_value})"
+        else:
+            # Hide dealer's first card during play
+            dealer_display = self._format_cards(self.dealer_cards, hide_first=True)
+            dealer_value_display = f" (Value: ?)"
+        
+        embed = discord.Embed(
+            title="🃏 BLACKJACK TABLE",
+            color=0x2b2d31
+        )
+        
+        embed.add_field(
+            name="🎩 Dealer's Hand",
+            value=f"{dealer_display}{dealer_value_display}",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="👤 Your Hand",
+            value=f"{self._format_cards(self.player_cards)} (Value: {player_value})",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💰 Bet Amount",
+            value=f"${self.bet_amount:,}",
+            inline=True
+        )
+        
+        # Check for game end conditions
+        if self.game_over:
+            result = self._determine_winner()
+            embed.add_field(
+                name="🎯 Result",
+                value=result["message"],
+                inline=False
+            )
+            embed.color = 0x00ff00 if result["player_wins"] else 0xff0000
+        elif player_value > 21:
+            embed.add_field(
+                name="💥 BUST!",
+                value="You went over 21. Dealer wins!",
+                inline=False
+            )
+            embed.color = 0xff0000
+        
+        return embed
+    
+    def _determine_winner(self):
+        """Determine the winner and calculate payout"""
+        player_value = self._calculate_hand_value(self.player_cards)
+        dealer_value = self._calculate_hand_value(self.dealer_cards)
+        
+        if player_value > 21:
+            return {"player_wins": False, "message": "💥 BUST! You went over 21. Dealer wins!", "payout": 0}
+        elif dealer_value > 21:
+            return {"player_wins": True, "message": "🎉 Dealer busts! You win!", "payout": self.bet_amount * 2}
+        elif player_value == 21 and len(self.player_cards) == 2:
+            if dealer_value == 21 and len(self.dealer_cards) == 2:
+                return {"player_wins": None, "message": "🤝 Push! Both have blackjack.", "payout": self.bet_amount}
+            else:
+                return {"player_wins": True, "message": "🔥 BLACKJACK! You win!", "payout": int(self.bet_amount * 2.5)}
+        elif dealer_value == 21 and len(self.dealer_cards) == 2:
+            return {"player_wins": False, "message": "🎩 Dealer has blackjack. Dealer wins!", "payout": 0}
+        elif player_value > dealer_value:
+            return {"player_wins": True, "message": "🎉 You win with a higher hand!", "payout": self.bet_amount * 2}
+        elif dealer_value > player_value:
+            return {"player_wins": False, "message": "🎩 Dealer wins with a higher hand!", "payout": 0}
+        else:
+            return {"player_wins": None, "message": "🤝 Push! It's a tie.", "payout": self.bet_amount}
+    
+    @discord.ui.button(label="🎯 HIT", style=discord.ButtonStyle.primary, row=0)
+    async def hit(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This blackjack table belongs to another player.", ephemeral=True)
+            return
+            
+        if self.game_over:
+            return
+            
+        # Deal another card to player
+        self.player_cards.append(self.deck.pop())
+        player_value = self._calculate_hand_value(self.player_cards)
+        
+        if player_value > 21:
+            # Player busts
+            self.game_over = True
+            await self._process_game_end(interaction, {"player_wins": False, "message": "💥 BUST! You went over 21.", "payout": 0})
+        else:
+            embed = self.create_game_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+    
+    @discord.ui.button(label="✋ STAND", style=discord.ButtonStyle.secondary, row=0)
+    async def stand(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This blackjack table belongs to another player.", ephemeral=True)
+            return
+            
+        if self.game_over:
+            return
+            
+        self.player_stood = True
+        await self._dealer_play(interaction)
+    
+    @discord.ui.button(label="🔙 Back to Casino", style=discord.ButtonStyle.secondary, row=1)
+    async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This session belongs to another player.", ephemeral=True)
+            return
+            
+        current_balance = await self.get_current_balance()
+        casino_view = CasinoMainView(self.bot, self.guild_id, self.user_id, current_balance)
+        embed = casino_view.create_main_embed()
+        await interaction.response.edit_message(embed=embed, view=casino_view)
+    
+    async def _dealer_play(self, interaction: discord.Interaction):
+        """Execute dealer's turn following standard blackjack rules"""
+        await interaction.response.defer()
+        
+        # Dealer hits on 16 and below, stands on 17 and above
+        while self._calculate_hand_value(self.dealer_cards) < 17:
+            self.dealer_cards.append(self.deck.pop())
+            await asyncio.sleep(1)  # Add suspense
+        
+        self.game_over = True
+        result = self._determine_winner()
+        await self._process_game_end(interaction, result)
+    
+    async def _process_game_end(self, interaction: discord.Interaction, result):
+        """Process the end of the game and update balance"""
+        # Deduct original bet
+        await self.update_balance(-self.bet_amount)
+        
+        # Add payout if player wins or ties
+        if result["payout"] > 0:
+            await self.update_balance(result["payout"])
+        
+        embed = self.create_game_embed()
+        
+        # Remove hit/stand buttons
+        self.clear_items()
+        self.add_item(discord.ui.Button(label="🔙 Back to Casino", style=discord.ButtonStyle.secondary, custom_id="back"))
+        
+        try:
+            await interaction.edit_original_response(embed=embed, view=self)
+        except:
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
     
     async def get_current_balance(self):
         """Get user's current balance"""
