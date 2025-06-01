@@ -6,9 +6,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 
 import discord
-import discord
-import discord
 from discord.ext import commands
+from bot.utils.embed_factory import EmbedFactory
 
 logger = logging.getLogger(__name__)
 
@@ -863,7 +862,8 @@ class Factions(discord.Cog):
 
     @faction.command(name="create", description="Create a new faction")
     async def faction_create_cmd(self, ctx: discord.ApplicationContext,
-                                name: discord.Option(str, "Faction name", max_length=32)):
+                                name: discord.Option(str, "Faction name", max_length=32),
+                                tag: discord.Option(str, "Faction abbreviation/tag (e.g., TST)", max_length=6, required=True)):
         """Create a new faction"""
         try:
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -878,45 +878,67 @@ class Factions(discord.Cog):
                 await ctx.respond(embed=embed, ephemeral=True)
                 return
                 
+            # Validate and format tag
+            tag = tag.strip().upper()
+            if len(tag) < 2:
+                await ctx.respond("Faction tag must be at least 2 characters!", ephemeral=True)
+                return
+                
             # Check if user is already in a faction
             existing_faction = await self.get_user_faction(guild_id or 0, discord_id)
             if existing_faction:
-                await ctx.respond(f"You're already in faction **{existing_faction['name']}**!", ephemeral=True)
+                await ctx.respond(f"You're already in faction **{existing_faction.get('faction_name', existing_faction.get('name', 'Unknown'))}**!", ephemeral=True)
                 return
                 
-            # Check if faction name exists
+            # Check if faction name exists (using faction_name field)
             name_exists = await self.bot.db_manager.factions.find_one({
                 "guild_id": guild_id,
-                "name": {"$regex": f"^{name}$", "$options": "i"}
+                "faction_name": {"$regex": f"^{name}$", "$options": "i"}
             })
             
             if name_exists:
                 await ctx.respond("Faction name already exists!", ephemeral=True)
                 return
                 
-            # Create faction
+            # Check if faction tag exists
+            tag_exists = await self.bot.db_manager.factions.find_one({
+                "guild_id": guild_id,
+                "faction_tag": tag
+            })
+            
+            if tag_exists:
+                await ctx.respond(f"Faction tag **[{tag}]** is already taken!", ephemeral=True)
+                return
+                
+            # Create faction using correct schema
+            current_time = datetime.now(timezone.utc)
             faction_doc = {
                 "guild_id": guild_id,
-                "name": name,
-                "leader": discord_id,
+                "faction_name": name,
+                "faction_tag": tag,
+                "leader_id": discord_id,
                 "members": [discord_id],
-                "created_at": datetime.now(timezone.utc),
-                "description": f"Faction led by <@{discord_id}>",
-                "stats": {
-                    "total_kills": 0,
-                    "total_deaths": 0,
-                    "total_distance": 0.0
-                }
+                "officers": [],
+                "created_at": current_time,
+                "last_updated": current_time,
+                "description": None,
+                "invite_only": False,
+                "max_members": 20
             }
             
             await self.bot.db_manager.factions.insert_one(faction_doc)
             
-            embed = discord.Embed(
-                title="Faction Created",
-                description=f"Successfully created faction **{name}**!\nYou are now the faction leader.",
-                color=0x00d38a
-            )
-            await ctx.respond(embed=embed)
+            # Create success embed using EmbedFactory
+            embed_data = {
+                'faction_name': name,
+                'faction_tag': tag,
+                'leader': ctx.user.mention,
+                'member_count': 1,
+                'max_members': 20
+            }
+            
+            embed, file = await EmbedFactory.build_faction_created_embed(embed_data)
+            await ctx.respond(embed=embed, file=file)
             
         except Exception as e:
             logger.error(f"Failed to create faction: {e}")
