@@ -46,10 +46,12 @@ class LogEventProcessor:
             'mission_in_progress': re.compile(r'LogSFPS: Mission (GA_[A-Za-z0-9_]+) switched to IN_PROGRESS', re.IGNORECASE),
             'mission_completed': re.compile(r'LogSFPS: Mission (GA_[A-Za-z0-9_]+) switched to COMPLETED', re.IGNORECASE),
             
-            # Event patterns
-            'airdrop_event': re.compile(r'Event_AirDrop.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', re.IGNORECASE),
-            'helicrash_event': re.compile(r'LogSFPS:.*GameplayEvent.*HelicrashManager.*HelicrashEvent', re.IGNORECASE),
-            'trader_spawn': re.compile(r'LogSFPS:.*trader.*(?:spawn|ready|arrived)', re.IGNORECASE),
+            # Event patterns - improved detection
+            'airdrop_event': re.compile(r'(?:Event_AirDrop|AirDrop.*Event|spawned.*AirDrop).*(?:location|spawned|at).*X[=:\s]*([\d\.-]+).*Y[=:\s]*([\d\.-]+)', re.IGNORECASE),
+            'airdrop_simple': re.compile(r'AirDrop.*(?:spawned|active|ready|deployed)', re.IGNORECASE),
+            'helicrash_event': re.compile(r'(?:HeliCrash|Helicopter.*Crash|HelicrashEvent|Heli.*spawned)', re.IGNORECASE),
+            'trader_spawn': re.compile(r'(?:trader|Trader).*(?:spawn|ready|arrived|active|Zone)', re.IGNORECASE),
+            'trader_event': re.compile(r'LogSFPS:.*(?:trader|TraderZone).*(?:switched|active|ready)', re.IGNORECASE),
             
             # Player activity patterns (for detecting active players)
             'player_activity': re.compile(r'LogNet:.*UChannel.*ActorChannel.*\|([a-f0-9]+)', re.IGNORECASE),
@@ -141,19 +143,21 @@ class LogEventProcessor:
         return None
         
     def process_mission_event(self, line: str, timestamp: datetime) -> Optional[Dict]:
-        """Process mission state change events"""
+        """Process mission state change events - only output READY status missions"""
         mission_match = self.patterns['mission_state_change'].search(line)
         if mission_match:
             mission_id = mission_match.group(1)
             state = mission_match.group(2)
             
-            return {
-                'type': 'mission',
-                'mission_id': mission_id,
-                'state': state,
-                'timestamp': timestamp,
-                'line': line
-            }
+            # Only output embeds for missions that switch to READY status
+            if state == "READY":
+                return {
+                    'type': 'mission',
+                    'mission_id': mission_id,
+                    'state': state,
+                    'timestamp': timestamp,
+                    'line': line
+                }
         return None
         
     def process_server_config(self, line: str) -> Optional[Dict]:
@@ -168,7 +172,8 @@ class LogEventProcessor:
         return None
         
     def process_airdrop_event(self, line: str, timestamp: datetime) -> Optional[Dict]:
-        """Process airdrop event"""
+        """Process airdrop event with improved detection"""
+        # Try detailed airdrop pattern first
         airdrop_match = self.patterns['airdrop_event'].search(line)
         if airdrop_match:
             groups = airdrop_match.groups()
@@ -181,6 +186,16 @@ class LogEventProcessor:
                 'timestamp': timestamp,
                 'line': line
             }
+        
+        # Try simple airdrop pattern
+        simple_match = self.patterns['airdrop_simple'].search(line)
+        if simple_match:
+            return {
+                'type': 'airdrop',
+                'location': "Airdrop Event Detected",
+                'timestamp': timestamp,
+                'line': line
+            }
         return None
         
     def process_helicrash_event(self, line: str, timestamp: datetime) -> Optional[Dict]:
@@ -190,6 +205,29 @@ class LogEventProcessor:
             return {
                 'type': 'helicrash',
                 'location': "Crash Site Located",
+                'timestamp': timestamp,
+                'line': line
+            }
+        return None
+        
+    def process_trader_event(self, line: str, timestamp: datetime) -> Optional[Dict]:
+        """Process trader event"""
+        # Try specific trader event pattern first
+        trader_event_match = self.patterns['trader_event'].search(line)
+        if trader_event_match:
+            return {
+                'type': 'trader',
+                'location': "Trader Zone Active",
+                'timestamp': timestamp,
+                'line': line
+            }
+        
+        # Try general trader spawn pattern
+        trader_spawn_match = self.patterns['trader_spawn'].search(line)
+        if trader_spawn_match:
+            return {
+                'type': 'trader',
+                'location': "Trader Available",
                 'timestamp': timestamp,
                 'line': line
             }
@@ -232,6 +270,11 @@ class LogEventProcessor:
             
         # Process helicrash events  
         event = self.process_helicrash_event(line, timestamp)
+        if event:
+            events.append(event)
+            
+        # Process trader events
+        event = self.process_trader_event(line, timestamp)
         if event:
             events.append(event)
             
