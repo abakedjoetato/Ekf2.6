@@ -421,7 +421,7 @@ class KillfeedParser:
 
                 # Update killer: increment kills and streak
                 await self.bot.db_manager.increment_player_kill(
-                    guild_id, server_id, kill_data.get('distance', 0)
+                    guild_id, server_id, kill_data['killer'], kill_data.get('distance', 0)
                 )
 
                 # Update victim: increment deaths and reset streak
