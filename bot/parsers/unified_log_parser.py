@@ -100,15 +100,15 @@ class UnifiedLogParser:
             'airdrop_spawn': re.compile(r'LogSFPS:.*airdrop.*spawn', re.IGNORECASE),
             'airdrop_flying': re.compile(r'LogSFPS:.*airdrop.*flying', re.IGNORECASE),
 
-            # Helicrash patterns
-            'helicrash_event': re.compile(r'Helicrash.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', re.IGNORECASE),
-            'helicrash_spawn': re.compile(r'LogSFPS:.*helicrash.*spawn', re.IGNORECASE),
-            'helicrash_crash': re.compile(r'LogSFPS:.*helicopter.*crash', re.IGNORECASE),
+            # Helicrash patterns - broader matching
+            'helicrash_event': re.compile(r'LogSFPS:.*(?:helicrash|helicopter.*crash)', re.IGNORECASE),
+            'helicrash_spawn': re.compile(r'LogSFPS:.*helicrash.*(?:spawn|ready)', re.IGNORECASE),
+            'helicrash_crash': re.compile(r'LogSFPS:.*helicopter.*(?:crash|down)', re.IGNORECASE),
 
-            # Trader patterns
-            'trader_spawn': re.compile(r'Trader.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', re.IGNORECASE),
-            'trader_event': re.compile(r'LogSFPS:.*trader.*spawn', re.IGNORECASE),
-            'trader_arrival': re.compile(r'LogSFPS:.*trader.*arrived', re.IGNORECASE),
+            # Trader patterns - broader matching
+            'trader_spawn': re.compile(r'LogSFPS:.*trader.*(?:spawn|ready|arrived)', re.IGNORECASE),
+            'trader_event': re.compile(r'LogSFPS:.*trader.*(?:spawn|ready)', re.IGNORECASE),
+            'trader_arrival': re.compile(r'LogSFPS:.*trader.*(?:arrived|ready|spawn)', re.IGNORECASE),
 
             # Timestamp
             'timestamp': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\]')
@@ -910,10 +910,11 @@ class UnifiedLogParser:
     async def create_helicrash_embed(self, location: str = "Unknown") -> Optional[discord.Embed]:
         """Create helicrash embed"""
         try:
-            embed = EmbedFactory.create_helicrash_embed(
-                location=location,
-                timestamp=datetime.now(timezone.utc)
-            )
+            embed_data = {
+                'location': location,
+                'timestamp': datetime.now(timezone.utc)
+            }
+            embed, file = await EmbedFactory.build_helicrash_embed(embed_data)
             return embed
         except Exception as e:
             logger.error(f"Failed to create helicrash embed: {e}")
@@ -922,10 +923,11 @@ class UnifiedLogParser:
     async def create_trader_embed(self, location: str = "Unknown") -> Optional[discord.Embed]:
         """Create trader embed"""
         try:
-            embed = EmbedFactory.create_trader_embed(
-                location=location,
-                timestamp=datetime.now(timezone.utc)
-            )
+            embed_data = {
+                'location': location,
+                'timestamp': datetime.now(timezone.utc)
+            }
+            embed, file = await EmbedFactory.build_trader_embed(embed_data)
             return embed
         except Exception as e:
             logger.error(f"Failed to create trader embed: {e}")
