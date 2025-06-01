@@ -397,12 +397,11 @@ class UnifiedLogParser:
                         
             player_count = actual_player_count
             
-            logger.info(f"🎯 Voice channel update: {server_name} has {player_count} players")
-            logger.info(f"🔍 Tracked players: {tracked_player_count}, Actual players: {actual_player_count}")
-            
-            # Debug: Show tracked players
-            if len(server_players) > 0:
-                logger.info(f"🔍 Tracked players on server {server_id}: {[p.get('player_name', 'Unknown') for p in server_players]}")
+            # Reduced logging for production
+            if player_count != tracked_player_count:
+                logger.info(f"Voice channel update: {server_name} has {player_count} players (tracked: {tracked_player_count})")
+            else:
+                logger.debug(f"Voice channel update: {server_name} has {player_count} players")
             
             # Get max players from config
             max_players = 50  # Default

@@ -424,6 +424,10 @@ class EmeraldKillfeedBot(commands.Bot):
             # Initialize channel router
             from bot.utils.channel_router import ChannelRouter
             self.channel_router = ChannelRouter(self)
+            
+            # Initialize voice channel batcher to prevent rate limiting
+            from bot.utils.voice_channel_batch import VoiceChannelBatcher
+            self.voice_channel_batcher = VoiceChannelBatcher(self)
 
             # Initialize parsers (PHASE 2) - Data parsers for killfeed & log events
             self.killfeed_parser = KillfeedParser(self)

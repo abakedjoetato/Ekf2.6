@@ -498,8 +498,8 @@ class Stats(commands.Cog):
             await ctx.defer()
 
             # Get active players from the lifecycle manager
-            if hasattr(self.bot, 'unified_parser') and hasattr(self.bot.unified_parser, 'lifecycle_manager'):
-                active_players = self.bot.unified_parser.lifecycle_manager.get_active_players(guild_id)
+            if hasattr(self.bot, 'unified_log_parser') and hasattr(self.bot.unified_log_parser, 'lifecycle_manager'):
+                active_players = self.bot.unified_log_parser.lifecycle_manager.get_active_players(guild_id)
                 
                 # Filter players for the specific server
                 server_players = []
