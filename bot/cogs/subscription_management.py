@@ -7,6 +7,7 @@ User-friendly commands: /sub add, /sub remove, /sub view
 import discord
 from discord.ext import commands
 from datetime import datetime
+import asyncio
 from bot.utils.premium_manager_v2 import home_guild_admin_only, bot_owner_only, guild_admin_only
 from bot.cogs.autocomplete import ServerAutocomplete
 
@@ -41,20 +42,31 @@ class SubscriptionManagement(discord.Cog):
         
     async def cog_load(self):
         """Initialize premium manager when cog loads"""
-        # Try to get premium manager from bot
-        if hasattr(self.bot, 'premium_manager_v2'):
-            self.premium_manager = self.bot.premium_manager_v2
-        elif hasattr(self.bot, 'premium_manager'):
-            self.premium_manager = self.bot.premium_manager
+        # Wait for premium manager to be available
+        max_attempts = 10
+        for attempt in range(max_attempts):
+            if hasattr(self.bot, 'premium_manager_v2') and self.bot.premium_manager_v2:
+                self.premium_manager = self.bot.premium_manager_v2
+                break
+            elif hasattr(self.bot, 'premium_manager') and self.bot.premium_manager:
+                self.premium_manager = self.bot.premium_manager
+                break
+            await asyncio.sleep(0.5)  # Wait 500ms before retry
     
     async def _ensure_premium_manager(self, ctx: discord.ApplicationContext) -> bool:
         """Ensure premium manager is available, respond with error if not"""
-        # For now, use simplified database access for home guild management
-        if hasattr(self.bot, 'db_manager'):
-            return True
-        else:
-            await ctx.respond("❌ Database system not available", ephemeral=True)
-            return False
+        if not self.premium_manager:
+            # Try one more time to get premium manager from bot
+            if hasattr(self.bot, 'premium_manager_v2') and self.bot.premium_manager_v2:
+                self.premium_manager = self.bot.premium_manager_v2
+                return True
+            elif hasattr(self.bot, 'premium_manager') and self.bot.premium_manager:
+                self.premium_manager = self.bot.premium_manager
+                return True
+            else:
+                await ctx.respond("❌ Premium system not available", ephemeral=True)
+                return False
+        return True
     
     # Home Guild Management Commands
     home = discord.SlashCommandGroup("home", "Home Guild configuration commands")
@@ -152,7 +164,20 @@ class SubscriptionManagement(discord.Cog):
                              guild_id: discord.Option(str, "Guild ID to add premium slot to"),
                              reason: discord.Option(str, "Reason for adding slot", required=False)):
         """Add 1 premium server slot to a guild"""
-        await ctx.respond("❌ Premium subscription management is currently being updated. Please check back later.", ephemeral=True)
+        if not await self._ensure_premium_manager(ctx):
+            return
+            
+        try:
+            guild_id_int = int(guild_id)
+            
+            # Verify guild exists
+            target_guild = self.bot.get_guild(guild_id_int)
+            guild_name = target_guild.name if target_guild else f"Guild {guild_id}"
+            
+            # Add premium limit
+            success = await self.premium_manager.add_premium_limit(
+                guild_id_int, ctx.author.id, reason or "Premium slot added"
+            )
             
             if success:
                 # Get updated usage
