@@ -5,8 +5,8 @@ User-friendly commands: /sub add, /sub remove, /sub view
 """
 
 import discord
-import discord
 from discord.ext import commands
+from datetime import datetime
 from bot.utils.premium_manager_v2 import home_guild_admin_only, bot_owner_only, guild_admin_only
 from bot.cogs.autocomplete import ServerAutocomplete
 
@@ -22,6 +22,7 @@ class SubscriptionManagement(discord.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+        self.premium_manager = None
     
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
@@ -38,27 +39,22 @@ class SubscriptionManagement(discord.Cog):
             logger.error(f"Premium access check failed: {e}")
             return False
         
-        # Access premium manager directly from bot
-        self.premium_manager = getattr(self.bot, 'premium_manager_v2', None)
-    
     async def cog_load(self):
         """Initialize premium manager when cog loads"""
-        # Ensure we have the premium manager reference
-        if hasattr(self.bot, 'premium_manager_v2') and self.premium_manager is None:
+        # Try to get premium manager from bot
+        if hasattr(self.bot, 'premium_manager_v2'):
             self.premium_manager = self.bot.premium_manager_v2
+        elif hasattr(self.bot, 'premium_manager'):
+            self.premium_manager = self.bot.premium_manager
     
     async def _ensure_premium_manager(self, ctx: discord.ApplicationContext) -> bool:
         """Ensure premium manager is available, respond with error if not"""
-        if not self.premium_manager:
-            # Try to get premium manager from bot
-            if hasattr(self.bot, 'premium_manager_v2'):
-                self.premium_manager = self.bot.premium_manager_v2
-            elif hasattr(self.bot, 'premium_manager'):
-                self.premium_manager = self.bot.premium_manager
-            else:
-                await ctx.respond("❌ Premium system not available", ephemeral=True)
-                return False
-        return True
+        # For now, use simplified database access for home guild management
+        if hasattr(self.bot, 'db_manager'):
+            return True
+        else:
+            await ctx.respond("❌ Database system not available", ephemeral=True)
+            return False
     
     # Home Guild Management Commands
     home = discord.SlashCommandGroup("home", "Home Guild configuration commands")
@@ -80,22 +76,24 @@ class SubscriptionManagement(discord.Cog):
                 await ctx.respond("❌ Bot is not in that guild or guild doesn't exist", ephemeral=True)
                 return
             
-            success = await self.premium_manager.set_home_guild(guild_id_int, ctx.author.id)
+            # Use simplified database storage for home guild
+            await self.bot.db_manager.bot_config.update_one(
+                {"_id": "home_guild"},
+                {"$set": {"guild_id": guild_id_int, "set_by": ctx.author.id, "set_at": datetime.utcnow()}},
+                upsert=True
+            )
             
-            if success:
-                embed = discord.Embed(
-                    title="🏠 Home Guild Set",
-                    description=f"**{target_guild.name}** (`{guild_id}`) is now the Home Guild",
-                    color=discord.Color.green()
-                )
-                embed.add_field(
-                    name="Permissions Granted",
-                    value="• Admins can manage premium limits for all guilds\n• Cross-guild server management\n• Access to audit logs",
-                    inline=False
-                )
-                await ctx.respond(embed=embed)
-            else:
-                await ctx.respond("❌ Failed to set Home Guild", ephemeral=True)
+            embed = discord.Embed(
+                title="🏠 Home Guild Set",
+                description=f"**{target_guild.name}** (`{guild_id}`) is now the Home Guild",
+                color=discord.Color.green()
+            )
+            embed.add_field(
+                name="Permissions Granted",
+                value="• Admins can manage premium limits for all guilds\n• Cross-guild server management\n• Access to audit logs",
+                inline=False
+            )
+            await ctx.respond(embed=embed)
                 
         except ValueError:
             await ctx.respond("❌ Invalid guild ID format", ephemeral=True)
