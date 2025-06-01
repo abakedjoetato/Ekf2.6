@@ -37,7 +37,8 @@ class Economy(commands.Cog):
     async def check_premium_server(self, guild_id: int, server_id: str = "default") -> bool:
         """Check if guild has premium access for economy features"""
         try:
-            return await self.bot.db_manager.check_premium_server(guild_id, server_id)
+            # Economy is guild-wide premium feature - check if guild has any premium access
+            return await self.bot.db_manager.has_premium_access(guild_id)
         except Exception as e:
             logger.error(f"Error checking premium server: {e}")
             return False
