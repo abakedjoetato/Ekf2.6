@@ -463,5 +463,120 @@ class Stats(commands.Cog):
             logger.error(f"Failed to compare stats: {e}")
             await ctx.respond("Failed to compare statistics.", ephemeral=True)
 
+    @discord.slash_command(name="online", description="Show currently online players")
+    async def online(self, ctx: discord.ApplicationContext, 
+                    server_name: discord.Option(str, "Server to check (leave empty for default)", 
+                                               autocomplete=ServerAutocomplete.autocomplete_server_name, required=False)):
+        """Show currently online players for a specific server"""
+        try:
+            if not ctx.guild:
+                await ctx.respond("This command can only be used in a server!", ephemeral=True)
+                return
+
+            guild_id = ctx.guild.id
+            
+            # Get servers for autocomplete resolution
+            servers = await ServerAutocomplete.get_servers_for_guild(guild_id, self.bot.db_manager)
+            
+            # Resolve server_id from server_name
+            if server_name:
+                server_id = ServerAutocomplete.get_server_id_from_name(server_name, servers)
+                if not server_id:
+                    await ctx.respond(f"Server '{server_name}' not found.", ephemeral=True)
+                    return
+                display_name = server_name
+            else:
+                # Use default server
+                server_id = "default"
+                display_name = "Default Server"
+                # Try to find actual default server name
+                for server in servers:
+                    if server.get('id') == 'default' or server.get('is_default'):
+                        display_name = server.get('name', 'Default Server')
+                        break
+
+            await ctx.defer()
+
+            # Get active players from the lifecycle manager
+            if hasattr(self.bot, 'unified_parser') and hasattr(self.bot.unified_parser, 'lifecycle_manager'):
+                active_players = self.bot.unified_parser.lifecycle_manager.get_active_players(guild_id)
+                
+                # Filter players for the specific server
+                server_players = []
+                for player_id, session_data in active_players.items():
+                    if session_data.get('server_id') == server_id:
+                        player_name = session_data.get('player_name', f"Player{player_id[:8].upper()}")
+                        join_time = session_data.get('join_time')
+                        platform = session_data.get('platform', 'Unknown')
+                        
+                        server_players.append({
+                            'name': player_name,
+                            'join_time': join_time,
+                            'platform': platform,
+                            'player_id': player_id
+                        })
+                
+                # Sort by join time (most recent first)
+                server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
+                
+                # Create embed
+                if server_players:
+                    embed = discord.Embed(
+                        title=f"🟢 Online Players - {display_name}",
+                        description=f"**{len(server_players)} player{'s' if len(server_players) != 1 else ''} currently online**",
+                        color=0x00ff00,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    
+                    # Add player list
+                    player_list = []
+                    for i, player in enumerate(server_players, 1):
+                        time_online = ""
+                        if player['join_time']:
+                            delta = datetime.now(timezone.utc) - player['join_time']
+                            hours = delta.total_seconds() // 3600
+                            minutes = (delta.total_seconds() % 3600) // 60
+                            if hours >= 1:
+                                time_online = f" • {int(hours)}h {int(minutes)}m"
+                            else:
+                                time_online = f" • {int(minutes)}m"
+                        
+                        platform_emoji = "🖥️" if player['platform'] == "PC" else "🎮" if player['platform'] == "Console" else "❓"
+                        player_list.append(f"`{i:2d}.` {platform_emoji} **{player['name']}**{time_online}")
+                    
+                    # Split into chunks if too many players
+                    chunk_size = 10
+                    for i in range(0, len(player_list), chunk_size):
+                        chunk = player_list[i:i + chunk_size]
+                        field_name = "Players Online" if i == 0 else f"Players Online (cont.)"
+                        embed.add_field(
+                            name=field_name,
+                            value="\n".join(chunk),
+                            inline=False
+                        )
+                    
+                    embed.set_footer(text=f"Powered by Discord.gg/EmeraldServers • Updated")
+                else:
+                    embed = discord.Embed(
+                        title=f"🔴 Online Players - {display_name}",
+                        description="**No players currently online**",
+                        color=0xff0000,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+                
+                await ctx.followup.send(embed=embed)
+            else:
+                await ctx.followup.send("Player tracking system not available.", ephemeral=True)
+
+        except Exception as e:
+            logger.error(f"Failed to show online players: {e}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            if ctx.response.is_done():
+                await ctx.followup.send("Failed to retrieve online players.", ephemeral=True)
+            else:
+                await ctx.respond("Failed to retrieve online players.", ephemeral=True)
+
 def setup(bot):
     bot.add_cog(Stats(bot))
