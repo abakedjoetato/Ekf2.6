@@ -30,7 +30,12 @@ class UnifiedLogParser:
         try:
             logger.info("🔄 Running unified log parser...")
             
-            guilds = await self.bot.db_manager.get_all_guilds()
+            # Get guilds from bot's connected guilds
+            guilds = []
+            for guild in self.bot.guilds:
+                guild_doc = await self.bot.db_manager.get_guild(guild.id)
+                if guild_doc:
+                    guilds.append(guild_doc)
             
             for guild in guilds:
                 guild_id = str(guild['_id'])
@@ -67,8 +72,7 @@ class UnifiedLogParser:
             logger.info(f"🔍 Processing {server_name} (ID: {server_id}, Host: {host})")
             
             # Get parser state
-            state_key = f"{guild_id}_{server_id}"
-            parser_state = await self.get_parser_state(state_key)
+            parser_state = await self.get_parser_state(int(guild_id), server_id)
             
             # Connect and read logs
             log_content = await self.read_server_logs(host, port, username, server_id)
@@ -99,7 +103,7 @@ class UnifiedLogParser:
                 await self.send_embeds(guild_id, server_id, embeds)
                 
             # Update parser state
-            await self.update_parser_state(state_key, {
+            await self.update_parser_state(int(guild_id), server_id, {
                 'last_log_size': current_size,
                 'last_processed': datetime.now(timezone.utc).isoformat(),
                 'server_name': server_name
@@ -288,32 +292,31 @@ class UnifiedLogParser:
         except Exception as e:
             logger.error(f"Voice channel update failed: {e}")
             
-    async def get_parser_state(self, state_key: str) -> Dict[str, Any]:
+    async def get_parser_state(self, guild_id: int, server_id: str) -> Dict[str, Any]:
         """Get parser state from database"""
         try:
-            state = await self.bot.db_manager.get_parser_state(state_key)
+            state = await self.bot.db_manager.get_parser_state(guild_id, server_id)
             return state or {}
         except Exception as e:
             logger.error(f"Failed to get parser state: {e}")
             return {}
             
-    async def update_parser_state(self, state_key: str, state_data: Dict[str, Any]):
+    async def update_parser_state(self, guild_id: int, server_id: str, state_data: Dict[str, Any]):
         """Update parser state in database"""
         try:
-            await self.bot.db_manager.save_parser_state(state_key, state_data)
+            await self.bot.db_manager.save_parser_state(guild_id, server_id, "log_parser", state_data)
         except Exception as e:
             logger.error(f"Failed to save parser state: {e}")
             
     async def reset_parser_state(self, guild_id: int, server_id: str):
         """Reset parser state for a specific server"""
         try:
-            state_key = f"{guild_id}_{server_id}"
-            await self.bot.db_manager.save_parser_state(state_key, {
+            await self.bot.db_manager.save_parser_state(guild_id, server_id, "log_parser", {
                 'last_log_size': 0,
                 'last_processed': datetime.now(timezone.utc).isoformat(),
                 'reset_at': datetime.now(timezone.utc).isoformat()
             })
-            logger.info(f"Parser state reset for {state_key}")
+            logger.info(f"Parser state reset for {guild_id}_{server_id}")
         except Exception as e:
             logger.error(f"Failed to reset parser state: {e}")
 
