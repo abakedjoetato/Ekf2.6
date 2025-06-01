@@ -208,7 +208,10 @@ class KillfeedParser:
             csv_files = await self.get_sftp_csv_files(server_config)
             
             if not csv_files:
+                logger.info(f"⚠️ No CSV files found for server {server_id}")
                 return
+            
+            logger.info(f"📁 Found {len(csv_files)} CSV files for server {server_id}")
 
             # Get most recent CSV file
             latest_file = csv_files[-1]
@@ -230,13 +233,18 @@ class KillfeedParser:
                         
                         # Skip header and previously processed lines
                         new_lines = lines[max(1, last_line_count):]
+                        logger.info(f"📊 Processing {len(new_lines)} new lines (total: {len(lines)}, last processed: {last_line_count})")
                         
+                        kill_count = 0
                         for line in new_lines:
                             if line.strip():
                                 kill_data = self.parse_csv_line(line)
                                 if kill_data:
+                                    kill_count += 1
                                     await self.process_kill_event(guild_id, server_id, kill_data)
                                     await self.send_killfeed_embed(guild_id, server_id, kill_data)
+                        
+                        logger.info(f"🎯 Processed {kill_count} kill events from {latest_file}")
                         
                         # Update last processed line count
                         self.last_processed_lines[server_key] = len(lines)
@@ -252,9 +260,12 @@ class KillfeedParser:
         try:
             # Get all servers with killfeed enabled
             servers = await self.bot.db_manager.get_all_servers_with_killfeed()
+            logger.info(f"🔍 Killfeed parser: Found {len(servers)} servers with killfeed enabled")
             
             for server in servers:
                 try:
+                    server_name = server.get('name', 'Unknown')
+                    logger.info(f"🔍 Processing killfeed for {server_name}")
                     await self.parse_server_killfeed(server['guild_id'], server)
                 except Exception as e:
                     logger.error(f"Error parsing killfeed for server {server.get('server_id')}: {e}")
