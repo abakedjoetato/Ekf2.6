@@ -989,7 +989,7 @@ class UnifiedLogParser:
             if servers:
                 # Use first server's info for display (most common case is single server)
                 primary_server = servers[0]
-                server_name = primary_server.get('name', 'Server').replace(' Server', '').replace(' EU', '').replace(' US', '')
+                server_name = primary_server.get('name', 'Server')
 
                 # Try to get MaxPlayerCount from database first, then fallback to config
                 try:
