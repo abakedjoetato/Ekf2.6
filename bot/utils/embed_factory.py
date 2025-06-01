@@ -75,29 +75,35 @@ class EmbedFactory:
 
     # Enhanced themed message pools with military flair - no emojis
     CONNECTION_TITLES = [
-        "**OPERATIVE DEPLOYMENT CONFIRMED**",
-        "**GHOST PROTOCOL ACTIVATION**", 
-        "**COMBAT ASSET MOBILIZED**",
-        "**DEATH SQUAD INTEGRATION**",
-        "**BLADE RUNNER INSERTION**",
-        "**ELITE OPERATIVE ARRIVAL**",
-        "**LEGENDARY WARRIOR DETECTED**",
-        "**DIAMOND TIER ASSET**",
-        "**BATTLEFIELD COMMANDER**",
-        "**CHAMPIONS LEAGUE ENTRY**"
+        "🔷 **REINFORCEMENTS ARRIVE**",
+        "🔷 **OPERATIVE DEPLOYED**", 
+        "🔷 **COMBATANT ONLINE**",
+        "🔷 **WARRIOR ACTIVE**",
+        "🔷 **ASSET MOBILIZED**"
     ]
 
     CONNECTION_DESCRIPTIONS = [
-        "**Elite combatant** has entered the war zone",
-        "**Legendary operator** joins the apocalypse",
-        "**Master tactician** steps into chaos",
-        "**Death incarnate** walks among mortals",
-        "**Apex predator** enters the hunting grounds",
-        "**Mythical warrior** descends from legends",
-        "**Unstoppable force** materializes on battlefield",
-        "**Living weapon** activates in sector",
-        "**God of war** manifests in flesh",
-        "**Eternal guardian** awakens for battle"
+        "New player has joined the server",
+        "Elite operative enters the battlefield",
+        "Combat asset successfully deployed",
+        "Legendary warrior joins the fight",
+        "Tactical reinforcement activated"
+    ]
+
+    DISCONNECTION_TITLES = [
+        "🔻 **EXTRACTION CONFIRMED**",
+        "🔻 **OPERATIVE WITHDRAWN**",
+        "🔻 **COMBAT COMPLETE**", 
+        "🔻 **MISSION CONCLUDED**",
+        "🔻 **ASSET OFFLINE**"
+    ]
+
+    DISCONNECTION_DESCRIPTIONS = [
+        "Player has left the server",
+        "Operative extraction successful",
+        "Combat mission concluded",
+        "Tactical withdrawal completed",
+        "Asset deactivated from sector"
     ]
 
     MISSION_READY_TITLES = [
@@ -322,6 +328,8 @@ class EmbedFactory:
         try:
             if embed_type == 'connection':
                 return await EmbedFactory.build_connection_embed(embed_data)
+            elif embed_type == 'disconnection':
+                return await EmbedFactory.build_disconnection_embed(embed_data)
             elif embed_type == 'mission':
                 return await EmbedFactory.build_mission_embed(embed_data)
             elif embed_type == 'airdrop':
@@ -354,7 +362,7 @@ class EmbedFactory:
 
     @staticmethod
     async def build_connection_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:
-        """Build elite connection embed - MINIMALISTIC 3 FIELDS"""
+        """Build minimalistic connection embed - 2 FIELDS ONLY"""
         try:
             title = embed_data.get('title', random.choice(EmbedFactory.CONNECTION_TITLES))
             description = embed_data.get('description', random.choice(EmbedFactory.CONNECTION_DESCRIPTIONS))
@@ -370,9 +378,8 @@ class EmbedFactory:
             platform = embed_data.get('platform', 'Unknown')
             server_name = embed_data.get('server_name', 'Unknown Server')
 
-            embed.add_field(name="**OPERATIVE**", value=f"**{player_name}**\n**{platform}** • **{server_name}**", inline=False)
+            embed.add_field(name="**OPERATIVE**", value=f"**{player_name}**\n**{platform}** • **{server_name}**", inline=True)
             embed.add_field(name="**STATUS**", value="**ACTIVE** • Ready for Combat", inline=True)
-            embed.add_field(name="**OPERATIONAL INTELLIGENCE**", value="Elite combatant successfully deployed and operational", inline=False)
 
             embed.set_footer(text="Powered by Emerald")
 
@@ -384,6 +391,38 @@ class EmbedFactory:
         except Exception as e:
             logger.error(f"Error building connection embed: {e}")
             return await EmbedFactory.build_error_embed("Connection embed error")
+
+    @staticmethod
+    async def build_disconnection_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:
+        """Build minimalistic disconnection embed - 2 FIELDS ONLY"""
+        try:
+            title = embed_data.get('title', random.choice(EmbedFactory.DISCONNECTION_TITLES))
+            description = embed_data.get('description', random.choice(EmbedFactory.DISCONNECTION_DESCRIPTIONS))
+
+            embed = discord.Embed(
+                title=title,
+                description=description,
+                color=0xDC143C,  # Crimson red for disconnections
+                timestamp=datetime.now(timezone.utc)
+            )
+
+            player_name = embed_data.get('player_name', 'Unknown Player')
+            platform = embed_data.get('platform', 'Unknown')
+            server_name = embed_data.get('server_name', 'Unknown Server')
+
+            embed.add_field(name="**OPERATIVE**", value=f"**{player_name}**\n**{platform}** • **{server_name}**", inline=True)
+            embed.add_field(name="**STATUS**", value="**OFFLINE** • Mission Complete", inline=True)
+
+            embed.set_footer(text="Powered by Emerald")
+
+            connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
+            embed.set_thumbnail(url="attachment://Connections.png")
+
+            return embed, connections_file
+
+        except Exception as e:
+            logger.error(f"Error building disconnection embed: {e}")
+            return await EmbedFactory.build_error_embed("Disconnection embed error")
 
     @staticmethod
     async def build_mission_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:

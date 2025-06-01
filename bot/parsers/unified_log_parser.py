@@ -751,14 +751,12 @@ class UnifiedLogParser:
                         # Create embed (only if not cold start)
                         if not cold_start:
                             embed_data = {
-                                'title': '🔻 Extraction Confirmed',
-                                'description': 'Player has left the server',
                                 'player_name': player_name,
                                 'platform': platform,
                                 'server_name': server_name
                             }
 
-                            final_embed, file_attachment = await EmbedFactory.build_connection_embed(embed_data)
+                            final_embed, file_attachment = await EmbedFactory.build_disconnection_embed(embed_data)
                             embeds.append(final_embed)
                     else:
                         logger.debug(f"Skipping disconnect for {player_id} - player was not joined")
