@@ -90,10 +90,22 @@ class UnifiedLogParser:
                 logger.info(f"🧊 Cold start: processing {len(log_content.splitlines())} lines to rebuild player state")
                 self.lifecycle_manager.clear_guild_sessions(guild_id)
                 lines_to_process = log_content.splitlines()
+                # Process all lines to rebuild current player state
+                await self.rebuild_player_state(lines_to_process, guild_id, server_id)
             else:
                 logger.info(f"🔥 Hot start: processing {current_size - last_size} new bytes")
                 new_content = log_content[last_size:]
                 lines_to_process = new_content.splitlines()
+                
+                # Check if we need to rebuild player state (no active players tracked)
+                active_players = self.lifecycle_manager.get_active_players(guild_id)
+                server_players = [p for p in active_players.values() if p.get('server_id') == server_id]
+                
+                if len(server_players) == 0:
+                    logger.info(f"🔄 No active players tracked, rebuilding state from complete log")
+                    all_lines = log_content.splitlines()
+                    logger.info(f"🔍 Analyzing {len(all_lines)} total log lines for player history")
+                    await self.rebuild_player_state(all_lines, guild_id, server_id)
                 
             # Process log lines
             embeds = await self.process_log_lines(
@@ -118,6 +130,57 @@ class UnifiedLogParser:
             
         except Exception as e:
             logger.error(f"Error processing server {server_config.get('name', 'Unknown')}: {e}")
+            
+    async def rebuild_player_state(self, lines: List[str], guild_id: int, server_id: str):
+        """Rebuild current player state from complete log history"""
+        logger.info(f"🔄 Rebuilding player state from {len(lines)} log lines")
+        
+        # Track player state changes chronologically
+        player_events = []
+        
+        # Extract all player events from log history
+        for line in lines:
+            events = self.event_processor.process_log_line(line)
+            for event in events:
+                if event['type'] in ['queue', 'join', 'disconnect']:
+                    player_events.append(event)
+        
+        # Sort events chronologically
+        player_events.sort(key=lambda x: x['timestamp'])
+        logger.info(f"🔍 Found {len(player_events)} historical player events")
+        
+        # Replay events to determine current state
+        active_players = set()
+        
+        for event in player_events:
+            player_id = event['player_id']
+            
+            if event['type'] == 'queue':
+                # Player queued - update lifecycle but don't count as online yet
+                self.lifecycle_manager.update_player_queue(
+                    guild_id, player_id, event.get('player_name', f"Player{player_id[:8].upper()}"), 
+                    event.get('platform', 'Unknown'), event['timestamp']
+                )
+                
+            elif event['type'] == 'join':
+                # Player joined - mark as active
+                session_data = self.lifecycle_manager.update_player_join(
+                    guild_id, player_id, server_id, event['timestamp']
+                )
+                active_players.add(player_id)
+                logger.info(f"🔍 State rebuild: {session_data.get('player_name')} joined (total: {len(active_players)})")
+                
+            elif event['type'] == 'disconnect':
+                # Player left - remove from active
+                disconnect_data = self.lifecycle_manager.update_player_disconnect(
+                    guild_id, player_id, event['timestamp']
+                )
+                if player_id in active_players:
+                    active_players.remove(player_id)
+                    if disconnect_data:
+                        logger.info(f"🔍 State rebuild: {disconnect_data.get('player_name')} left (total: {len(active_players)})")
+        
+        logger.info(f"✅ Player state rebuilt: {len(active_players)} players currently online")
             
     async def read_server_logs(self, host: str, port: int, username: str, server_id: str, password: Optional[str] = None) -> Optional[str]:
         """Read logs from server via SFTP"""
