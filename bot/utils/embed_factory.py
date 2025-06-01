@@ -712,7 +712,7 @@ class EmbedFactory:
             embed.add_field(
                 name="WEAPON PROFICIENCY",
                 value=weapon_proficiency,
-                inline=True
+                inline=should_use_inline(weapon_proficiency)
             )
 
             # Footer with military timestamp
@@ -839,7 +839,7 @@ class EmbedFactory:
                 embed.add_field(name="**TOP WARRIORS**", value=rankings, inline=False)
 
             server_name = embed_data.get('server_name', 'All Servers')
-            embed.add_field(name="**THEATER OF OPERATIONS**", value=f"**{server_name}**", inline=True)
+            embed.add_field(name="**THEATER OF OPERATIONS**", value=f"**{server_name}**", inline=should_use_inline(f"**{server_name}**"))
             embed.add_field(name="**LIVE RANKINGS** • Real-time", value="Dynamic continuous updates for elite tier champions", inline=False)
 
             thumbnail_url = embed_data.get('thumbnail_url', 'attachment://Leaderboard.png')
@@ -899,7 +899,7 @@ class EmbedFactory:
             else:
                 distance_str = f"{personal_best_distance:.0f}m"
 
-            embed.add_field(name="**PREFERRED LOADOUT**", value=f"**{favorite_weapon}** • **{distance_str}** Longest Shot", inline=True)
+            embed.add_field(name="**PREFERRED LOADOUT**", value=f"**{favorite_weapon}** • **{distance_str}** Longest Shot", inline=should_use_inline(f"**{favorite_weapon}** • **{distance_str}** Longest Shot"))
 
             active_days = embed_data.get('active_days', 42)
             embed.add_field(name="**SERVICE RECORD**", value=f"**Theater:** {server_name} • **{active_days}** Active Days", inline=False)
