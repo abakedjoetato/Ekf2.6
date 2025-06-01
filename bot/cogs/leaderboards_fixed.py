@@ -4,7 +4,6 @@ Properly themed leaderboards using EmbedFactory
 """
 
 import discord
-import discord
 from discord.ext import commands
 import asyncio
 import logging
@@ -16,7 +15,7 @@ from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
 
-class LeaderboardsFixed(commands.Cog):
+class LeaderboardsFixed(discord.Cog):
     """Fixed leaderboard commands that actually use the themed factory"""
 
     def __init__(self, bot):
