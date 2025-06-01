@@ -244,7 +244,7 @@ class UnifiedLogParser:
                             'server_name': server_name
                         }
                         final_embed, file_attachment = await EmbedFactory.build_mission_embed(embed_data)
-                        embeds.append(final_embed)
+                        embeds.append((final_embed, file_attachment, 'events'))
                         
         # Sort player events chronologically
         player_events.sort(key=lambda x: x['timestamp'])
@@ -277,14 +277,12 @@ class UnifiedLogParser:
                 # Create connection embed (not during cold start)
                 if not cold_start:
                     embed_data = {
-                        'title': '🔷 Reinforcements Arrive',
-                        'description': 'New player has joined the server',
                         'player_name': session_data['player_name'],
                         'platform': session_data['platform'],
                         'server_name': server_name
                     }
                     final_embed, file_attachment = await EmbedFactory.build_connection_embed(embed_data)
-                    embeds.append(final_embed)
+                    embeds.append((final_embed, file_attachment, 'connections'))
                     
             elif event['type'] == 'disconnect':
                 disconnect_data = self.lifecycle_manager.update_player_disconnect(
@@ -308,40 +306,61 @@ class UnifiedLogParser:
                             'server_name': server_name
                         }
                         final_embed, file_attachment = await EmbedFactory.build_disconnection_embed(embed_data)
-                        embeds.append(final_embed)
+                        embeds.append((final_embed, file_attachment, 'connections'))
                         
         return embeds
         
     async def send_embeds(self, guild_id: int, server_id: str, embeds: List[Any]):
-        """Send embeds to appropriate channels"""
+        """Send embeds to appropriate channels with proper routing and theming"""
         try:
-            guild_config = await self.bot.db_manager.get_guild(int(guild_id))
-            if not guild_config:
+            if not embeds:
                 return
                 
-            # Check new server_channels structure first
-            server_channels_config = guild_config.get('server_channels', {})
-            server_specific = server_channels_config.get(server_id, {})
-            default_server = server_channels_config.get('default', {})
-            
-            # Check legacy channels structure
-            legacy_channels = guild_config.get('channels', {})
-            
-            # Priority: server-specific -> default server -> legacy channels
-            killfeed_channel_id = (server_specific.get('killfeed') or 
-                                 default_server.get('killfeed') or 
-                                 legacy_channels.get('killfeed'))
-            if killfeed_channel_id and embeds:
-                channel = self.bot.get_channel(int(killfeed_channel_id))
-                if channel:
-                    for embed in embeds[:10]:  # Limit to prevent spam
-                        try:
-                            await channel.send(embed=embed)
-                        except Exception as e:
-                            logger.error(f"Failed to send embed: {e}")
+            # Use channel router for proper routing
+            if hasattr(self.bot, 'channel_router'):
+                for embed_data in embeds[:10]:  # Limit to prevent spam
+                    # Handle both old format (embed only) and new format (embed, file, channel_type)
+                    if isinstance(embed_data, tuple) and len(embed_data) == 3:
+                        embed, file_attachment, channel_type = embed_data
+                    else:
+                        # Fallback for old format
+                        embed = embed_data
+                        file_attachment = None
+                        channel_type = self._determine_channel_type(embed)
+                    
+                    success = await self.bot.channel_router.send_embed_to_channel(
+                        guild_id, server_id, channel_type, embed, file_attachment
+                    )
+                    
+                    if not success:
+                        logger.warning(f"Failed to send {channel_type} embed to appropriate channel")
+            else:
+                logger.error("Channel router not available")
                             
         except Exception as e:
             logger.error(f"Error sending embeds: {e}")
+    
+    def _determine_channel_type(self, embed) -> str:
+        """Determine appropriate channel type based on embed content"""
+        if not embed or not hasattr(embed, 'title'):
+            return 'killfeed'
+            
+        title = embed.title.lower() if embed.title else ""
+        
+        # Check for connection/disconnection embeds
+        if any(keyword in title for keyword in ['reinforcements', 'operative deployed', 'extraction', 'withdrawn']):
+            return 'connections'
+        
+        # Check for mission embeds  
+        if any(keyword in title for keyword in ['mission', 'operation', 'classified', 'objective']):
+            return 'events'
+            
+        # Check for airdrop/helicrash embeds
+        if any(keyword in title for keyword in ['airdrop', 'supply', 'helicrash', 'helicopter']):
+            return 'events'
+            
+        # Default to killfeed for combat/kills
+        return 'killfeed'
             
     async def update_voice_channel(self, guild_id: int, server_id: str, server_name: str):
         """Update voice channel with current player count"""

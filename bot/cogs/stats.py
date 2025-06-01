@@ -522,7 +522,7 @@ class Stats(commands.Cog):
                 # Create embed using bot's theme
                 if server_players:
                     embed = discord.Embed(
-                        title=f"🔷 **ACTIVE OPERATIVES** - {display_name}",
+                        title=f"**ACTIVE OPERATIVES** - {display_name}",
                         description=f"**{len(server_players)} combatant{'s' if len(server_players) != 1 else ''} currently deployed in the field**",
                         color=0x32CD32,  # Lime green matching connection theme
                         timestamp=datetime.now(timezone.utc)
@@ -533,11 +533,10 @@ class Stats(commands.Cog):
                     embed.set_thumbnail(url="attachment://Connections.png")
                     
                     # Add tactical status header
-                    status_emoji = "🟢" if len(server_players) >= 10 else "🟡" if len(server_players) >= 5 else "🔴"
                     server_status = "HIGH ACTIVITY" if len(server_players) >= 10 else "MODERATE ACTIVITY" if len(server_players) >= 5 else "LOW ACTIVITY"
                     embed.add_field(
                         name="**TACTICAL STATUS**",
-                        value=f"{status_emoji} **{server_status}** • Real-time battlefield intelligence",
+                        value=f"**{server_status}** • Real-time battlefield intelligence",
                         inline=False
                     )
                     
@@ -556,7 +555,7 @@ class Stats(commands.Cog):
                         
                         # Military-style platform indicators
                         platform_indicator = "**[PC]**" if player['platform'] == "PC" else "**[CNS]**" if player['platform'] == "Console" else "**[UNK]**"
-                        rank_prefix = "🔸" if i <= 3 else "▫️"  # Different indicators for first 3 players
+                        rank_prefix = "▸" if i <= 3 else "▫"  # Different indicators for first 3 players
                         
                         player_list.append(f"{rank_prefix} {platform_indicator} **{player['name']}**{time_online}")
                     
@@ -574,23 +573,23 @@ class Stats(commands.Cog):
                     
                     # Add tactical footer
                     embed.set_footer(
-                        text=f"🎯 Live Intelligence • Discord.gg/EmeraldServers",
+                        text=f"Live Intelligence • Discord.gg/EmeraldServers",
                         icon_url="https://cdn.discordapp.com/icons/1359926538649440309/a_2bb2ad93aeb4a3b7b1aebc47b7fa0e6c.gif"
                     )
                 else:
                     embed = discord.Embed(
-                        title=f"🔻 **BATTLEFIELD STATUS** - {display_name}",
+                        title=f"**BATTLEFIELD STATUS** - {display_name}",
                         description="**No active operatives detected**\n*Awaiting deployment orders...*",
                         color=0xDC143C,  # Crimson red matching error theme
                         timestamp=datetime.now(timezone.utc)
                     )
                     embed.add_field(
                         name="**MISSION STATUS**",
-                        value="🔴 **STANDBY** • Server ready for combat deployment",
+                        value="**STANDBY** • Server ready for combat deployment",
                         inline=False
                     )
                     embed.set_footer(
-                        text="🎯 Live Intelligence • Discord.gg/EmeraldServers",
+                        text="Live Intelligence • Discord.gg/EmeraldServers",
                         icon_url="https://cdn.discordapp.com/icons/1359926538649440309/a_2bb2ad93aeb4a3b7b1aebc47b7fa0e6c.gif"
                     )
                     
