@@ -92,7 +92,7 @@ class CacheManagement(commands.Cog):
                 inline=False
             )
             
-            embed.set_footer(text=f"Guild: {ctx.guild.name if ctx.guild else "Unknown Guild"}")
+            embed.set_footer(text=f"Guild: {ctx.guild.name if ctx.guild else 'Unknown Guild'}")
             
             await ctx.respond(embed=embed, ephemeral=True)
             
@@ -115,7 +115,7 @@ class CacheManagement(commands.Cog):
             # Confirm action
             embed = discord.Embed(
                 title="⚠️ Clear Guild Cache",
-                description=f"This will clear all cached data for **{ctx.guild.name if ctx.guild else "Unknown Guild"}**.\n"
+                description=f"This will clear all cached data for **{ctx.guild.name if ctx.guild else 'Unknown Guild'}**.\n"
                            f"Data will be automatically refreshed from database as needed.\n\n"
                            f"**This action cannot be undone.**",
                 color=0xffaa00
@@ -134,7 +134,7 @@ class CacheManagement(commands.Cog):
                 
                 success_embed = discord.Embed(
                     title="✅ Cache Cleared",
-                    description=f"All cached data for **{ctx.guild.name if ctx.guild else "Unknown Guild"}** has been cleared.",
+                    description=f"All cached data for **{ctx.guild.name if ctx.guild else 'Unknown Guild'}** has been cleared.",
                     color=0x00ff88
                 )
                 await ctx.edit(embed=success_embed, view=None)
