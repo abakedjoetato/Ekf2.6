@@ -152,7 +152,14 @@ class Factions(discord.Cog):
 
         except Exception as e:
             logger.error(f"Failed to calculate faction stats: {e}")
-            return combined_stats
+            return {
+                'kills': 0,
+                'deaths': 0,
+                'kdr': 0.0,
+                'assists': 0,
+                'captures': 0,
+                'game_time': 0
+            }
 
     faction = discord.SlashCommandGroup("faction", "Faction management commands")
 
@@ -858,12 +865,7 @@ class Factions(discord.Cog):
             logger.error(f"Failed to list factions: {e}")
             await ctx.respond("Failed to retrieve faction list.", ephemeral=True)
 
-    faction = discord.SlashCommandGroup("faction", "Faction management commands")
-
-    @faction.command(name="create", description="Create a new faction")
-    async def faction_create_cmd(self, ctx: discord.ApplicationContext,
-                                name: discord.Option(str, "Faction name", max_length=32),
-                                tag: discord.Option(str, "Faction abbreviation/tag (e.g., TST)", max_length=6, required=True)):
+    # Remove duplicate faction command group - keeping the first implementation
         """Create a new faction"""
         try:
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -1184,7 +1186,7 @@ class Factions(discord.Cog):
             # Check if target is already in a faction
             target_faction = await self.get_user_faction(guild_id, target_id)
             if target_faction:
-                await ctx.respond(f"{user.mention} is already in faction **{target_faction['name']}**!", ephemeral=True)
+                await ctx.respond(f"{user.mention} is already in faction **{target_faction['faction_name']}**!", ephemeral=True)
                 return
             
             # Add user to faction
@@ -1195,7 +1197,7 @@ class Factions(discord.Cog):
             
             embed = discord.Embed(
                 title="User Invited",
-                description=f"{user.mention} has been added to faction **{faction['name']}**!",
+                description=f"{user.mention} has been added to faction **{faction['faction_name']}**!",
                 color=0x00d38a
             )
             await ctx.respond(embed=embed)
@@ -1250,7 +1252,7 @@ class Factions(discord.Cog):
             
             embed = discord.Embed(
                 title="User Kicked",
-                description=f"{user.mention} has been removed from faction **{faction['name']}**.",
+                description=f"{user.mention} has been removed from faction **{faction['faction_name']}**.",
                 color=0xff5e5e
             )
             await ctx.respond(embed=embed)
@@ -1290,7 +1292,7 @@ class Factions(discord.Cog):
             
             embed = discord.Embed(
                 title="Faction Disbanded",
-                description=f"Faction **{faction['name']}** has been disbanded.",
+                description=f"Faction **{faction['faction_name']}** has been disbanded.",
                 color=0xff5e5e
             )
             await ctx.respond(embed=embed)
