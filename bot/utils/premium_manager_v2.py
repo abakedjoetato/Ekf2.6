@@ -198,7 +198,10 @@ class PremiumManagerV2:
         """Get current premium server limit for guild"""
         try:
             limit_doc = await self.db.premium_limits.find_one({"guild_id": guild_id})
-            return limit_doc.get("max_premium_servers", 0) if limit_doc else 0
+            if limit_doc:
+                # Check both field names for compatibility
+                return limit_doc.get("limit", limit_doc.get("max_premium_servers", 0))
+            return 0
         except Exception:
             return 0
     
@@ -227,7 +230,7 @@ class PremiumManagerV2:
             status = await self.db.server_premium_status.find_one({
                 "guild_id": guild_id,
                 "server_id": server_id,
-                "is_premium": True
+                "is_active": True
             })
             return status is not None
         except Exception:
@@ -258,7 +261,7 @@ class PremiumManagerV2:
                         "$set": {
                             "guild_id": guild_id,
                             "server_id": server_id,
-                            "is_premium": True,
+                            "is_active": True,
                             "activated_by": activated_by,
                             "activated_at": datetime.utcnow()
                         },
@@ -296,7 +299,7 @@ class PremiumManagerV2:
                     {"guild_id": guild_id, "server_id": server_id},
                     {
                         "$set": {
-                            "is_premium": False,
+                            "is_active": False,
                             "deactivated_by": deactivated_by,
                             "deactivated_at": datetime.utcnow()
                         },
@@ -323,7 +326,7 @@ class PremiumManagerV2:
         try:
             count = await self.db.server_premium_status.count_documents({
                 "guild_id": guild_id,
-                "is_premium": True
+                "is_active": True
             })
             return count
         except Exception:
