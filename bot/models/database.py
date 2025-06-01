@@ -28,6 +28,7 @@ class DatabaseManager:
 
         # Collections
         self.guilds = self.db.guilds
+        self.guild_configs = self.db.guild_configs  # Alias for compatibility
         self.pvp_data = self.db.pvp_data
         self.players = self.db.players
         self.economy = self.db.economy
@@ -37,6 +38,11 @@ class DatabaseManager:
         self.premium = self.db.premium_servers
         self.parser_states = self.db.parser_states
         self.player_sessions = self.db.player_sessions
+        
+        # New premium management collections
+        self.bot_config = self.db.bot_config
+        self.premium_limits = self.db.premium_limits
+        self.server_premium_status = self.db.server_premium_status
 
         # Initialize locks for thread-safe operations
         self._parser_state_locks = {}
@@ -1409,3 +1415,194 @@ class DatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to cleanup old factions: {e}")
+
+    # ===== PREMIUM MANAGEMENT METHODS =====
+    
+    async def set_home_guild(self, guild_id: int, set_by: int) -> bool:
+        """Set the Home Guild for premium management"""
+        try:
+            await self.bot_config.replace_one(
+                {"type": "home_guild"},
+                {
+                    "type": "home_guild",
+                    "guild_id": guild_id,
+                    "set_by": set_by,
+                    "set_at": datetime.now(timezone.utc)
+                },
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set home guild: {e}")
+            return False
+
+    async def get_home_guild(self) -> Optional[int]:
+        """Get the current Home Guild ID"""
+        try:
+            config = await self.bot_config.find_one({"type": "home_guild"})
+            return config.get("guild_id") if config else None
+        except Exception as e:
+            logger.error(f"Failed to get home guild: {e}")
+            return None
+
+    async def add_premium_limit(self, guild_id: int, added_by: int, reason: str = None) -> bool:
+        """Add 1 to the premium server limit for a guild"""
+        try:
+            await self.premium_limits.update_one(
+                {"guild_id": guild_id},
+                {
+                    "$inc": {"limit": 1},
+                    "$push": {
+                        "history": {
+                            "action": "add",
+                            "amount": 1,
+                            "by": added_by,
+                            "reason": reason,
+                            "timestamp": datetime.now(timezone.utc)
+                        }
+                    },
+                    "$set": {"updated_at": datetime.now(timezone.utc)}
+                },
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add premium limit: {e}")
+            return False
+
+    async def remove_premium_limit(self, guild_id: int, removed_by: int, reason: str = None) -> bool:
+        """Remove 1 from the premium server limit for a guild"""
+        try:
+            # Get current limit
+            current_doc = await self.premium_limits.find_one({"guild_id": guild_id})
+            current_limit = current_doc.get("limit", 0) if current_doc else 0
+            
+            if current_limit <= 0:
+                return False
+            
+            # Update limit
+            await self.premium_limits.update_one(
+                {"guild_id": guild_id},
+                {
+                    "$inc": {"limit": -1},
+                    "$push": {
+                        "history": {
+                            "action": "remove",
+                            "amount": 1,
+                            "by": removed_by,
+                            "reason": reason,
+                            "timestamp": datetime.now(timezone.utc)
+                        }
+                    },
+                    "$set": {"updated_at": datetime.now(timezone.utc)}
+                }
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to remove premium limit: {e}")
+            return False
+
+    async def get_premium_limit(self, guild_id: int) -> int:
+        """Get current premium server limit for guild"""
+        try:
+            doc = await self.premium_limits.find_one({"guild_id": guild_id})
+            return doc.get("limit", 0) if doc else 0
+        except Exception as e:
+            logger.error(f"Failed to get premium limit: {e}")
+            return 0
+
+    async def count_premium_servers(self, guild_id: int) -> int:
+        """Count active premium servers for guild"""
+        try:
+            count = await self.server_premium_status.count_documents({
+                "guild_id": guild_id,
+                "is_active": True,
+                "$or": [
+                    {"expires_at": {"$exists": False}},
+                    {"expires_at": None},
+                    {"expires_at": {"$gt": datetime.now(timezone.utc)}}
+                ]
+            })
+            return count
+        except Exception as e:
+            logger.error(f"Failed to count premium servers: {e}")
+            return 0
+
+    async def activate_server_premium(self, guild_id: int, server_id: str, activated_by: int, reason: str = None) -> bool:
+        """Activate premium for a server"""
+        try:
+            await self.server_premium_status.replace_one(
+                {"guild_id": guild_id, "server_id": server_id},
+                {
+                    "guild_id": guild_id,
+                    "server_id": server_id,
+                    "is_active": True,
+                    "activated_by": activated_by,
+                    "activated_at": datetime.now(timezone.utc),
+                    "reason": reason,
+                    "expires_at": None  # No expiration for now
+                },
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to activate server premium: {e}")
+            return False
+
+    async def deactivate_server_premium(self, guild_id: int, server_id: str, deactivated_by: int, reason: str = None) -> bool:
+        """Deactivate premium for a server"""
+        try:
+            await self.server_premium_status.update_one(
+                {"guild_id": guild_id, "server_id": server_id},
+                {
+                    "$set": {
+                        "is_active": False,
+                        "deactivated_by": deactivated_by,
+                        "deactivated_at": datetime.now(timezone.utc),
+                        "deactivation_reason": reason
+                    }
+                }
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to deactivate server premium: {e}")
+            return False
+
+    async def is_server_premium(self, guild_id: int, server_id: str) -> bool:
+        """Check if a specific server is premium"""
+        try:
+            doc = await self.server_premium_status.find_one({
+                "guild_id": guild_id,
+                "server_id": server_id,
+                "is_active": True,
+                "$or": [
+                    {"expires_at": {"$exists": False}},
+                    {"expires_at": None},
+                    {"expires_at": {"$gt": datetime.now(timezone.utc)}}
+                ]
+            })
+            return doc is not None
+        except Exception as e:
+            logger.error(f"Failed to check server premium status: {e}")
+            return False
+
+    async def has_premium_access(self, guild_id: int) -> bool:
+        """Check if guild has premium access (any server is premium)"""
+        try:
+            count = await self.count_premium_servers(guild_id)
+            return count > 0
+        except Exception as e:
+            logger.error(f"Failed to check premium access: {e}")
+            return False
+
+    async def list_premium_servers(self, guild_id: int) -> List[Dict[str, Any]]:
+        """List all premium servers for guild"""
+        try:
+            cursor = self.server_premium_status.find({
+                "guild_id": guild_id,
+                "is_active": True
+            })
+            return await cursor.to_list(length=None)
+        except Exception as e:
+            logger.error(f"Failed to list premium servers: {e}")
+            return []

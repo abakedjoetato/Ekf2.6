@@ -429,12 +429,10 @@ class EmeraldKillfeedBot(commands.Bot):
             from bot.utils.voice_channel_batch import VoiceChannelBatcher
             self.voice_channel_batcher = VoiceChannelBatcher(self)
 
-            # Initialize premium compatibility layer (works with existing database)
-            from bot.utils.premium_compatibility import PremiumCompatibility
-            self.premium_manager_v2 = PremiumCompatibility(self)
-            
+            # Premium manager is now integrated directly into the database
             # Legacy compatibility for existing code
-            self.premium_manager = self.premium_manager_v2
+            self.premium_manager = self.database
+            self.premium_manager_v2 = self.database
 
             # Initialize parsers (PHASE 2) - Data parsers for killfeed & log events
             self.killfeed_parser = KillfeedParser(self)
