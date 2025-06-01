@@ -83,16 +83,14 @@ class Economy(commands.Cog):
     @discord.slash_command(name="balance", description="Check your wallet balance")
     async def balance(self, ctx: discord.ApplicationContext):
         """Check user's wallet balance"""
-        try:
-            if not ctx.guild:
-                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
-                return
-                
-            guild_id = (ctx.guild.id if ctx.guild else None)
-            discord_id = ctx.user.id
-
-            # Check premium access
-            if not await self.check_premium_server(guild_id):
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
+        discord_id = ctx.user.id
+        
+        if not await self.check_premium_server(guild_id):
                 embed = discord.Embed(
                     title="Access Restricted",
                     description="Economy features require premium subscription!",
@@ -143,13 +141,14 @@ class Economy(commands.Cog):
     @discord.slash_command(name="work", description="Work to earn money")
     async def work(self, ctx: discord.ApplicationContext):
         """Work command to earn money"""
-        try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
-            discord_id = ctx.user.id
-            user_key = f"{guild_id}_{discord_id}"
-
-            # Check premium access
-            if not await self.check_premium_server(guild_id):
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
+        discord_id = ctx.user.id
+        
+        if not await self.check_premium_server(guild_id):
                 embed = discord.Embed(
                     title="Access Restricted",
                     description="Economy features require premium subscription!",
@@ -250,11 +249,14 @@ class Economy(commands.Cog):
     async def eco_give(self, ctx: discord.ApplicationContext, 
                        user: discord.Member, amount: int):
         """Give money to a user (admin only)"""
-        try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
-
-            # Check premium access
-            if not await self.check_premium_server(guild_id):
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
+        discord_id = ctx.user.id
+        
+        if not await self.check_premium_server(guild_id):
                 embed = discord.Embed(
                     title="Access Restricted",
                     description="Economy features require premium subscription!",
@@ -299,11 +301,14 @@ class Economy(commands.Cog):
     async def eco_take(self, ctx: discord.ApplicationContext, 
                        user: discord.Member, amount: int):
         """Take money from a user (admin only)"""
-        try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
-
-            # Check premium access
-            if not await self.check_premium_server(guild_id):
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
+        discord_id = ctx.user.id
+        
+        if not await self.check_premium_server(guild_id):
                 embed = discord.Embed(
                     title="Access Restricted",
                     description="Economy features require premium subscription!",
@@ -356,11 +361,14 @@ class Economy(commands.Cog):
     @discord.default_permissions(administrator=True)
     async def eco_reset(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Reset a user's wallet (admin only)"""
-        try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
-
-            # Check premium access
-            if not await self.check_premium_server(guild_id):
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
+        discord_id = ctx.user.id
+        
+        if not await self.check_premium_server(guild_id):
                 embed = discord.Embed(
                     title="Access Restricted",
                     description="Economy features require premium subscription!",

@@ -1,103 +1,90 @@
 """
-Roulette Game Implementation
-European roulette with comprehensive betting options
+Roulette gambling game implementation
 """
 
+import discord
 import random
 import logging
-from typing import Dict, List, Tuple, Optional
-import discord
-from .core import GamblingCore, BetValidation, GameSession
+from typing import List, Dict, Any
+from ..utils.embed_factory import EmbedFactory
+from .core import GamblingCore
 
 logger = logging.getLogger(__name__)
 
+class BetValidation:
+    """Bet validation utility"""
+    
+    @staticmethod
+    def validate_bet_amount(bet_amount: int, balance: int) -> tuple[bool, str]:
+        """Validate bet amount against balance"""
+        if bet_amount <= 0:
+            return False, "Bet amount must be positive"
+        if bet_amount > balance:
+            return False, f"Insufficient balance. You have ${balance:,}"
+        return True, ""
+
+
+
 class RouletteGame:
-    """European roulette implementation"""
+    """European Roulette implementation"""
     
-    # European roulette numbers (0-36)
-    RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
-    BLACK_NUMBERS = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35]
+    def __init__(self, core: GamblingCore):
+        self.core = core
+        self.numbers = list(range(37))  # 0-36
+        self.red_numbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+        self.black_numbers = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
     
-    def __init__(self, gambling_core: GamblingCore):
-        self.core = gambling_core
-        
-    def spin_wheel(self) -> int:
-        """Spin the roulette wheel"""
-        return random.randint(0, 36)
-        
     def get_number_color(self, number: int) -> str:
-        """Get color of number"""
+        """Get color of a roulette number"""
         if number == 0:
             return "green"
-        elif number in self.RED_NUMBERS:
+        elif number in self.red_numbers:
             return "red"
         else:
             return "black"
-            
-    def calculate_payout(self, bet_type: str, bet_value: str, winning_number: int, bet_amount: int) -> Tuple[int, str]:
+    
+    def calculate_payout(self, bet_choice: str, winning_number: int, bet_amount: int) -> int:
         """Calculate payout based on bet type and winning number"""
-        winning_color = self.get_number_color(winning_number)
+        bet_choice = bet_choice.lower()
         
-        # Straight number bet
-        if bet_type == "number":
-            try:
-                bet_number = int(bet_value)
-                if bet_number == winning_number:
-                    return bet_amount * 35, f"Straight number {winning_number} wins!"
-            except ValueError:
-                pass
-                
-        # Color bets
-        elif bet_type == "color":
-            if bet_value.lower() == winning_color and winning_number != 0:
-                return bet_amount * 2, f"{winning_color.title()} wins!"
-                
-        # Even/Odd bets
-        elif bet_type == "parity":
-            if winning_number != 0:
-                is_even = winning_number % 2 == 0
-                if (bet_value.lower() == "even" and is_even) or (bet_value.lower() == "odd" and not is_even):
-                    return bet_amount * 2, f"{bet_value.title()} wins!"
-                    
-        # High/Low bets
-        elif bet_type == "range":
-            if winning_number != 0:
-                if (bet_value.lower() == "low" and 1 <= winning_number <= 18) or \
-                   (bet_value.lower() == "high" and 19 <= winning_number <= 36):
-                    return bet_amount * 2, f"{bet_value.title()} wins!"
-                    
-        return 0, f"Number {winning_number} ({winning_color}) - No win"
+        # Straight number bet (35:1)
+        if bet_choice.isdigit():
+            if int(bet_choice) == winning_number:
+                return bet_amount * 35
+            return 0
         
-    def parse_bet(self, bet_input: str) -> Tuple[str, str]:
-        """Parse bet input string"""
-        bet_input = bet_input.lower().strip()
+        # Color bets (1:1)
+        if bet_choice in ["red", "black"]:
+            if self.get_number_color(winning_number) == bet_choice:
+                return bet_amount * 2
+            return 0
         
-        # Number bet
-        if bet_input.isdigit():
-            number = int(bet_input)
-            if 0 <= number <= 36:
-                return "number", bet_input
-                
-        # Color bets
-        elif bet_input in ["red", "black"]:
-            return "color", bet_input
-            
-        # Parity bets
-        elif bet_input in ["even", "odd"]:
-            return "parity", bet_input
-            
-        # Range bets
-        elif bet_input in ["low", "high"]:
-            return "range", bet_input
-            
-        return "invalid", ""
+        # Even/Odd bets (1:1)
+        if bet_choice == "even" and winning_number != 0 and winning_number % 2 == 0:
+            return bet_amount * 2
+        if bet_choice == "odd" and winning_number % 2 == 1:
+            return bet_amount * 2
         
+        # High/Low bets (1:1)
+        if bet_choice == "high" and 19 <= winning_number <= 36:
+            return bet_amount * 2
+        if bet_choice == "low" and 1 <= winning_number <= 18:
+            return bet_amount * 2
+        
+        return 0
+    
     async def play(self, ctx: discord.ApplicationContext, bet_amount: int, bet_choice: str) -> discord.Embed:
         """Play roulette game"""
         try:
-            # Validate bet amount
+            # Validate guild context
             if not ctx.guild:
-                return discord.Embed(title="❌ Error", description="This command must be used in a server", color=0xff0000)
+                return discord.Embed(
+                    title="❌ Error", 
+                    description="This command must be used in a server", 
+                    color=0xff0000
+                )
+            
+            # Validate bet amount
             balance = await self.core.get_user_balance(ctx.guild.id, ctx.user.id)
             valid, error_msg = BetValidation.validate_bet_amount(bet_amount, balance)
             
@@ -108,34 +95,17 @@ class RouletteGame:
                     color=0xff0000
                 )
                 return embed
-                
-            # Parse bet choice
-            bet_type, bet_value = self.parse_bet(bet_choice)
             
-            if bet_type == "invalid":
-                embed = discord.Embed(
-                    title="❌ Invalid Bet Choice",
-                    description="Valid options: red/black, even/odd, low/high, or number 0-36",
-                    color=0xff0000
-                )
-                return embed
-                
             # Deduct bet amount
-            success = await self.core.update_user_balance(
-                ctx.guild.id, ctx.user.id, -bet_amount, f"Roulette bet: ${bet_amount:,} on {bet_choice}"
+            await self.core.update_user_balance(
+                ctx.guild.id, ctx.user.id, -bet_amount, f"Roulette bet: ${bet_amount:,}"
             )
             
-            if not success:
-                embed = discord.Embed(
-                    title="❌ Transaction Failed",
-                    description="Unable to process bet",
-                    color=0xff0000
-                )
-                return embed
-                
-            # Spin wheel
-            winning_number = self.spin_wheel()
-            payout, result_desc = self.calculate_payout(bet_type, bet_value, winning_number, bet_amount)
+            # Spin the wheel
+            winning_number = random.randint(0, 36)
+            
+            # Calculate payout
+            payout = self.calculate_payout(bet_choice, winning_number, bet_amount)
             
             # Process winnings
             if payout > 0:
@@ -144,9 +114,7 @@ class RouletteGame:
                 )
                 
             # Get updated balance
-            new_if not ctx.guild:
-            return discord.Embed(title="❌ Error", description="This command must be used in a server", color=0xff0000)
-        balance = await self.core.get_user_balance(ctx.guild.id, ctx.user.id)
+            new_balance = await self.core.get_user_balance(ctx.guild.id, ctx.user.id)
             net_change = payout - bet_amount
             
             # Create result embed
@@ -154,25 +122,47 @@ class RouletteGame:
             embed_color = 0xff0000 if color == "red" else 0x000000 if color == "black" else 0x00ff00
             
             embed = discord.Embed(
-                title="🎡 EMERALD ROULETTE",
-                description=f"**Winning Number: {winning_number} ({color.upper()})**\n\n{result_desc}",
+                title="🎰 Roulette Results",
                 color=embed_color
             )
             
             embed.add_field(
-                name="🎯 Your Bet",
-                value=f"**Choice:** {bet_choice.title()}\n**Amount:** ${bet_amount:,}",
+                name="🎯 Winning Number",
+                value=f"**{winning_number}** ({color.title()})",
                 inline=True
             )
             
             embed.add_field(
-                name="💰 Results",
-                value=f"**Payout:** ${payout:,}\n**Net:** ${net_change:+,}",
+                name="💰 Your Bet",
+                value=f"${bet_amount:,} on {bet_choice}",
                 inline=True
             )
             
+            if payout > 0:
+                embed.add_field(
+                    name="🎉 Payout",
+                    value=f"${payout:,}",
+                    inline=True
+                )
+                embed.add_field(
+                    name="📈 Net Gain",
+                    value=f"+${net_change:,}",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="💸 Result",
+                    value="No win this time!",
+                    inline=True
+                )
+                embed.add_field(
+                    name="📉 Net Loss",
+                    value=f"-${bet_amount:,}",
+                    inline=False
+                )
+            
             embed.add_field(
-                name="💳 Balance",
+                name="💳 New Balance",
                 value=f"${new_balance:,}",
                 inline=False
             )
@@ -181,9 +171,8 @@ class RouletteGame:
             
         except Exception as e:
             logger.error(f"Roulette game error: {e}")
-            embed = discord.Embed(
+            return discord.Embed(
                 title="❌ Game Error",
-                description="An error occurred during the game",
+                description="An error occurred while playing roulette. Please try again.",
                 color=0xff0000
             )
-            return embed

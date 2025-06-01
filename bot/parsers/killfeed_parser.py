@@ -72,8 +72,48 @@ class KillfeedParser:
                 except ValueError:
                     # Fallback to current time
                     timestamp = datetime.utcnow().replace(tzinfo=timezone.utc)
+                except ValueError:
+                    # Fallback to current time
+                    timestamp = datetime.utcnow().replace(tzinfo=timezone.utc)
 
             # Normalize suicide events
+            is_suicide = killer == victim or weapon.lower() == 'suicide_by_relocation'
+            if is_suicide:
+                if weapon.lower() == 'suicide_by_relocation':
+                    weapon = 'Menu Suicide'
+                elif weapon.lower() == 'falling':
+                    weapon = 'Falling'
+                    is_suicide = True  # Falling is treated as suicide
+                else:
+                    weapon = 'Suicide'
+
+            # Parse distance
+            try:
+                if distance and distance != 'N/A':
+                    distance_float = float(distance)
+                else:
+                    distance_float = 0.0
+            except ValueError:
+                distance_float = 0.0
+
+            # Parse timestamp
+            try:
+                timestamp = datetime.strptime(timestamp_str, "%Y.%m.%d-%H.%M.%S:%f").replace(tzinfo=timezone.utc)
+            except ValueError:
+                # Fallback to current time
+                timestamp = datetime.utcnow().replace(tzinfo=timezone.utc)
+
+            return {
+                'timestamp': timestamp,
+                'killer': killer,
+                'victim': victim,
+                'weapon': weapon,
+                'distance': distance_float,
+                'is_suicide': False
+            }
+        
+        def normalize_suicide_event(self, killer, victim, weapon):
+            """Normalize suicide events"""
             is_suicide = killer == victim or weapon.lower() == 'suicide_by_relocation'
             if is_suicide:
                 if weapon.lower() == 'suicide_by_relocation':

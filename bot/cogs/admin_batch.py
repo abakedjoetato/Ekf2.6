@@ -24,6 +24,17 @@ class AdminBatch(commands.Cog):
             await ctx.respond("❌ This command must be used in a server", ephemeral=True)
             return
             
+        guild_id = ctx.guild.id
+        server_id = "default"  # Default server for batch operations
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        server_id = "default"  # Default server for batch operations
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
         server_id = "default"  # Default server for batch stats
         """Show current batch sender statistics"""
         try:
@@ -102,6 +113,19 @@ class AdminBatch(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def reset_player_count(self, ctx: discord.ApplicationContext, server_id: str):
         """Reset player count tracking for a server"""
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
+        if not server_id:
+            server_id = "default"
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
+        server_id = server_id or "default"  # Use provided or default
         try:
             guild_id = ctx.guild_id
             server_key = f"{guild_id}_{server_id}"
