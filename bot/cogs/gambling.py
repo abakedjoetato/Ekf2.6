@@ -1251,53 +1251,813 @@ class Gambling(commands.Cog):
             logger.error(f"Max bet failed: {e}")
 
     async def _initialize_blackjack_game(self, interaction: discord.Interaction, bet: int, game_data: Dict):
-        """Initialize blackjack game"""
+        """Initialize blackjack game with full deck and card management"""
         try:
-            await interaction.response.send_message("Blackjack game initializing...", ephemeral=True)
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+
+            # Validate bet amount
+            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            balance = wallet.get('balance', 0)
+
+            if bet > balance:
+                await interaction.response.send_message(f"❌ Insufficient funds! You have ${balance:,}", ephemeral=True)
+                return
+
+            # Deduct bet from wallet
+            await self.bot.db_manager.update_wallet(guild_id, discord_id, -bet, "gambling_blackjack")
+
+            # Initialize blackjack game state
+            deck = self._create_deck()
+            random.shuffle(deck)
+
+            player_hand = [deck.pop(), deck.pop()]
+            dealer_hand = [deck.pop(), deck.pop()]
+
+            game_state = {
+                'deck': deck,
+                'player_hand': player_hand,
+                'dealer_hand': dealer_hand,
+                'bet': bet,
+                'doubled': False,
+                'surrendered': False,
+                'game_over': False,
+                'player_stood': False
+            }
+
+            # Check for natural blackjack
+            player_score = self._calculate_hand_value(player_hand)
+            dealer_score = self._calculate_hand_value(dealer_hand)
+
+            if player_score == 21:
+                if dealer_score == 21:
+                    # Push
+                    await self.bot.db_manager.update_wallet(guild_id, discord_id, bet, "gambling_blackjack")
+                    await self._show_blackjack_result(interaction, game_state, "push", "Both have blackjack!")
+                else:
+                    # Natural blackjack wins 3:2
+                    winnings = int(bet * 2.5)
+                    await self.bot.db_manager.update_wallet(guild_id, discord_id, winnings, "gambling_blackjack")
+                    await self._show_blackjack_result(interaction, game_state, "natural", "Natural Blackjack!")
+                return
+
+            # Create blackjack embed and view
+            embed_data = {
+                'title': "🃏 INTERACTIVE BLACKJACK - AI ENHANCED",
+                'description': f"**Bet:** ${bet:,}\n**AI Mode:** Active\n**Strategy Hints:** Enabled\n\n🤖 **AI analyzing optimal play...**"
+            }
+            embed, gamble_file = await EmbedFactory.build('generic', embed_data)
+            embed.color = 0x7f5af0
+            embed.set_thumbnail(url="attachment://Gamble.png")
+
+            # Add hands display
+            player_display = self._format_hand_display(player_hand, player_score)
+            dealer_display = self._format_hand_display([dealer_hand[0], "🎴"], "?")
+
+            embed.add_field(
+                name="🎯 Your Hand",
+                value=f"```{player_display}```",
+                inline=True
+            )
+
+            embed.add_field(
+                name="🎰 Dealer Hand",
+                value=f"```{dealer_display}```",
+                inline=True
+            )
+
+            # AI strategy hint
+            hint = self._get_blackjack_strategy_hint(player_hand, dealer_hand[0])
+            embed.add_field(
+                name="🤖 AI Strategy Hint",
+                value=f"```{hint}```",
+                inline=False
+            )
+
+            embed.set_footer(text="🚀 Ultimate AI Gaming Engine | Choose your action")
+
+            # Create blackjack view
+            view = UltimateGamblingView(self, interaction, "blackjack")
+            view.current_bet = bet
+            view.game_state = game_state
+
+            gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
+            if hasattr(interaction, 'response') and not interaction.response.is_done():
+                await interaction.response.edit_message(embed=embed, file=gamble_file, view=view)
+            else:
+                await interaction.edit_original_response(embed=embed, file=gamble_file, view=view)
+
         except Exception as e:
             logger.error(f"Blackjack init failed: {e}")
+            if hasattr(interaction, 'response') and not interaction.response.is_done():
+                await interaction.response.send_message("❌ Failed to start blackjack game. Please try again.", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Failed to start blackjack game. Please try again.", ephemeral=True)
+
+    def _create_deck(self) -> List[Dict]:
+        """Create a standard 52-card deck"""
+        suits = ['♠️', '♥️', '♦️', '♣️']
+        ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        deck = []
+        
+        for suit in suits:
+            for rank in ranks:
+                value = 11 if rank == 'A' else 10 if rank in ['J', 'Q', 'K'] else int(rank)
+                deck.append({'rank': rank, 'suit': suit, 'value': value})
+        
+        return deck
+
+    def _calculate_hand_value(self, hand: List[Dict]) -> int:
+        """Calculate the value of a blackjack hand"""
+        total = 0
+        aces = 0
+        
+        for card in hand:
+            if isinstance(card, str):  # Hidden card
+                continue
+            if card['rank'] == 'A':
+                aces += 1
+                total += 11
+            else:
+                total += card['value']
+        
+        # Adjust for aces
+        while total > 21 and aces > 0:
+            total -= 10
+            aces -= 1
+        
+        return total
+
+    def _format_hand_display(self, hand: List, score) -> str:
+        """Format hand for display"""
+        if isinstance(hand[0], str):  # Hidden card scenario
+            return f"🎴 {hand[1]['rank']}{hand[1]['suit']} | Score: ?"
+        
+        cards = []
+        for card in hand:
+            if isinstance(card, str):
+                cards.append(card)
+            else:
+                cards.append(f"{card['rank']}{card['suit']}")
+        
+        return f"{' '.join(cards)} | Score: {score}"
+
+    def _get_blackjack_strategy_hint(self, player_hand: List[Dict], dealer_card: Dict) -> str:
+        """Get AI strategy hint for blackjack"""
+        player_score = self._calculate_hand_value(player_hand)
+        dealer_value = dealer_card['value']
+        
+        if player_score <= 11:
+            return "Always HIT with 11 or less - no risk of busting"
+        elif player_score == 12:
+            return "HIT against dealer 2-3, 7-A | STAND against 4-6"
+        elif 13 <= player_score <= 16:
+            if dealer_value <= 6:
+                return "STAND - dealer likely to bust with weak upcard"
+            else:
+                return "HIT - dealer has strong upcard, need to improve"
+        elif player_score == 17:
+            return "STAND - 17 is a solid hand in most situations"
+        elif player_score >= 18:
+            return "STAND - strong hand, let dealer try to beat it"
+        else:
+            return "Follow basic blackjack strategy"
 
     async def _blackjack_hit(self, interaction: discord.Interaction, view: UltimateGamblingView):
-        """Handle blackjack hit"""
+        """Handle blackjack hit action"""
         try:
-            await interaction.response.send_message("Hit action...", ephemeral=True)
+            await interaction.response.defer()
+            
+            game_state = view.game_state
+            if game_state['game_over']:
+                await interaction.edit_original_response(content="❌ Game is already over!")
+                return
+
+            # Deal a card
+            new_card = game_state['deck'].pop()
+            game_state['player_hand'].append(new_card)
+            
+            player_score = self._calculate_hand_value(game_state['player_hand'])
+            
+            if player_score > 21:
+                # Player busts
+                await self._show_blackjack_result(interaction, game_state, "bust", "You busted!")
+                return
+            elif player_score == 21:
+                # Player has 21, auto-stand
+                await self._blackjack_dealer_play(interaction, view)
+                return
+            
+            # Update display
+            await self._update_blackjack_display(interaction, view, f"You drew {new_card['rank']}{new_card['suit']}")
+            
         except Exception as e:
             logger.error(f"Blackjack hit failed: {e}")
+            await interaction.edit_original_response(content="❌ Hit action failed.")
 
     async def _blackjack_stand(self, interaction: discord.Interaction, view: UltimateGamblingView):
-        """Handle blackjack stand"""
+        """Handle blackjack stand action"""
         try:
-            await interaction.response.send_message("Stand action...", ephemeral=True)
+            await interaction.response.defer()
+            
+            game_state = view.game_state
+            if game_state['game_over']:
+                await interaction.edit_original_response(content="❌ Game is already over!")
+                return
+            
+            game_state['player_stood'] = True
+            await self._blackjack_dealer_play(interaction, view)
+            
         except Exception as e:
             logger.error(f"Blackjack stand failed: {e}")
+            await interaction.edit_original_response(content="❌ Stand action failed.")
 
     async def _blackjack_double(self, interaction: discord.Interaction, view: UltimateGamblingView):
-        """Handle blackjack double"""
+        """Handle blackjack double down action"""
         try:
-            await interaction.response.send_message("Double action...", ephemeral=True)
+            await interaction.response.defer()
+            
+            game_state = view.game_state
+            if game_state['game_over'] or game_state['doubled']:
+                await interaction.edit_original_response(content="❌ Cannot double down now!")
+                return
+            
+            # Check if player has enough money to double
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            
+            if wallet.get('balance', 0) < game_state['bet']:
+                await interaction.edit_original_response(content="❌ Insufficient funds to double down!")
+                return
+            
+            # Deduct additional bet
+            await self.bot.db_manager.update_wallet(guild_id, discord_id, -game_state['bet'], "gambling_blackjack")
+            game_state['bet'] *= 2
+            game_state['doubled'] = True
+            
+            # Deal one card and stand
+            new_card = game_state['deck'].pop()
+            game_state['player_hand'].append(new_card)
+            
+            player_score = self._calculate_hand_value(game_state['player_hand'])
+            
+            if player_score > 21:
+                await self._show_blackjack_result(interaction, game_state, "bust", f"You drew {new_card['rank']}{new_card['suit']} and busted!")
+                return
+            
+            # Auto-stand after double
+            await self._blackjack_dealer_play(interaction, view)
+            
         except Exception as e:
             logger.error(f"Blackjack double failed: {e}")
+            await interaction.edit_original_response(content="❌ Double down failed.")
 
     async def _blackjack_surrender(self, interaction: discord.Interaction, view: UltimateGamblingView):
-        """Handle blackjack surrender"""
+        """Handle blackjack surrender action"""
         try:
-            await interaction.response.send_message("Surrender action...", ephemeral=True)
+            await interaction.response.defer()
+            
+            game_state = view.game_state
+            if game_state['game_over'] or len(game_state['player_hand']) != 2:
+                await interaction.edit_original_response(content="❌ Can only surrender with initial 2 cards!")
+                return
+            
+            # Return half the bet
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+            half_bet = game_state['bet'] // 2
+            await self.bot.db_manager.update_wallet(guild_id, discord_id, half_bet, "gambling_blackjack")
+            
+            game_state['surrendered'] = True
+            await self._show_blackjack_result(interaction, game_state, "surrender", f"You surrendered and got back ${half_bet:,}")
+            
         except Exception as e:
             logger.error(f"Blackjack surrender failed: {e}")
+            await interaction.edit_original_response(content="❌ Surrender failed.")
+
+    async def _blackjack_dealer_play(self, interaction: discord.Interaction, view: UltimateGamblingView):
+        """Handle dealer's turn in blackjack"""
+        try:
+            game_state = view.game_state
+            
+            # Reveal dealer's hidden card
+            dealer_score = self._calculate_hand_value(game_state['dealer_hand'])
+            
+            # Dealer hits on soft 17
+            while dealer_score < 17 or (dealer_score == 17 and self._is_soft_17(game_state['dealer_hand'])):
+                new_card = game_state['deck'].pop()
+                game_state['dealer_hand'].append(new_card)
+                dealer_score = self._calculate_hand_value(game_state['dealer_hand'])
+            
+            # Determine winner
+            player_score = self._calculate_hand_value(game_state['player_hand'])
+            
+            if dealer_score > 21:
+                result = "win"
+                message = "Dealer busted - You win!"
+                winnings = game_state['bet'] * 2
+            elif dealer_score > player_score:
+                result = "loss"
+                message = "Dealer wins!"
+                winnings = 0
+            elif player_score > dealer_score:
+                result = "win"
+                message = "You win!"
+                winnings = game_state['bet'] * 2
+            else:
+                result = "push"
+                message = "Push - It's a tie!"
+                winnings = game_state['bet']
+            
+            # Update wallet
+            if winnings > 0:
+                guild_id = interaction.guild.id
+                discord_id = interaction.user.id
+                await self.bot.db_manager.update_wallet(guild_id, discord_id, winnings, "gambling_blackjack")
+            
+            await self._show_blackjack_result(interaction, game_state, result, message)
+            
+        except Exception as e:
+            logger.error(f"Dealer play failed: {e}")
+
+    def _is_soft_17(self, hand: List[Dict]) -> bool:
+        """Check if hand is a soft 17 (contains ace counted as 11)"""
+        total = 0
+        aces = 0
+        
+        for card in hand:
+            if card['rank'] == 'A':
+                aces += 1
+                total += 11
+            else:
+                total += card['value']
+        
+        return total == 17 and aces > 0
+
+    async def _update_blackjack_display(self, interaction: discord.Interaction, view: UltimateGamblingView, message: str = ""):
+        """Update blackjack game display"""
+        try:
+            game_state = view.game_state
+            
+            player_score = self._calculate_hand_value(game_state['player_hand'])
+            dealer_score = "?" if not game_state['player_stood'] else self._calculate_hand_value(game_state['dealer_hand'])
+            
+            embed_data = {
+                'title': "🃏 INTERACTIVE BLACKJACK - AI ENHANCED",
+                'description': f"**Bet:** ${game_state['bet']:,}\n**AI Mode:** Active\n**Strategy Hints:** Enabled\n\n{message}"
+            }
+            embed, gamble_file = await EmbedFactory.build('generic', embed_data)
+            embed.color = 0x7f5af0
+            embed.set_thumbnail(url="attachment://Gamble.png")
+
+            # Add hands display
+            player_display = self._format_hand_display(game_state['player_hand'], player_score)
+            
+            if game_state['player_stood']:
+                dealer_display = self._format_hand_display(game_state['dealer_hand'], dealer_score)
+            else:
+                dealer_display = self._format_hand_display([game_state['dealer_hand'][0], "🎴"], "?")
+
+            embed.add_field(
+                name="🎯 Your Hand",
+                value=f"```{player_display}```",
+                inline=True
+            )
+
+            embed.add_field(
+                name="🎰 Dealer Hand",
+                value=f"```{dealer_display}```",
+                inline=True
+            )
+
+            if not game_state['player_stood'] and player_score < 21:
+                hint = self._get_blackjack_strategy_hint(game_state['player_hand'], game_state['dealer_hand'][0])
+                embed.add_field(
+                    name="🤖 AI Strategy Hint",
+                    value=f"```{hint}```",
+                    inline=False
+                )
+
+            embed.set_footer(text="🚀 Ultimate AI Gaming Engine | Choose your action")
+
+            gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
+            await interaction.edit_original_response(embed=embed, file=gamble_file, view=view)
+            
+        except Exception as e:
+            logger.error(f"Display update failed: {e}")
+
+    async def _show_blackjack_result(self, interaction: discord.Interaction, game_state: Dict, result: str, message: str):
+        """Show final blackjack result"""
+        try:
+            game_state['game_over'] = True
+            
+            player_score = self._calculate_hand_value(game_state['player_hand'])
+            dealer_score = self._calculate_hand_value(game_state['dealer_hand'])
+            
+            # Get updated balance
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            
+            # Color based on result
+            colors = {
+                'win': 0x00d38a,
+                'natural': 0xd946ef,
+                'loss': 0xff5e5e,
+                'push': 0xfbbf24,
+                'bust': 0xff5e5e,
+                'surrender': 0x6366f1
+            }
+            
+            embed_data = {
+                'title': "🃏 BLACKJACK RESULT - AI ANALYSIS COMPLETE",
+                'description': f"**{message}**\n\n🎯 **Final Scores:**\nYour Hand: {player_score}\nDealer Hand: {dealer_score}"
+            }
+            embed, gamble_file = await EmbedFactory.build('generic', embed_data)
+            embed.color = colors.get(result, 0x7f5af0)
+            embed.set_thumbnail(url="attachment://Gamble.png")
+
+            # Show final hands
+            player_display = self._format_hand_display(game_state['player_hand'], player_score)
+            dealer_display = self._format_hand_display(game_state['dealer_hand'], dealer_score)
+
+            embed.add_field(
+                name="🎯 Your Final Hand",
+                value=f"```{player_display}```",
+                inline=True
+            )
+
+            embed.add_field(
+                name="🎰 Dealer Final Hand",
+                value=f"```{dealer_display}```",
+                inline=True
+            )
+
+            # Track in AI system
+            ai_game_data = {
+                'game_type': 'blackjack',
+                'bet': game_state['bet'],
+                'winnings': game_state['bet'] * 2 if result == 'win' else (game_state['bet'] * 2.5 if result == 'natural' else (game_state['bet'] if result == 'push' else 0)),
+                'result': result,
+                'player_score': player_score,
+                'dealer_score': dealer_score
+            }
+
+            ai_insights = self.ai_engine.analyze_player_behavior(str(discord_id), ai_game_data)
+            
+            # Contextual message
+            context_messages = self.contextual_messages['blackjack'].get(result, ["Great game!"])
+            context_message = random.choice(context_messages)
+            
+            embed.add_field(
+                name="📢 AI Announcer",
+                value=f"```{context_message}```",
+                inline=False
+            )
+
+            embed.set_footer(text=f"💰 Updated Balance: ${wallet.get('balance', 0):,} | Ultimate AI Gaming Engine")
+
+            # Remove all buttons
+            view = discord.ui.View()
+            
+            gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
+            await interaction.edit_original_response(embed=embed, file=gamble_file, view=view)
+            
+        except Exception as e:
+            logger.error(f"Result display failed: {e}")
 
     async def _initialize_roulette_game(self, interaction: discord.Interaction, bet: int, game_data: Dict):
-        """Initialize roulette game"""
+        """Initialize physics-based roulette game"""
         try:
-            await interaction.response.send_message("Roulette game initializing...", ephemeral=True)
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+
+            # Validate bet amount
+            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            balance = wallet.get('balance', 0)
+
+            if bet > balance:
+                await interaction.response.send_message(f"❌ Insufficient funds! You have ${balance:,}", ephemeral=True)
+                return
+
+            # Get roulette choice from game_data or default to red
+            choice = game_data.get('choice', 'red')
+
+            # Deduct bet from wallet
+            await self.bot.db_manager.update_wallet(guild_id, discord_id, -bet, "gambling_roulette")
+
+            # Initialize roulette game state
+            game_state = {
+                'bet': bet,
+                'choice': choice,
+                'payout_multiplier': self._get_roulette_payout_multiplier(choice),
+                'spin_complete': False
+            }
+
+            # Create roulette embed
+            embed_data = {
+                'title': "🎯 PHYSICS ROULETTE - AI ENHANCED",
+                'description': f"**Bet:** ${bet:,}\n**Choice:** {choice.title()}\n**Physics Engine:** Active\n**Momentum Simulation:** Enabled\n\n🤖 **AI calculating optimal spin trajectory...**"
+            }
+            embed, gamble_file = await EmbedFactory.build('generic', embed_data)
+            embed.color = 0x7f5af0
+            embed.set_thumbnail(url="attachment://Gamble.png")
+
+            # Add betting info
+            payout_info = self._get_roulette_payout_info(choice)
+            embed.add_field(
+                name="🎯 Your Bet",
+                value=f"```Choice: {choice.title()}\nPayout: {payout_info}\nPotential Win: ${int(bet * game_state['payout_multiplier']):,}```",
+                inline=False
+            )
+
+            # Add roulette wheel layout
+            wheel_layout = self._get_roulette_wheel_display()
+            embed.add_field(
+                name="🎰 Roulette Wheel",
+                value=f"```{wheel_layout}```",
+                inline=False
+            )
+
+            embed.set_footer(text="🚀 Ultimate AI Gaming Engine | Click SPIN to release the ball")
+
+            # Create roulette view
+            view = UltimateGamblingView(self, interaction, "roulette")
+            view.current_bet = bet
+            view.game_state = game_state
+
+            gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
+            if hasattr(interaction, 'response') and not interaction.response.is_done():
+                await interaction.response.edit_message(embed=embed, file=gamble_file, view=view)
+            else:
+                await interaction.edit_original_response(embed=embed, file=gamble_file, view=view)
+
         except Exception as e:
             logger.error(f"Roulette init failed: {e}")
+            if hasattr(interaction, 'response') and not interaction.response.is_done():
+                await interaction.response.send_message("❌ Failed to start roulette game. Please try again.", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Failed to start roulette game. Please try again.", ephemeral=True)
+
+    def _get_roulette_payout_multiplier(self, choice: str) -> float:
+        """Get payout multiplier for roulette bet"""
+        if choice.isdigit():
+            return 36.0  # Straight number bet
+        elif choice in ['red', 'black']:
+            return 2.0  # Color bet
+        elif choice in ['even', 'odd', 'low', 'high']:
+            return 2.0  # Even money bets
+        elif choice == 'green':
+            return 36.0  # Green (0) bet
+        else:
+            return 2.0  # Default
+
+    def _get_roulette_payout_info(self, choice: str) -> str:
+        """Get payout info string for display"""
+        if choice.isdigit():
+            return "36:1 (Straight Number)"
+        elif choice in ['red', 'black']:
+            return "2:1 (Color)"
+        elif choice in ['even', 'odd']:
+            return "2:1 (Even/Odd)"
+        elif choice in ['low', 'high']:
+            return "2:1 (Low/High)"
+        elif choice == 'green':
+            return "36:1 (Green Zero)"
+        else:
+            return "2:1"
+
+    def _get_roulette_wheel_display(self) -> str:
+        """Get roulette wheel layout for display"""
+        return """
+      00  0   32  15  19  4   21  2   25  17  34  6   27  13  36  11  30  8   23  10  5   24  16  33  1   20  14  31  9   22  18  29  7   28  12  35  3   26
+      G   G   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B   R   B
+        """
 
     async def _execute_roulette_spin(self, interaction: discord.Interaction, view: UltimateGamblingView):
-        """Execute roulette spin"""
+        """Execute physics-based roulette spin with realistic animation"""
         try:
-            await interaction.response.send_message("Roulette spin executing...", ephemeral=True)
+            await interaction.response.defer()
+
+            game_state = view.game_state
+            if game_state['spin_complete']:
+                await interaction.edit_original_response(content="❌ Spin already completed!")
+                return
+
+            bet = game_state['bet']
+            choice = game_state['choice']
+            guild_id = interaction.guild.id
+            discord_id = interaction.user.id
+
+            # Physics-based spinning animation sequence
+            animation_frames = [
+                ("🎯 Ball released into the wheel...", 0x8b5cf6),
+                ("🌀 Wheel spinning at maximum velocity...", 0xa855f7),
+                ("⚡ Physics calculations in progress...", 0xc084fc),
+                ("💫 Ball bouncing between pockets...", 0xd946ef),
+                ("🎲 Momentum decreasing, final trajectory...", 0xec4899),
+                ("🎯 Ball settling into position...", 0xf97316),
+                ("✨ Final pocket determined...", 0xeab308),
+                ("🏆 Spin complete - revealing result!", 0x22c55e)
+            ]
+
+            for i, (description, color) in enumerate(animation_frames):
+                progress = (i + 1) / len(animation_frames)
+                progress_bar = "█" * int(progress * 12) + "░" * int((1 - progress) * 12)
+
+                embed_data = {
+                    'title': "🎯 PHYSICS ROULETTE - SPINNING",
+                    'description': f"**Bet:** ${bet:,}\n**Choice:** {choice.title()}\n\n{description}"
+                }
+                embed, gamble_file = await EmbedFactory.build('generic', embed_data)
+                embed.color = color
+                embed.set_thumbnail(url="attachment://Gamble.png")
+
+                embed.add_field(
+                    name="🌀 Spin Progress",
+                    value=f"```[{progress_bar}] {progress*100:.0f}%```",
+                    inline=False
+                )
+
+                embed.set_footer(text=f"🚀 Frame {i+1}/8 | Physics Engine Active")
+
+                gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
+                await interaction.edit_original_response(embed=embed, file=gamble_file, view=None)
+                await asyncio.sleep(0.8)
+
+            # Generate result using physics-based randomness
+            result = self._generate_roulette_result(str(discord_id))
+            winnings, win_type = self._calculate_roulette_payout(result, choice, bet)
+
+            # Update wallet with winnings
+            if winnings > 0:
+                await self.bot.db_manager.update_wallet(guild_id, discord_id, winnings, "gambling_roulette")
+
+            # Track in AI system
+            ai_game_data = {
+                'game_type': 'roulette',
+                'bet': bet,
+                'winnings': winnings,
+                'choice': choice,
+                'result': result,
+                'win_type': win_type
+            }
+
+            ai_insights = self.ai_engine.analyze_player_behavior(str(discord_id), ai_game_data)
+
+            # Get updated balance
+            updated_wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+
+            # Create result embed
+            net_result = winnings - bet
+            embed_color = 0x00d38a if winnings > 0 else 0xff5e5e
+
+            # Special colors for number hits
+            if result['number'] == 0:
+                embed_color = 0x22c55e  # Green for zero
+            elif win_type == 'number_hit':
+                embed_color = 0xd946ef  # Purple for number hit
+
+            embed_data = {
+                'title': "🎯 ROULETTE RESULT - PHYSICS ANALYSIS COMPLETE"
+            }
+            embed, gamble_file = await EmbedFactory.build('generic', embed_data)
+            embed.color = embed_color
+            embed.set_thumbnail(url="attachment://Gamble.png")
+
+            # Result display
+            result_display = f"**Winning Number:** {result['number']} {result['color']}"
+            if result['number'] != 0:
+                result_display += f" ({'Even' if result['number'] % 2 == 0 else 'Odd'})"
+            
+            embed.add_field(
+                name="🎲 Final Result",
+                value=f"```{result_display}\nYour Bet: {choice.title()}\nResult: {'WIN' if winnings > 0 else 'LOSS'}```",
+                inline=False
+            )
+
+            embed.add_field(
+                name="💰 Payout Calculation",
+                value=f"```Bet Amount: ${bet:,}\nWinnings: ${winnings:,}\nNet Result: ${net_result:,}```",
+                inline=False
+            )
+
+            # AI insights
+            recommendations = self.ai_engine.generate_personalized_recommendations(str(discord_id))
+            if recommendations:
+                ai_display = "\n".join([f"• {rec}" for rec in recommendations[:2]])
+                embed.add_field(
+                    name="🤖 AI Insights",
+                    value=f"```{ai_display}```",
+                    inline=False
+                )
+
+            # Contextual message
+            context_key = win_type if winnings > 0 else 'loss'
+            context_messages = self.contextual_messages['roulette'].get(context_key, ["The wheel has spoken!"])
+            context_message = random.choice(context_messages)
+
+            embed.add_field(
+                name="📢 Wheel Master",
+                value=f"```{context_message}```",
+                inline=False
+            )
+
+            embed.set_footer(text=f"💰 Updated Balance: ${updated_wallet.get('balance', 0):,} | Ultimate AI Gaming Engine")
+
+            # Mark spin as complete
+            game_state['spin_complete'] = True
+
+            gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')
+            await interaction.edit_original_response(embed=embed, file=gamble_file, view=None)
+
         except Exception as e:
             logger.error(f"Roulette spin failed: {e}")
+            await interaction.edit_original_response(content="❌ Roulette spin failed. Please try again.")
+
+    def _generate_roulette_result(self, user_id: str) -> Dict:
+        """Generate roulette result with physics-based randomness"""
+        try:
+            # American roulette wheel (0, 00, 1-36)
+            numbers = list(range(0, 37))  # 0-36 (treating 00 as 37 for simplicity)
+            
+            # Get AI profile for slight bias adjustments
+            profile = self.ai_engine.player_profiles.get(user_id, {})
+            risk_data = profile.get('ai_insights', {}).get('risk_assessment', {})
+            risk_profile = risk_data.get('profile', 'moderate')
+            
+            # Slight bias based on risk profile (very subtle)
+            weights = [1.0] * len(numbers)
+            if risk_profile == 'high_roller':
+                weights[0] *= 0.95  # Slightly less likely to hit 0
+            elif risk_profile == 'conservative':
+                weights[0] *= 1.05  # Slightly more likely to hit 0
+            
+            # Select number
+            number = random.choices(numbers, weights=weights)[0]
+            
+            # Determine color
+            if number == 0:
+                color = "🟢"
+            elif number in [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]:
+                color = "🔴"
+            else:
+                color = "⚫"
+            
+            return {
+                'number': number,
+                'color': color,
+                'is_even': number != 0 and number % 2 == 0,
+                'is_red': color == "🔴",
+                'is_black': color == "⚫",
+                'is_green': color == "🟢"
+            }
+            
+        except Exception as e:
+            logger.error(f"Roulette result generation failed: {e}")
+            return {'number': 0, 'color': "🟢", 'is_even': False, 'is_red': False, 'is_black': False, 'is_green': True}
+
+    def _calculate_roulette_payout(self, result: Dict, choice: str, bet: int) -> Tuple[int, str]:
+        """Calculate roulette payout based on result and choice"""
+        try:
+            number = result['number']
+            
+            # Check for exact number match
+            if choice.isdigit() and int(choice) == number:
+                return bet * 36, 'number_hit'
+            
+            # Check for color matches
+            if choice == 'red' and result['is_red']:
+                return bet * 2, 'color_win'
+            elif choice == 'black' and result['is_black']:
+                return bet * 2, 'color_win'
+            elif choice == 'green' and result['is_green']:
+                return bet * 36, 'number_hit'
+            
+            # Check for even/odd
+            if choice == 'even' and result['is_even'] and number != 0:
+                return bet * 2, 'color_win'
+            elif choice == 'odd' and not result['is_even'] and number != 0:
+                return bet * 2, 'color_win'
+            
+            # Check for low/high
+            if choice == 'low' and 1 <= number <= 18:
+                return bet * 2, 'color_win'
+            elif choice == 'high' and 19 <= number <= 36:
+                return bet * 2, 'color_win'
+            
+            # Near miss detection (for AI analysis)
+            if choice.isdigit():
+                target = int(choice)
+                if abs(target - number) <= 3 and number != 0:
+                    return 0, 'near_miss'
+            
+            return 0, 'loss'
+            
+        except Exception as e:
+            logger.error(f"Roulette payout calculation failed: {e}")
+            return 0, 'loss'
 
     async def _show_analytics_dashboard(self, interaction: discord.Interaction):
         """Display analytics dashboard"""
