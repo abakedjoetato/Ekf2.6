@@ -770,8 +770,23 @@ async def main():
         await bot.mongo_client.admin.command('ping')
         logger.info("Successfully connected to MongoDB")
 
-        # Initialize database manager
-        bot.db_manager = DatabaseManager(bot.mongo_client)
+        # Initialize database manager with caching
+        from bot.utils.unified_cache import initialize_cache
+        from bot.utils.cache_integration import create_cached_database_manager
+        from bot.utils.premium_manager_v2 import PremiumManagerV2
+        
+        # Initialize cache system
+        await initialize_cache()
+        
+        # Create base database manager
+        base_db_manager = DatabaseManager(bot.mongo_client)
+        
+        # Wrap with caching layer
+        bot.db_manager = create_cached_database_manager(base_db_manager)
+        
+        # Initialize premium manager v2 with cached database
+        bot.premium_manager_v2 = PremiumManagerV2(bot.db_manager)
+        bot.premium_manager = bot.premium_manager_v2
 
         # Perform database cleanup and initialization
         logger.info("🧹 Performing database cleanup and initialization...")
