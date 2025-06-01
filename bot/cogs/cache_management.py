@@ -194,7 +194,7 @@ class CacheManagement(commands.Cog):
             
             embed = discord.Embed(
                 title="🔄 Premium Cache Refreshed",
-                description=f"Premium status cache for **{ctx.guild.name if ctx.guild else "Unknown Guild"}** has been refreshed.\n"
+                description=f"Premium status cache for **{ctx.guild.name if ctx.guild else 'Unknown Guild'}** has been refreshed.\n"
                            f"Next premium check will use fresh data from database.",
                 color=0x00ff88,
                 timestamp=datetime.utcnow()
@@ -209,7 +209,7 @@ class CacheManagement(commands.Cog):
     
     async def _check_admin_permissions(self, ctx: discord.ApplicationContext) -> bool:
         """Check if user has administrator permissions"""
-        if not ctx.author.guild_permissions.administrator:
+        if not ctx.guild or not ctx.author.guild_permissions or not ctx.author.guild_permissions.administrator:
             embed = discord.Embed(
                 title="❌ Access Denied",
                 description="You need **Administrator** permissions to use cache management commands.",

@@ -951,7 +951,7 @@ class Factions(commands.Cog):
                 inline=True
             )
             
-            leader_mention = f"<@{faction['leader']}>"
+            leader_mention = f"<@{faction['leader_id']}>"
             embed.add_field(name="👑 Leader", value=leader_mention, inline=True)
             
             await ctx.respond(embed=embed, ephemeral=True)
@@ -976,7 +976,7 @@ class Factions(commands.Cog):
                 return
             
             # Get all factions for this guild
-            cursor = self.bot.db_manager.factions.find({'guild_id': guild_id}).sort('name', 1)
+            cursor = self.bot.db_manager.factions.find({'guild_id': guild_id}).sort('faction_name', 1)
             factions = await cursor.to_list(length=50)
             
             if not factions:
@@ -991,9 +991,9 @@ class Factions(commands.Cog):
             
             faction_list = []
             for faction in factions[:15]:  # Show top 15
-                name = faction['name']
+                name = faction['faction_name']
                 member_count = len(faction['members'])
-                leader = f"<@{faction['leader']}>"
+                leader = f"<@{faction['leader_id']}>"
                 
                 faction_list.append(f"**{name}** - {member_count} members\nLeader: {leader}")
             
