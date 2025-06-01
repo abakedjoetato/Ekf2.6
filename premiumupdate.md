@@ -128,7 +128,8 @@
    
    # Slot Management (Restricted to Bot Owner + Home Guild Admins)
    async def assign_premium_slots(guild_id: int, slots: int, assigned_by: int, reason: str = None) -> bool
-   async def revoke_premium_slots(guild_id: int, slots: int, revoked_by: int, reason: str = None) -> bool
+   async def revoke_premium_slots(guild_id: int, slots: int, revoked_by: int, reason: str = None, auto_deactivate: bool = True) -> bool
+   async def force_deactivate_servers(guild_id: int, count: int, deactivated_by: int, reason: str = None) -> List[str]
    
    # Home Guild Configuration (Bot Owner Only)
    async def set_home_guild(guild_id: int, set_by: int) -> bool
@@ -181,10 +182,12 @@
 
 #### Slot Management Commands (Bot Owner + Home Guild Admins Only)
 ```python
-/premium assign <guild_id> <slots> [reason]  # Add premium slots to guild (incremental)
-/premium revoke <guild_id> <slots> [reason]  # Remove premium slots from guild (incremental)
-/premium audit [guild_id]                    # View detailed slot allocation history
-/premium stats                               # Global premium statistics
+/premium assign <guild_id> <slots> [reason]     # Add premium slots to guild (incremental)
+/premium revoke <guild_id> <slots> [reason]     # Remove premium slots from guild (auto-deactivates servers)
+/premium revoke <guild_id> <slots> --no-auto   # Remove slots without auto-deactivation (must be 0 used)
+/premium forcedeactivate <guild_id> <count>    # Manually deactivate servers from any guild
+/premium audit [guild_id]                      # View detailed slot allocation history
+/premium stats                                 # Global premium statistics
 ```
 
 #### Server Assignment Commands (Guild Admins Only)
@@ -346,12 +349,25 @@ def guild_admin_only():
 
 #### Removing Slots (Expiration Scenario)  
 ```bash
-# Home Guild Admin executes:
+# Home Guild Admin executes with auto-deactivation:
 /premium revoke 1234567890123456789 1 "Subscription expired - Order #12340"
 
-# Result: Target guild's total slots decreased by 1
-# Before: 5 total, 2 used, 3 available
-# After:  4 total, 2 used, 2 available
+# System automatically selects and deactivates oldest server:
+# ✅ Revoked 1 premium slot from guild
+# 🔴 Auto-deactivated server: Emerald EU (7020) - oldest active server
+# Result: 4 total, 1 used, 3 available
+```
+
+#### Manual Server Deactivation (Cross-Guild)
+```bash
+# Home Guild Admin can forcefully deactivate servers from any guild:
+/premium forcedeactivate 1234567890123456789 2
+
+# System response:
+# ✅ Force-deactivated 2 servers from guild:
+# 🔴 Emerald EU (7020) - deactivated by Home Guild Admin
+# 🔴 Emerald US (7021) - deactivated by Home Guild Admin
+# Result: 5 total, 1 used, 4 available
 ```
 
 #### Server Activation (Guild Admin)
@@ -364,16 +380,16 @@ def guild_admin_only():
 # After:  5 total, 3 used, 2 available
 ```
 
-#### Handling Slot Conflicts
-If revoking slots would result in negative available slots:
+#### Conflict Prevention
 ```bash
-# Guild has: 3 total, 3 used, 0 available
-# Home Guild Admin tries: /premium revoke guild_id 2
+# Attempt revoke without auto-deactivation when servers are active:
+/premium revoke 1234567890123456789 2 --no-auto
 
 # System response: 
-# "⚠️ Cannot revoke 2 slots. Guild currently uses 3/3 slots.
-#  Please have guild admin deactivate 2 servers first.
-#  Available servers: Server1 (7020), Server2 (7021), Server3 (7022)"
+# "❌ Cannot revoke 2 slots without auto-deactivation.
+#  Guild currently has 3 active servers using slots.
+#  Use standard revoke (with auto-deactivation) or manually deactivate servers first:
+#  Active servers: Emerald EU (7020), Emerald US (7021), Emerald RU (7022)"
 ```
 
 ## Security Considerations
