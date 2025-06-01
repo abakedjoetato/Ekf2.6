@@ -216,7 +216,7 @@ class AutomatedLeaderboard(commands.Cog):
                     else:
                         dist_str = f"{distance:.0f}m"
                     distance_lines.append(f"**{i}.** {name}{faction_tag} — {dist_str}")
-                sections.append(f"**🎯 LONGEST SHOTS**\n" + "\n".join(distance_lines))
+                sections.append(f"**LONGEST SHOTS**\n" + "\n".join(distance_lines))
 
             if not sections:
                 # No data available

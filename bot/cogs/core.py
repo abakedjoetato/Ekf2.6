@@ -132,7 +132,7 @@ class Core(commands.Cog):
             )
 
             embed.add_field(
-                name="🎯 Getting Started",
+                name="Getting Started",
                 value="1. Link your character with `/link <name>`\n2. Check stats with `/stats`\n3. Upgrade to premium for full features!",
                 inline=False
             )

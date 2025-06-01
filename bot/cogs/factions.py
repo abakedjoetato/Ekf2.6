@@ -318,7 +318,7 @@ class Factions(commands.Cog):
                 )
 
             embed.add_field(
-                name="🎯 Action Required",
+                name="Action Required",
                 value="Use `/faction join` to accept this invitation!",
                 inline=False
             )
@@ -597,7 +597,7 @@ class Factions(commands.Cog):
 
             # Stats
             embed.add_field(
-                name="⚔️ Combat Stats",
+                name="Combat Stats",
                 value=f"**Kills:** {stats['total_kills']:,}\n"
                       f"**Deaths:** {stats['total_deaths']:,}\n"
                       f"**K/D Ratio:** {stats['total_kdr']:.2f}",
@@ -696,7 +696,7 @@ class Factions(commands.Cog):
 
             # Combat Statistics
             embed.add_field(
-                name="⚔️ Combat Performance",
+                name="Combat Performance",
                 value=f"**Total Kills:** {stats['total_kills']:,}\n"
                       f"**Total Deaths:** {stats['total_deaths']:,}\n"
                       f"**Total Suicides:** {stats['total_suicides']:,}\n"
@@ -816,7 +816,7 @@ class Factions(commands.Cog):
             logger.error(f"Failed to list factions: {e}")
             await ctx.respond("❌ Failed to retrieve faction list.", ephemeral=True)
 
-    faction = discord.SlashCommandGroup("faction", "⚔️ Faction management commands")
+    faction = discord.SlashCommandGroup("faction", "Faction management commands")
 
     @faction.command(name="create", description="Create a new faction")
     async def faction_create_cmd(self, ctx: discord.ApplicationContext,
@@ -869,7 +869,7 @@ class Factions(commands.Cog):
             await self.bot.db_manager.factions.insert_one(faction_doc)
             
             embed = discord.Embed(
-                title="⚔️ Faction Created",
+                title="Faction Created",
                 description=f"Successfully created faction **{name}**!\nYou are now the faction leader.",
                 color=0x00d38a
             )
@@ -905,7 +905,7 @@ class Factions(commands.Cog):
             stats = await self.generate_faction_stats(guild_id, faction['members'])
             
             embed = discord.Embed(
-                title=f"⚔️ {faction['name']}",
+                title=f"{faction['name']}",
                 description=faction.get('description', 'No description'),
                 color=0x7f5af0
             )

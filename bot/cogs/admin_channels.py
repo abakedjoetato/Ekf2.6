@@ -81,7 +81,7 @@ class AdminChannels(commands.Cog):
                     )
                     
                     embed.add_field(
-                        name="🎯 Free Channel",
+                        name="Free Channel",
                         value="Only **killfeed** channel is available for free users",
                         inline=False
                     )
