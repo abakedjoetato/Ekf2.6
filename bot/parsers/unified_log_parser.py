@@ -164,7 +164,28 @@ class UnifiedLogParser:
         
         logger.info(f"🎮 Player state rebuilt: {len(active_players)} players currently online")
         
-        # Save currently active players to database with online status
+        # First, mark ALL existing players for this guild as offline (cold start reset)
+        if hasattr(self.bot, 'db_manager'):
+            try:
+                reset_result = await self.bot.db_manager.player_sessions.update_many(
+                    {'guild_id': int(guild_id)},
+                    {
+                        '$set': {
+                            'status': 'offline',
+                            'last_seen': datetime.now(timezone.utc),
+                            'cleanup_reason': 'Cold start reset',
+                            'disconnected_at': datetime.now(timezone.utc)
+                        },
+                        '$unset': {
+                            'updated_at': ''
+                        }
+                    }
+                )
+                logger.info(f"🔄 Cold start: Reset {reset_result.modified_count} existing players to offline for guild {guild_id}")
+            except Exception as e:
+                logger.error(f"Failed to reset all players to offline: {e}")
+        
+        # Then save only currently active players as online
         if hasattr(self.bot, 'db_manager') and active_players:
             for player_id in active_players:
                 # Get player data from lifecycle manager sessions
