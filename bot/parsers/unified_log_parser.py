@@ -249,8 +249,10 @@ class UnifiedLogParser:
             server_channels = channels.get(server_id, {})
             default_channels = channels.get('default', {})
             
-            # Send to killfeed channel (server-specific or default)
-            killfeed_channel_id = server_channels.get('killfeed') or default_channels.get('killfeed')
+            # Send to killfeed channel (server-specific, default, or root level)
+            killfeed_channel_id = (server_channels.get('killfeed') or 
+                                 default_channels.get('killfeed') or 
+                                 channels.get('killfeed'))
             if killfeed_channel_id and embeds:
                 channel = self.bot.get_channel(int(killfeed_channel_id))
                 if channel:
@@ -299,11 +301,15 @@ class UnifiedLogParser:
                 server_channels = channels.get(server_id, {})
                 default_channels = channels.get('default', {})
                 
-                # Use server-specific channel, fallback to default
-                vc_id = server_channels.get('playercountvc') or default_channels.get('playercountvc')
+                # Use server-specific channel, fallback to default, then root level
+                vc_id = (server_channels.get('playercountvc') or 
+                        default_channels.get('playercountvc') or 
+                        channels.get('playercountvc'))
                 
+                logger.info(f"🔍 All channels: {channels}")
                 logger.info(f"🔍 Server channels for {server_id}: {server_channels}")
                 logger.info(f"🔍 Default channels: {default_channels}")
+                logger.info(f"🔍 Root playercountvc: {channels.get('playercountvc')}")
                 logger.info(f"🔍 Voice channel ID: {vc_id}")
                 
                 if vc_id:
