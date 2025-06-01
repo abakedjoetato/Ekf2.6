@@ -334,6 +334,38 @@ class UnifiedLogParser:
                         
         return embeds
         
+    async def _mark_active_players_online(self, guild_id: int, server_id: str):
+        """Mark players with recent activity as online"""
+        try:
+            if not hasattr(self.bot, 'db_manager'):
+                return
+                
+            # Find players who joined recently (last 30 minutes) but are marked offline
+            recent_time = datetime.now(timezone.utc) - timedelta(minutes=30)
+            
+            # Update recent joiners to online status
+            await self.bot.db_manager.player_sessions.update_many(
+                {
+                    'guild_id': int(guild_id),
+                    'server_id': str(server_id),
+                    'joined_at': {'$gte': recent_time.isoformat()},
+                    'status': 'offline'
+                },
+                {
+                    '$set': {
+                        'status': 'online',
+                        'last_seen': datetime.now(timezone.utc)
+                    },
+                    '$unset': {
+                        'cleanup_reason': '',
+                        'disconnected_at': ''
+                    }
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to mark active players online: {e}")
+
     async def send_embeds(self, guild_id: int, server_id: str, embeds: List[Any]):
         """Send embeds to appropriate channels with proper routing and theming"""
         try:
