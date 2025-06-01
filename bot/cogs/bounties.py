@@ -38,7 +38,7 @@ class Bounties(commands.Cog):
 
     async def get_player_character_names(self, guild_id: int, discord_id: int) -> List[str]:
         """Get all character names for a Discord user"""
-        player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+        player_data = await self.bot.db_manager.get_linked_player(guild_id or 0, discord_id)
         return player_data['linked_characters'] if player_data else []
 
     async def find_discord_user_by_character(self, guild_id: int, character_name: str) -> Optional[int]:
@@ -58,11 +58,11 @@ class Bounties(commands.Cog):
             await ctx.respond("❌ This command must be used in a server", ephemeral=True)
             return
             
-        guild_id = ctx.guild.id
+        guild_id = ctx.guild.id if ctx.guild else 0
 
         if isinstance(target, discord.Member):
             # Discord user - must be linked
-            player_data = await self.bot.db_manager.get_linked_player(guild_id, target.id)
+            player_data = await self.bot.db_manager.get_linked_player(guild_id or 0, target.id)
             if not player_data or not player_data.get('linked_characters'):
                 return None
             # Use first linked character for bounty target
@@ -84,7 +84,7 @@ class Bounties(commands.Cog):
                 actual_player_name = player_doc.get('player_name')
                 if actual_player_name:
                     # Find Discord ID for this character
-                    discord_id = await self.find_discord_user_by_character(guild_id, actual_player_name)
+                    discord_id = await self.find_discord_user_by_character(guild_id or 0, actual_player_name)
                     return actual_player_name, discord_id
 
             return None
@@ -115,7 +115,7 @@ class Bounties(commands.Cog):
     async def bounty_set(self, ctx: discord.ApplicationContext, target: str, amount: int):
         """Set a bounty on a target (Discord user or player name)"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id if ctx.user else 0
 
             # Check premium access
@@ -142,7 +142,7 @@ class Bounties(commands.Cog):
                 return
 
             # Check if user has enough money
-            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            wallet = await self.bot.db_manager.get_wallet(guild_id or 0, discord_id)
             if wallet['balance'] < amount:
                 await ctx.respond(
                     f"Insufficient funds! You have **${wallet['balance']:,}** but need **${amount:,}**",
@@ -179,7 +179,7 @@ class Bounties(commands.Cog):
             target_character, target_discord_id = resolve_result
 
             # Prevent self-bounties
-            user_characters = await self.get_player_character_names(guild_id, discord_id)
+            user_characters = await self.get_player_character_names(guild_id or 0, discord_id)
             if target_character in user_characters:
                 await ctx.respond("You cannot set a bounty on yourself!", ephemeral=True)
                 return
@@ -197,7 +197,7 @@ class Bounties(commands.Cog):
                 return
 
             # Deduct money from user
-            success = await self.bot.db_manager.update_wallet(guild_id, discord_id, -amount, "bounty_set")
+            success = await self.bot.db_manager.update_wallet(guild_id or 0, discord_id, -amount, "bounty_set")
 
             if not success:
                 await ctx.respond("Failed to process payment. Please try again.", ephemeral=True)
@@ -272,7 +272,7 @@ class Bounties(commands.Cog):
     async def bounty_list(self, ctx: discord.ApplicationContext):
         """List all active bounties"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
 
             # Check premium access
             if not await self.check_premium_server(guild_id):
@@ -364,13 +364,13 @@ class Bounties(commands.Cog):
                 return
 
             # Find Discord ID of killer
-            killer_discord_id = await self.find_discord_user_by_character(guild_id, killer_character)
+            killer_discord_id = await self.find_discord_user_by_character(guild_id or 0, killer_character)
             if not killer_discord_id:
                 return  # Killer not linked, can't claim bounty
 
             # Process each bounty
             for bounty in active_bounties:
-                await self._claim_bounty(guild_id, bounty, killer_discord_id, killer_character)
+                await self._claim_bounty(guild_id or 0, bounty, killer_discord_id, killer_character)
 
         except Exception as e:
             logger.error(f"Failed to check bounty claims: {e}")
@@ -408,7 +408,7 @@ class Bounties(commands.Cog):
             )
 
             # Send bounty claimed notification
-            await self._send_bounty_claimed_embed(guild_id, bounty, killer_discord_id, killer_character)
+            await self._send_bounty_claimed_embed(guild_id or 0, bounty, killer_discord_id, killer_character)
 
             logger.info(f"Bounty claimed: {killer_character} killed {target_character} for ${bounty_amount:,}")
 
@@ -541,7 +541,7 @@ class Bounties(commands.Cog):
                 bounty_amount = min(base_amount + performance_bonus, 10000)  # Cap at $10k
 
                 # Find target Discord ID
-                target_discord_id = await self.find_discord_user_by_character(guild_id, killer_name)
+                target_discord_id = await self.find_discord_user_by_character(guild_id or 0, killer_name)
                 if not target_discord_id:
                     continue  # Skip if not linked
 
@@ -563,7 +563,7 @@ class Bounties(commands.Cog):
                 await self.bot.db_manager.bounties.insert_one(bounty_doc)
 
                 # Send auto-bounty notification
-                await self._send_auto_bounty_embed(guild_id, killer_name, bounty_amount, kill_count)
+                await self._send_auto_bounty_embed(guild_id or 0, killer_name, bounty_amount, kill_count)
 
                 logger.info(f"Auto-bounty generated: {killer_name} (${bounty_amount:,}) for {kill_count} kills")
 
@@ -647,7 +647,7 @@ class Bounties(commands.Cog):
                             amount: discord.Option(int, "Bounty amount", min_value=100)):
         """Set a bounty on a player"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
             
             if not await self.check_premium_server(guild_id):
@@ -660,7 +660,7 @@ class Bounties(commands.Cog):
                 return
                 
             # Check wallet balance
-            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            wallet = await self.bot.db_manager.get_wallet(guild_id or 0, discord_id)
             if wallet['balance'] < amount:
                 await ctx.respond(f"Insufficient funds! You have ${wallet['balance']:,}", ephemeral=True)
                 return
@@ -674,7 +674,7 @@ class Bounties(commands.Cog):
             target_name, target_discord_id = target_result
             
             # Deduct bounty amount
-            await self.bot.db_manager.update_wallet(guild_id, discord_id, -amount, "bounty_set")
+            await self.bot.db_manager.update_wallet(guild_id or 0, discord_id, -amount, "bounty_set")
             
             # Create bounty
             bounty_doc = {
@@ -705,7 +705,7 @@ class Bounties(commands.Cog):
     async def bounty_list_cmd(self, ctx: discord.ApplicationContext):
         """List active bounties"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             
             bounties = await self.bot.db_manager.db.bounties.find({
                 "guild_id": guild_id,

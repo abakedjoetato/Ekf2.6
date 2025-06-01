@@ -38,6 +38,39 @@ class Factions(commands.Cog):
             'members': discord_id
         })
 
+    async def generate_faction_stats(self, guild_id: int, member_ids: List[int]) -> Dict[str, Any]:
+        """Generate combined stats for faction members"""
+        try:
+            total_kills = 0
+            total_deaths = 0
+            total_distance = 0.0
+            
+            for member_id in member_ids:
+                # Get player stats across all servers
+                stats = await self.bot.db_manager.get_player_combined_stats(guild_id or 0, member_id)
+                if stats:
+                    total_kills += stats.get('total_kills', 0)
+                    total_deaths += stats.get('total_deaths', 0)
+                    total_distance += stats.get('total_distance', 0.0)
+            
+            # Calculate K/D ratio
+            kdr = total_kills / total_deaths if total_deaths > 0 else total_kills
+            
+            return {
+                'total_kills': total_kills,
+                'total_deaths': total_deaths,
+                'total_distance': total_distance,
+                'kdr': kdr
+            }
+        except Exception as e:
+            logger.error(f"Failed to generate faction stats: {e}")
+            return {
+                'total_kills': 0,
+                'total_deaths': 0,
+                'total_distance': 0.0,
+                'kdr': 0.0
+            }
+
     async def autocomplete_faction_name(self, ctx: discord.AutocompleteContext):
         """Autocomplete callback for faction names"""
         try:
@@ -76,7 +109,7 @@ class Factions(commands.Cog):
             # Get stats for all members
             for member_id in faction_data['members']:
                 # Get member's linked characters
-                player_data = await self.bot.db_manager.get_linked_player(guild_id, member_id)
+                player_data = await self.bot.db_manager.get_linked_player(guild_id or 0, member_id)
                 if not player_data:
                     continue
 
@@ -114,7 +147,7 @@ class Factions(commands.Cog):
     async def faction_create(self, ctx: discord.ApplicationContext, name: str, tag: str = None):
         """Create a new faction"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -145,7 +178,7 @@ class Factions(commands.Cog):
                     return
 
             # Check if user is already in a faction
-            existing_faction = await self.get_user_faction(guild_id, discord_id)
+            existing_faction = await self.get_user_faction(guild_id or 0, discord_id)
             if existing_faction:
                 await ctx.respond(
                     f"You are already a member of **{existing_faction['faction_name']}**!",
@@ -240,7 +273,7 @@ class Factions(commands.Cog):
     async def faction_invite(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Invite a user to join your faction"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -254,7 +287,7 @@ class Factions(commands.Cog):
                 return
 
             # Check if inviter is in a faction and has permission
-            inviter_faction = await self.get_user_faction(guild_id, discord_id)
+            inviter_faction = await self.get_user_faction(guild_id or 0, discord_id)
             if not inviter_faction:
                 await ctx.respond("You are not a member of any faction!", ephemeral=True)
                 return
@@ -266,7 +299,7 @@ class Factions(commands.Cog):
                 return
 
             # Check if target user is already in a faction
-            target_faction = await self.get_user_faction(guild_id, user.id)
+            target_faction = await self.get_user_faction(guild_id or 0, user.id)
             if target_faction:
                 await ctx.respond(
                     f"{user.mention} is already a member of **{target_faction['faction_name']}**!",
@@ -338,7 +371,7 @@ class Factions(commands.Cog):
     async def faction_join(self, ctx: discord.ApplicationContext, faction_name: str):
         """Join a faction by name"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -352,7 +385,7 @@ class Factions(commands.Cog):
                 return
 
             # Check if user is already in a faction
-            existing_faction = await self.get_user_faction(guild_id, discord_id)
+            existing_faction = await self.get_user_faction(guild_id or 0, discord_id)
             if existing_faction:
                 await ctx.respond(
                     f"You are already a member of **{existing_faction['faction_name']}**!",
@@ -429,7 +462,7 @@ class Factions(commands.Cog):
     async def faction_leave(self, ctx: discord.ApplicationContext):
         """Leave your current faction"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -443,7 +476,7 @@ class Factions(commands.Cog):
                 return
 
             # Check if user is in a faction
-            faction = await self.get_user_faction(guild_id, discord_id)
+            faction = await self.get_user_faction(guild_id or 0, discord_id)
             if not faction:
                 await ctx.respond("You are not a member of any faction!", ephemeral=True)
                 return
@@ -504,7 +537,7 @@ class Factions(commands.Cog):
     async def faction_info(self, ctx: discord.ApplicationContext, faction_name: str = None):
         """View detailed information about a faction"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -527,7 +560,7 @@ class Factions(commands.Cog):
                     await ctx.respond(f"Faction **{faction_name}** not found!", ephemeral=True)
                     return
             else:
-                faction = await self.get_user_faction(guild_id, discord_id)
+                faction = await self.get_user_faction(guild_id or 0, discord_id)
                 if not faction:
                     await ctx.respond("You are not a member of any faction! Specify a faction name to view.", ephemeral=True)
                     return
@@ -535,7 +568,7 @@ class Factions(commands.Cog):
             await ctx.defer()
 
             # Calculate faction stats
-            stats = await self.calculate_faction_stats(guild_id, faction)
+            stats = await self.calculate_faction_stats(guild_id or 0, faction)
 
             # Create info embed
             embed = discord.Embed(
@@ -647,7 +680,7 @@ class Factions(commands.Cog):
     async def faction_stats(self, ctx: discord.ApplicationContext, faction_name: str = None):
         """View detailed faction statistics"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -670,7 +703,7 @@ class Factions(commands.Cog):
                     await ctx.respond(f"Faction **{faction_name}** not found!", ephemeral=True)
                     return
             else:
-                faction = await self.get_user_faction(guild_id, discord_id)
+                faction = await self.get_user_faction(guild_id or 0, discord_id)
                 if not faction:
                     await ctx.respond("You are not a member of any faction! Specify a faction name to view.", ephemeral=True)
                     return
@@ -678,7 +711,7 @@ class Factions(commands.Cog):
             await ctx.defer()
 
             # Calculate faction stats
-            stats = await self.calculate_faction_stats(guild_id, faction)
+            stats = await self.calculate_faction_stats(guild_id or 0, faction)
 
             # Create stats embed
             embed = discord.Embed(
@@ -734,7 +767,7 @@ class Factions(commands.Cog):
     async def faction_list(self, ctx: discord.ApplicationContext):
         """List all factions in the guild"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
 
             # Check premium access
             if not await self.check_premium_server(guild_id):
@@ -819,7 +852,7 @@ class Factions(commands.Cog):
                                 name: discord.Option(str, "Faction name", max_length=32)):
         """Create a new faction"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
             
             if not await self.check_premium_server(guild_id):
@@ -832,7 +865,7 @@ class Factions(commands.Cog):
                 return
                 
             # Check if user is already in a faction
-            existing_faction = await self.get_user_faction(guild_id, discord_id)
+            existing_faction = await self.get_user_faction(guild_id or 0, discord_id)
             if existing_faction:
                 await ctx.respond(f"You're already in faction **{existing_faction['name']}**!", ephemeral=True)
                 return
@@ -880,7 +913,7 @@ class Factions(commands.Cog):
                               faction_name: discord.Option(str, "Faction name", required=False)):
         """View faction information"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
             
             # Get target faction
@@ -890,7 +923,7 @@ class Factions(commands.Cog):
                     "name": {"$regex": f"^{faction_name}$", "$options": "i"}
                 })
             else:
-                faction = await self.get_user_faction(guild_id, discord_id)
+                faction = await self.get_user_faction(guild_id or 0, discord_id)
                 
             if not faction:
                 msg = "Faction not found!" if faction_name else "You're not in a faction!"
@@ -898,7 +931,7 @@ class Factions(commands.Cog):
                 return
                 
             # Generate faction stats
-            stats = await self.generate_faction_stats(guild_id, faction['members'])
+            stats = await self.generate_faction_stats(guild_id or 0, faction['members'])
             
             embed = discord.Embed(
                 title=f"{faction['name']}",
@@ -926,6 +959,309 @@ class Factions(commands.Cog):
         except Exception as e:
             logger.error(f"Failed to show faction info: {e}")
             await ctx.respond("Failed to get faction info", ephemeral=True)
+
+    @faction.command(name="list", description="List all factions in this server")
+    async def faction_list_cmd(self, ctx: discord.ApplicationContext):
+        """List all factions in the server"""
+        try:
+            guild_id = ctx.guild.id if ctx.guild else 0
+            
+            if not await self.check_premium_server(guild_id):
+                embed = discord.Embed(
+                    title="Premium Required",
+                    description="Faction system requires premium server access.",
+                    color=0xff5e5e
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+            
+            # Get all factions for this guild
+            cursor = self.bot.db_manager.factions.find({'guild_id': guild_id}).sort('name', 1)
+            factions = await cursor.to_list(length=50)
+            
+            if not factions:
+                await ctx.respond("No factions found in this server.", ephemeral=True)
+                return
+            
+            embed = discord.Embed(
+                title="Server Factions",
+                description=f"**{len(factions)}** factions found",
+                color=0x3498DB
+            )
+            
+            faction_list = []
+            for faction in factions[:15]:  # Show top 15
+                name = faction['name']
+                member_count = len(faction['members'])
+                leader = f"<@{faction['leader']}>"
+                
+                faction_list.append(f"**{name}** - {member_count} members\nLeader: {leader}")
+            
+            embed.add_field(
+                name="Factions",
+                value="\n\n".join(faction_list),
+                inline=False
+            )
+            
+            if len(factions) > 15:
+                embed.add_field(
+                    name="Note",
+                    value=f"Showing 15 of {len(factions)} factions",
+                    inline=False
+                )
+            
+            await ctx.respond(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"Failed to list factions: {e}")
+            await ctx.respond("Failed to retrieve faction list.", ephemeral=True)
+
+    @faction.command(name="join", description="Join a faction")
+    async def faction_join_cmd(self, ctx: discord.ApplicationContext,
+                              faction_name: discord.Option(str, "Faction name", autocomplete=autocomplete_faction_name)):
+        """Join a faction"""
+        try:
+            guild_id = ctx.guild.id if ctx.guild else 0
+            discord_id = ctx.user.id
+            
+            if not await self.check_premium_server(guild_id):
+                embed = discord.Embed(
+                    title="Premium Required",
+                    description="Faction system requires premium server access.",
+                    color=0xff5e5e
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+            
+            # Check if user is already in a faction
+            existing_faction = await self.get_user_faction(guild_id, discord_id)
+            if existing_faction:
+                await ctx.respond(f"You're already in faction **{existing_faction['name']}**!", ephemeral=True)
+                return
+            
+            # Find the faction
+            faction = await self.bot.db_manager.factions.find_one({
+                "guild_id": guild_id,
+                "name": {"$regex": f"^{faction_name}$", "$options": "i"}
+            })
+            
+            if not faction:
+                await ctx.respond("Faction not found!", ephemeral=True)
+                return
+            
+            # Add user to faction
+            await self.bot.db_manager.factions.update_one(
+                {"_id": faction["_id"]},
+                {"$addToSet": {"members": discord_id}}
+            )
+            
+            embed = discord.Embed(
+                title="Faction Joined",
+                description=f"You have joined faction **{faction['name']}**!",
+                color=0x00d38a
+            )
+            await ctx.respond(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"Failed to join faction: {e}")
+            await ctx.respond("Failed to join faction", ephemeral=True)
+
+    @faction.command(name="leave", description="Leave your current faction")
+    async def faction_leave_cmd(self, ctx: discord.ApplicationContext):
+        """Leave current faction"""
+        try:
+            guild_id = ctx.guild.id if ctx.guild else 0
+            discord_id = ctx.user.id
+            
+            if not await self.check_premium_server(guild_id):
+                embed = discord.Embed(
+                    title="Premium Required",
+                    description="Faction system requires premium server access.",
+                    color=0xff5e5e
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+            
+            # Find user's faction
+            faction = await self.get_user_faction(guild_id, discord_id)
+            if not faction:
+                await ctx.respond("You're not in any faction!", ephemeral=True)
+                return
+            
+            # Check if user is the leader
+            if faction['leader'] == discord_id:
+                if len(faction['members']) > 1:
+                    await ctx.respond("You cannot leave as faction leader with members. Transfer leadership first or disband the faction.", ephemeral=True)
+                    return
+                else:
+                    # Delete the faction if leader is the only member
+                    await self.bot.db_manager.factions.delete_one({"_id": faction["_id"]})
+                    await ctx.respond(f"Faction **{faction['name']}** has been disbanded.", ephemeral=True)
+                    return
+            
+            # Remove user from faction
+            await self.bot.db_manager.factions.update_one(
+                {"_id": faction["_id"]},
+                {"$pull": {"members": discord_id}}
+            )
+            
+            embed = discord.Embed(
+                title="Faction Left",
+                description=f"You have left faction **{faction['name']}**.",
+                color=0xffa500
+            )
+            await ctx.respond(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"Failed to leave faction: {e}")
+            await ctx.respond("Failed to leave faction", ephemeral=True)
+
+    @faction.command(name="invite", description="Invite a user to your faction")
+    async def faction_invite_cmd(self, ctx: discord.ApplicationContext,
+                                user: discord.Option(discord.Member, "User to invite")):
+        """Invite a user to faction"""
+        try:
+            guild_id = ctx.guild.id if ctx.guild else 0
+            discord_id = ctx.user.id
+            target_id = user.id
+            
+            if not await self.check_premium_server(guild_id):
+                embed = discord.Embed(
+                    title="Premium Required",
+                    description="Faction system requires premium server access.",
+                    color=0xff5e5e
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+            
+            # Check if inviter is in a faction and has permission
+            faction = await self.get_user_faction(guild_id, discord_id)
+            if not faction:
+                await ctx.respond("You're not in any faction!", ephemeral=True)
+                return
+            
+            # Check if inviter is leader or has invite permissions
+            if faction['leader'] != discord_id:
+                await ctx.respond("Only faction leaders can invite members!", ephemeral=True)
+                return
+            
+            # Check if target is already in a faction
+            target_faction = await self.get_user_faction(guild_id, target_id)
+            if target_faction:
+                await ctx.respond(f"{user.mention} is already in faction **{target_faction['name']}**!", ephemeral=True)
+                return
+            
+            # Add user to faction
+            await self.bot.db_manager.factions.update_one(
+                {"_id": faction["_id"]},
+                {"$addToSet": {"members": target_id}}
+            )
+            
+            embed = discord.Embed(
+                title="User Invited",
+                description=f"{user.mention} has been added to faction **{faction['name']}**!",
+                color=0x00d38a
+            )
+            await ctx.respond(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"Failed to invite user: {e}")
+            await ctx.respond("Failed to invite user", ephemeral=True)
+
+    @faction.command(name="kick", description="Kick a user from your faction")
+    async def faction_kick_cmd(self, ctx: discord.ApplicationContext,
+                              user: discord.Option(discord.Member, "User to kick")):
+        """Kick a user from faction"""
+        try:
+            guild_id = ctx.guild.id if ctx.guild else 0
+            discord_id = ctx.user.id
+            target_id = user.id
+            
+            if not await self.check_premium_server(guild_id):
+                embed = discord.Embed(
+                    title="Premium Required",
+                    description="Faction system requires premium server access.",
+                    color=0xff5e5e
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+            
+            # Check if kicker is in a faction and is leader
+            faction = await self.get_user_faction(guild_id, discord_id)
+            if not faction:
+                await ctx.respond("You're not in any faction!", ephemeral=True)
+                return
+            
+            if faction['leader'] != discord_id:
+                await ctx.respond("Only faction leaders can kick members!", ephemeral=True)
+                return
+            
+            # Check if target is in the same faction
+            if target_id not in faction['members']:
+                await ctx.respond(f"{user.mention} is not in your faction!", ephemeral=True)
+                return
+            
+            # Cannot kick yourself
+            if target_id == discord_id:
+                await ctx.respond("You cannot kick yourself! Use `/faction leave` instead.", ephemeral=True)
+                return
+            
+            # Remove user from faction
+            await self.bot.db_manager.factions.update_one(
+                {"_id": faction["_id"]},
+                {"$pull": {"members": target_id}}
+            )
+            
+            embed = discord.Embed(
+                title="User Kicked",
+                description=f"{user.mention} has been removed from faction **{faction['name']}**.",
+                color=0xff5e5e
+            )
+            await ctx.respond(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"Failed to kick user: {e}")
+            await ctx.respond("Failed to kick user", ephemeral=True)
+
+    @faction.command(name="disband", description="Disband your faction")
+    async def faction_disband_cmd(self, ctx: discord.ApplicationContext):
+        """Disband faction"""
+        try:
+            guild_id = ctx.guild.id if ctx.guild else 0
+            discord_id = ctx.user.id
+            
+            if not await self.check_premium_server(guild_id):
+                embed = discord.Embed(
+                    title="Premium Required",
+                    description="Faction system requires premium server access.",
+                    color=0xff5e5e
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+            
+            # Check if user is faction leader
+            faction = await self.get_user_faction(guild_id, discord_id)
+            if not faction:
+                await ctx.respond("You're not in any faction!", ephemeral=True)
+                return
+            
+            if faction['leader'] != discord_id:
+                await ctx.respond("Only faction leaders can disband factions!", ephemeral=True)
+                return
+            
+            # Delete the faction
+            await self.bot.db_manager.factions.delete_one({"_id": faction["_id"]})
+            
+            embed = discord.Embed(
+                title="Faction Disbanded",
+                description=f"Faction **{faction['name']}** has been disbanded.",
+                color=0xff5e5e
+            )
+            await ctx.respond(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"Failed to disband faction: {e}")
+            await ctx.respond("Failed to disband faction", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(Factions(bot))

@@ -37,8 +37,7 @@ class KillfeedParser:
         try:
             parts = line.strip().split(',')
             if len(parts) < 6:
-                return None
-
+                return {}
             timestamp_str = parts[0].strip()
             killer = parts[1].strip()
             victim = parts[2].strip()
@@ -90,8 +89,7 @@ class KillfeedParser:
 
         except Exception as e:
             logger.error(f"Error parsing CSV line: {e}")
-            return None
-
+            return {}
     def normalize_suicide_event(self, killer, victim, weapon):
         """Normalize suicide events"""
         is_suicide = killer == victim or weapon.lower() == 'suicide_by_relocation'
@@ -131,8 +129,7 @@ class KillfeedParser:
 
         except Exception as e:
             logger.error(f"SFTP connection failed: {e}")
-            return None
-
+            return {}
     async def get_sftp_csv_files(self, server_config: Dict[str, Any]) -> List[str]:
         """Get CSV files from SFTP server"""
         try:
@@ -197,7 +194,7 @@ class KillfeedParser:
 
             # Create killfeed embed
             embed_factory = EmbedFactory(self.bot)
-            embed = await embed_factory.create_killfeed_embed(kill_data, server_id)
+            embed = await EmbedFactory.create_killfeed_embed(kill_data, server_id)
             
             await channel.send(embed=embed)
 

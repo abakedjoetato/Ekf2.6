@@ -73,7 +73,7 @@ class PremiumCompatibility:
         try:
             if server_id:
                 # Server-specific check
-                return await self.is_server_premium(guild_id, server_id)
+                return await self.is_server_premium(guild_id or 0, server_id)
             else:
                 # Guild-wide check - any premium server in guild
                 guild_doc = await self.db.guilds.find_one({"guild_id": guild_id})
@@ -164,7 +164,7 @@ class PremiumCompatibility:
                     if current_count > new_limit:
                         # Need to deactivate servers
                         excess = current_count - new_limit
-                        deactivated_servers = await self._auto_deactivate_servers(guild_id, excess, removed_by, reason or "Limit reduction")
+                        deactivated_servers = await self._auto_deactivate_servers(guild_id or 0, excess, removed_by, reason or "Limit reduction")
                 
                 # Update the limit
                 await self.db.bot_config.update_one(
@@ -248,7 +248,7 @@ class PremiumCompatibility:
         async with self.get_guild_lock(guild_id):
             try:
                 # Check if already premium
-                if await self.is_server_premium(guild_id, server_id):
+                if await self.is_server_premium(guild_id or 0, server_id):
                     return False, "Server is already premium"
                 
                 # Check limits
@@ -282,7 +282,7 @@ class PremiumCompatibility:
         async with self.get_guild_lock(guild_id):
             try:
                 # Check if premium
-                if not await self.is_server_premium(guild_id, server_id):
+                if not await self.is_server_premium(guild_id or 0, server_id):
                     return False, "Server is not premium"
                 
                 # Update server to non-premium in guild_configs
@@ -340,7 +340,7 @@ class PremiumCompatibility:
             
             for i in range(min(count, len(premium_servers))):
                 server_id = premium_servers[i].get('server_id', 'default')
-                success, _ = await self.deactivate_server_premium(guild_id, server_id, deactivated_by, reason)
+                success, _ = await self.deactivate_server_premium(guild_id or 0, server_id, deactivated_by, reason)
                 if success:
                     deactivated.append(server_id)
             
@@ -402,4 +402,4 @@ class PremiumCompatibility:
     # Legacy compatibility method
     async def check_premium_access(self, guild_id: int, server_id: str = "default") -> bool:
         """Legacy compatibility method - same as has_premium_access"""
-        return await self.has_premium_access(guild_id, server_id)
+        return await self.has_premium_access(guild_id or 0, server_id)

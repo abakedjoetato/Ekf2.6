@@ -1,3 +1,18 @@
+
+class BetModal(discord.ui.Modal):
+    """Modal for bet input"""
+    def __init__(self, title="Place Bet"):
+        super().__init__(title=title)
+        self.bet_amount = discord.ui.InputText(
+            label="Bet Amount",
+            placeholder="Enter bet amount...",
+            max_length=10
+        )
+        self.add_item(self.bet_amount)
+    
+    async def callback(self, interaction):
+        await interaction.response.defer()
+        
 """
 Emerald's Killfeed - Advanced Gambling System (PREMIUM)
 Single /gamble command with interactive game selection and advanced UX
@@ -190,7 +205,7 @@ class Gambling(commands.Cog):
                 servers = guild_doc.get('servers', [])
                 for server_config in servers:
                     server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                    if await self.bot.db_manager.is_premium_server(guild_id, server_id):
+                    if await self.bot.db_manager.is_premium_server(guild_id or 0, server_id):
                         return True
                 return False
         except Exception as e:
@@ -200,7 +215,7 @@ class Gambling(commands.Cog):
     async def get_user_balance(self, guild_id: int, user_id: int) -> int:
         """Get user's current balance"""
         try:
-            wallet = await self.bot.db_manager.get_wallet(guild_id, user_id)
+            wallet = await self.bot.db_manager.get_wallet(guild_id or 0, user_id)
             return wallet.get('balance', 0) if wallet else 0
         except Exception as e:
             logger.error(f"Error getting balance: {e}")
@@ -209,17 +224,17 @@ class Gambling(commands.Cog):
     async def update_user_balance(self, guild_id: int, user_id: int, amount: int, description: str) -> bool:
         """Update user balance and log transaction"""
         try:
-            current_balance = await self.get_user_balance(guild_id, user_id)
+            current_balance = await self.get_user_balance(guild_id or 0, user_id)
             new_balance = current_balance + amount
             
             if new_balance < 0:
                 return False
                 
             # Use the correct method signature with transaction_type
-            await self.bot.db_manager.update_wallet(guild_id, user_id, amount, 'gambling')
+            await self.bot.db_manager.update_wallet(guild_id or 0, user_id, amount, 'gambling')
             
             # Log wallet event
-            await self.add_wallet_event(guild_id, user_id, amount, 'gambling', description)
+            await self.add_wallet_event(guild_id or 0, user_id, amount, 'gambling', description)
             return True
         except Exception as e:
             logger.error(f"Error updating balance: {e}")

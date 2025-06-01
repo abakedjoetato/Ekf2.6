@@ -92,7 +92,7 @@ class CacheManagement(commands.Cog):
                 inline=False
             )
             
-            embed.set_footer(text=f"Guild: {ctx.guild.name}")
+            embed.set_footer(text=f"Guild: {ctx.guild.name if ctx.guild else "Unknown Guild"}")
             
             await ctx.respond(embed=embed, ephemeral=True)
             
@@ -110,12 +110,12 @@ class CacheManagement(commands.Cog):
             return
         
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             
             # Confirm action
             embed = discord.Embed(
                 title="⚠️ Clear Guild Cache",
-                description=f"This will clear all cached data for **{ctx.guild.name}**.\n"
+                description=f"This will clear all cached data for **{ctx.guild.name if ctx.guild else "Unknown Guild"}**.\n"
                            f"Data will be automatically refreshed from database as needed.\n\n"
                            f"**This action cannot be undone.**",
                 color=0xffaa00
@@ -134,7 +134,7 @@ class CacheManagement(commands.Cog):
                 
                 success_embed = discord.Embed(
                     title="✅ Cache Cleared",
-                    description=f"All cached data for **{ctx.guild.name}** has been cleared.",
+                    description=f"All cached data for **{ctx.guild.name if ctx.guild else "Unknown Guild"}** has been cleared.",
                     color=0x00ff88
                 )
                 await ctx.edit(embed=success_embed, view=None)
@@ -186,7 +186,7 @@ class CacheManagement(commands.Cog):
             return
         
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             
             # Refresh premium cache
             if hasattr(self.bot.db_manager, 'invalidate_premium_cache'):
@@ -194,7 +194,7 @@ class CacheManagement(commands.Cog):
             
             embed = discord.Embed(
                 title="🔄 Premium Cache Refreshed",
-                description=f"Premium status cache for **{ctx.guild.name}** has been refreshed.\n"
+                description=f"Premium status cache for **{ctx.guild.name if ctx.guild else "Unknown Guild"}** has been refreshed.\n"
                            f"Next premium check will use fresh data from database.",
                 color=0x00ff88,
                 timestamp=datetime.utcnow()

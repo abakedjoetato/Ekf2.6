@@ -61,7 +61,7 @@ class Economy(commands.Cog):
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
                 
-            guild_id = ctx.guild.id
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -75,7 +75,7 @@ class Economy(commands.Cog):
                 return
 
             # Get wallet data
-            wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+            wallet = await self.bot.db_manager.get_wallet(guild_id or 0, discord_id)
 
             embed = discord.Embed(
                 title="💰 Wallet Balance",
@@ -104,7 +104,7 @@ class Economy(commands.Cog):
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
                 
-            guild_id = ctx.guild.id
+            guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -156,11 +156,11 @@ class Economy(commands.Cog):
                 return
 
             # Check admin permissions
-            if not ctx.user.guild_permissions.administrator if hasattr(ctx.user, "guild_permissions") else False:
+            if not getattr(ctx.author, "guild_permissions", None) and ctx.author.guild_permissions.administrator if hasattr(ctx.user, "guild_permissions") else False:
                 await ctx.respond("❌ You need administrator permissions", ephemeral=True)
                 return
                 
-            guild_id = ctx.guild.id
+            guild_id = ctx.guild.id if ctx.guild else 0
 
             # Check premium access
             if not await self.check_premium_server(guild_id):

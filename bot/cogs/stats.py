@@ -36,11 +36,11 @@ class Stats(commands.Cog):
             await ctx.respond("❌ This command must be used in a server", ephemeral=True)
             return
             
-        guild_id = ctx.guild.id
+        guild_id = ctx.guild.id if ctx.guild else 0
         
         if isinstance(target, discord.Member):
             # Discord user - must be linked
-            player_data = await self.bot.db_manager.get_linked_player(guild_id, target.id)
+            player_data = await self.bot.db_manager.get_linked_player(guild_id or 0, target.id)
             if not player_data or not player_data.get('linked_characters'):
                 return None
             return player_data['linked_characters'], target.display_name
@@ -156,12 +156,12 @@ class Stats(commands.Cog):
 
             # Get weapon statistics and rivals/nemesis
             try:
-                await self._calculate_weapon_stats(guild_id, player_characters, combined_stats, server_id)
+                await self._calculate_weapon_stats(guild_id or 0, player_characters, combined_stats, server_id)
             except Exception as weapon_error:
                 logger.error(f"Error calculating weapon stats: {weapon_error}")
 
             try:
-                await self._calculate_rivals_nemesis(guild_id, player_characters, combined_stats, server_id)
+                await self._calculate_rivals_nemesis(guild_id or 0, player_characters, combined_stats, server_id)
             except Exception as rival_error:
                 logger.error(f"Error calculating rivals/nemesis: {rival_error}")
 
@@ -278,7 +278,7 @@ class Stats(commands.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             server_name = ctx.guild.name
 
             # Handle server filtering if provided
@@ -346,7 +346,7 @@ class Stats(commands.Cog):
             await ctx.defer()
 
             # Get combined stats
-            stats = await self.get_player_combined_stats(guild_id, player_characters, server)
+            stats = await self.get_player_combined_stats(guild_id or 0, player_characters, server)
 
             total_kills = stats['kills']
             total_deaths = stats['deaths']
@@ -415,7 +415,7 @@ class Stats(commands.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             user1 = ctx.author
             user2 = user
 
@@ -424,8 +424,8 @@ class Stats(commands.Cog):
                 return
 
             # Get both players' data
-            player1_data = await self.bot.db_manager.get_linked_player(guild_id, user1.id)
-            player2_data = await self.bot.db_manager.get_linked_player(guild_id, user2.id)
+            player1_data = await self.bot.db_manager.get_linked_player(guild_id or 0, user1.id)
+            player2_data = await self.bot.db_manager.get_linked_player(guild_id or 0, user2.id)
 
             if not player1_data or not isinstance(player1_data, dict):
                 await ctx.respond(
@@ -444,8 +444,8 @@ class Stats(commands.Cog):
             await ctx.defer()
 
             # Get stats for both players
-            stats1 = await self.get_player_combined_stats(guild_id, player1_data['linked_characters'])
-            stats2 = await self.get_player_combined_stats(guild_id, player2_data['linked_characters'])
+            stats1 = await self.get_player_combined_stats(guild_id or 0, player1_data['linked_characters'])
+            stats2 = await self.get_player_combined_stats(guild_id or 0, player2_data['linked_characters'])
 
             # Use EmbedFactory for comparison embed
             embed_data = {
@@ -477,10 +477,10 @@ class Stats(commands.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             
             # Get servers for autocomplete resolution
-            servers = await ServerAutocomplete.get_servers_for_guild(guild_id, self.bot.db_manager)
+            servers = await ServerAutocomplete.get_servers_for_guild(guild_id or 0, self.bot.db_manager)
             
             # Resolve server_id from server_name
             if server_name:

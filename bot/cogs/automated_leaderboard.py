@@ -161,7 +161,7 @@ class AutomatedLeaderboard(commands.Cog):
                 servers = guild_doc.get('servers', [])
                 for server_config in servers:
                     server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                    if await self.bot.db_manager.is_premium_server(guild_id, server_id):
+                    if await self.bot.db_manager.is_premium_server(guild_id or 0, server_id):
                         return True
                 return False
         except Exception as e:
@@ -190,9 +190,9 @@ class AutomatedLeaderboard(commands.Cog):
             }
 
             # Get actual data for consolidated leaderboard
-            top_killers = await self.get_top_kills(guild_id, 3, server_id)
-            top_kdr = await self.get_top_kdr(guild_id, 3, server_id)
-            top_distance = await self.get_top_distance(guild_id, 3, server_id)
+            top_killers = await self.get_top_kills(guild_id or 0, 3, server_id)
+            top_kdr = await self.get_top_kdr(guild_id or 0, 3, server_id)
+            top_distance = await self.get_top_distance(guild_id or 0, 3, server_id)
 
             # Build sections with real data
             sections = []
@@ -202,7 +202,7 @@ class AutomatedLeaderboard(commands.Cog):
                 for i, player in enumerate(top_killers, 1):
                     name = player.get('player_name', 'Unknown')
                     kills = player.get('kills', 0)
-                    faction = await self.get_player_faction(guild_id, name)
+                    faction = await self.get_player_faction(guild_id or 0, name)
                     faction_tag = f" [{faction}]" if faction else ""
                     killer_lines.append(f"**{i}.** {name}{faction_tag} — {kills:,} Kills")
                 sections.append(f"**TOP KILLERS**\n" + "\n".join(killer_lines))
@@ -212,7 +212,7 @@ class AutomatedLeaderboard(commands.Cog):
                 for i, player in enumerate(top_kdr, 1):
                     name = player.get('player_name', 'Unknown')
                     kdr = player.get('kdr', 0.0)
-                    faction = await self.get_player_faction(guild_id, name)
+                    faction = await self.get_player_faction(guild_id or 0, name)
                     faction_tag = f" [{faction}]" if faction else ""
                     kdr_lines.append(f"**{i}.** {name}{faction_tag} — {kdr:.2f} KDR")
                 sections.append(f"**BEST KDR**\n" + "\n".join(kdr_lines))
@@ -222,7 +222,7 @@ class AutomatedLeaderboard(commands.Cog):
                 for i, player in enumerate(top_distance, 1):
                     name = player.get('player_name', 'Unknown')
                     distance = player.get('personal_best_distance', 0.0)
-                    faction = await self.get_player_faction(guild_id, name)
+                    faction = await self.get_player_faction(guild_id or 0, name)
                     faction_tag = f" [{faction}]" if faction else ""
                     if distance >= 1000:
                         dist_str = f"{distance/1000:.1f}km"
