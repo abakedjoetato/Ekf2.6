@@ -519,16 +519,25 @@ class Stats(commands.Cog):
                 # Sort by join time (most recent first)
                 server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
                 
-                # Create embed
+                # Create embed using bot's theme
                 if server_players:
                     embed = discord.Embed(
-                        title=f"🟢 Online Players - {display_name}",
-                        description=f"**{len(server_players)} player{'s' if len(server_players) != 1 else ''} currently online**",
-                        color=0x00ff00,
+                        title=f"🔷 **ACTIVE OPERATIVES** - {display_name}",
+                        description=f"**{len(server_players)} combatant{'s' if len(server_players) != 1 else ''} currently deployed in the field**",
+                        color=0x32CD32,  # Lime green matching connection theme
                         timestamp=datetime.now(timezone.utc)
                     )
                     
-                    # Add player list
+                    # Add tactical status header
+                    status_emoji = "🟢" if len(server_players) >= 10 else "🟡" if len(server_players) >= 5 else "🔴"
+                    server_status = "HIGH ACTIVITY" if len(server_players) >= 10 else "MODERATE ACTIVITY" if len(server_players) >= 5 else "LOW ACTIVITY"
+                    embed.add_field(
+                        name="**TACTICAL STATUS**",
+                        value=f"{status_emoji} **{server_status}** • Real-time battlefield intelligence",
+                        inline=False
+                    )
+                    
+                    # Add player list with military formatting
                     player_list = []
                     for i, player in enumerate(server_players, 1):
                         time_online = ""
@@ -537,33 +546,49 @@ class Stats(commands.Cog):
                             hours = delta.total_seconds() // 3600
                             minutes = (delta.total_seconds() % 3600) // 60
                             if hours >= 1:
-                                time_online = f" • {int(hours)}h {int(minutes)}m"
+                                time_online = f" • `{int(hours)}h {int(minutes)}m`"
                             else:
-                                time_online = f" • {int(minutes)}m"
+                                time_online = f" • `{int(minutes)}m`"
                         
-                        platform_emoji = "🖥️" if player['platform'] == "PC" else "🎮" if player['platform'] == "Console" else "❓"
-                        player_list.append(f"`{i:2d}.` {platform_emoji} **{player['name']}**{time_online}")
+                        # Military-style platform indicators
+                        platform_indicator = "**[PC]**" if player['platform'] == "PC" else "**[CNS]**" if player['platform'] == "Console" else "**[UNK]**"
+                        rank_prefix = "🔸" if i <= 3 else "▫️"  # Different indicators for first 3 players
+                        
+                        player_list.append(f"{rank_prefix} {platform_indicator} **{player['name']}**{time_online}")
                     
-                    # Split into chunks if too many players
-                    chunk_size = 10
+                    # Split into tactical units if too many players
+                    chunk_size = 8
                     for i in range(0, len(player_list), chunk_size):
                         chunk = player_list[i:i + chunk_size]
-                        field_name = "Players Online" if i == 0 else f"Players Online (cont.)"
+                        unit_number = (i // chunk_size) + 1
+                        field_name = f"**COMBAT UNIT {unit_number}**" if len(player_list) > chunk_size else "**DEPLOYED FORCES**"
                         embed.add_field(
                             name=field_name,
                             value="\n".join(chunk),
                             inline=False
                         )
                     
-                    embed.set_footer(text=f"Powered by Discord.gg/EmeraldServers • Updated")
+                    # Add tactical footer
+                    embed.set_footer(
+                        text=f"🎯 Live Intelligence • Discord.gg/EmeraldServers",
+                        icon_url="https://cdn.discordapp.com/icons/1359926538649440309/a_2bb2ad93aeb4a3b7b1aebc47b7fa0e6c.gif"
+                    )
                 else:
                     embed = discord.Embed(
-                        title=f"🔴 Online Players - {display_name}",
-                        description="**No players currently online**",
-                        color=0xff0000,
+                        title=f"🔻 **BATTLEFIELD STATUS** - {display_name}",
+                        description="**No active operatives detected**\n*Awaiting deployment orders...*",
+                        color=0xDC143C,  # Crimson red matching error theme
                         timestamp=datetime.now(timezone.utc)
                     )
-                    embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+                    embed.add_field(
+                        name="**MISSION STATUS**",
+                        value="🔴 **STANDBY** • Server ready for combat deployment",
+                        inline=False
+                    )
+                    embed.set_footer(
+                        text="🎯 Live Intelligence • Discord.gg/EmeraldServers",
+                        icon_url="https://cdn.discordapp.com/icons/1359926538649440309/a_2bb2ad93aeb4a3b7b1aebc47b7fa0e6c.gif"
+                    )
                 
                 await ctx.followup.send(embed=embed)
             else:
