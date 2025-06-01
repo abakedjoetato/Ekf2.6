@@ -118,11 +118,11 @@ This alternative premium system allows guilds to have both premium and non-premi
 
 ### Premium Limit Management (Bot Owner + Home Guild Admins Only)
 ```python
-/premiumlimit set <guild_id> <limit> [reason]      # Set maximum premium servers
-/premiumlimit add <guild_id> <count> [reason]      # Increase limit by count
-/premiumlimit remove <guild_id> <count> [reason]   # Decrease limit by count
+/premiumlimit add <guild_id> [reason]              # Add 1 premium server slot (incremental)
+/premiumlimit remove <guild_id> [reason]           # Remove 1 premium server slot (incremental)
 /premiumlimit view <guild_id>                      # View current limits and usage
 /premiumlimit list                                 # List all guild limits
+/premiumlimit set <guild_id> <limit> [reason]      # Direct set (admin override only)
 ```
 
 ### Server Premium Management (Guild Admins)
@@ -196,10 +196,16 @@ def activate_server_premium(ctx, server_id): ...
 
 ### Incremental Limit Changes
 ```bash
-# Customer purchases additional premium server slots
-/premiumlimit add 1234567890123456789 2 "Customer upgraded package"
+# Customer purchases one premium server slot
+/premiumlimit add 1234567890123456789 "Customer purchased premium server slot"
 
-# Result: Guild limit increased from 5 to 7
+# Result: Guild limit increased from 5 to 6
+# Guild status: 1/6 premium servers active
+
+# Customer purchases another premium server slot  
+/premiumlimit add 1234567890123456789 "Customer purchased additional premium server slot"
+
+# Result: Guild limit increased from 6 to 7
 # Guild status: 1/7 premium servers active
 ```
 
