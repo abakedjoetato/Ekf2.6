@@ -230,7 +230,7 @@ class UnifiedLogParser:
                         
         return embeds
         
-    async def send_embeds(self, guild_id: str, server_id: str, embeds: List[Any]):
+    async def send_embeds(self, guild_id: int, server_id: str, embeds: List[Any]):
         """Send embeds to appropriate channels"""
         try:
             guild_config = await self.bot.db_manager.get_guild(int(guild_id))
@@ -253,7 +253,7 @@ class UnifiedLogParser:
         except Exception as e:
             logger.error(f"Error sending embeds: {e}")
             
-    async def update_voice_channel(self, guild_id: str, server_id: str, server_name: str):
+    async def update_voice_channel(self, guild_id: int, server_id: str, server_name: str):
         """Update voice channel with current player count"""
         try:
             active_players = self.lifecycle_manager.get_active_players(guild_id)

@@ -16,11 +16,11 @@ class PlayerLifecycleManager:
         self.player_lifecycle: Dict[str, Dict] = {}
         self.player_sessions: Dict[str, Dict] = {}
         
-    def get_lifecycle_key(self, guild_id: str, player_id: str) -> str:
+    def get_lifecycle_key(self, guild_id: int, player_id: str) -> str:
         """Generate lifecycle tracking key"""
         return f"{guild_id}_{player_id}"
         
-    def update_player_queue(self, guild_id: str, player_id: str, 
+    def update_player_queue(self, guild_id: int, player_id: str, 
                            player_name: str, platform: str, timestamp: datetime):
         """Update player queue state"""
         lifecycle_key = self.get_lifecycle_key(guild_id, player_id)
@@ -106,18 +106,18 @@ class PlayerLifecycleManager:
             
         return None
         
-    def get_active_players(self, guild_id: str) -> Dict[str, Dict]:
+    def get_active_players(self, guild_id: int) -> Dict[str, Dict]:
         """Get all active players for a guild"""
         active_players = {}
         
         for key, session in self.player_sessions.items():
-            if (session.get('guild_id') == guild_id and 
+            if (session.get('guild_id') == str(guild_id) and 
                 session.get('status') == 'online'):
                 active_players[key] = session
                 
         return active_players
         
-    def clear_guild_sessions(self, guild_id: str):
+    def clear_guild_sessions(self, guild_id: int):
         """Clear all sessions for a guild (cold start)"""
         keys_to_remove = []
         
