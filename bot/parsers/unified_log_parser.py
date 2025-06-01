@@ -76,7 +76,7 @@ class UnifiedLogParser:
                 logger.warning(f"No host configured for server {server_name}")
                 return
                 
-            logger.info(f"🔍 Processing {server_name} (ID: {server_id}, Host: {host})")
+            logger.debug(f"🔍 Processing {server_name} (ID: {server_id}, Host: {host})")
             
             # Get parser state
             parser_state = await self.get_parser_state(guild_id, server_id)
@@ -217,7 +217,7 @@ class UnifiedLogParser:
                         await self.bot.db_manager.save_player_session(
                             int(guild_id), server_id, player_id, session_data
                         )
-                        logger.info(f"✅ Marked {session_data.get('player_name', player_id[:8])} as online in database")
+                        logger.debug(f"✅ Marked {session_data.get('player_name', player_id[:8])} as online in database")
                     except Exception as e:
                         logger.error(f"Failed to save session for {player_id}: {e}")
                 else:
@@ -268,7 +268,7 @@ class UnifiedLogParser:
         for i, line in enumerate(lines):
             # Debug: Show sample log lines to understand format
             if i < 5:  # Show first 5 lines for debugging
-                logger.info(f"🔍 Log line {i}: {line[:100]}...")
+                logger.debug(f"🔍 Log line {i}: {line[:100]}...")
             
             events = self.event_processor.process_log_line(line)
             
@@ -322,7 +322,7 @@ class UnifiedLogParser:
                 session_data = self.lifecycle_manager.update_player_join(
                     guild_id, event['player_id'], server_id, event['timestamp']
                 )
-                logger.info(f"🎮 Player joined: {session_data.get('player_name')} (ID: {event['player_id'][:8]}) on server {server_id}")
+                logger.debug(f"🎮 Player joined: {session_data.get('player_name')} (ID: {event['player_id'][:8]}) on server {server_id}")
                 
                 # Save to database with online status
                 if hasattr(self.bot, 'db_manager'):
@@ -349,7 +349,7 @@ class UnifiedLogParser:
                     guild_id, event['player_id'], event['timestamp']
                 )
                 if disconnect_data:
-                    logger.info(f"🔍 Player disconnected: {disconnect_data.get('player_name')} (ID: {event['player_id'][:8]})")
+                    logger.debug(f"🔍 Player disconnected: {disconnect_data.get('player_name')} (ID: {event['player_id'][:8]})")
                 
                 if disconnect_data:
                     # Remove from database
