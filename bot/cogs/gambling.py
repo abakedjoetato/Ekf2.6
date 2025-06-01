@@ -256,7 +256,7 @@ class Gambling(commands.Cog):
                 return
                 
             # Get user balance
-            balance = await self.get_user_balance(ctx.guild_id, ctx.user.id)
+            balance = await self.get_user_balance(ctx.guild_id, ctx.user.id if ctx.user else 0)
             if balance < 10:
                 embed = discord.Embed(
                     title="💸 Insufficient Funds",
@@ -267,7 +267,7 @@ class Gambling(commands.Cog):
                 return
                 
             # Create main gambling interface
-            view = GamblingMainView(ctx.user.id, self)
+            view = GamblingMainView(ctx.user.id if ctx.user else 0, self)
             embed = discord.Embed(
                 title="🎰 EMERALD CASINO",
                 description=f"**Current Bet:** ${view.current_bet:,}\n**Your Balance:** ${balance:,}\n\nChoose your game or adjust your bet:",

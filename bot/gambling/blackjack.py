@@ -93,7 +93,7 @@ class BlackjackGame:
         """Start new blackjack game"""
         try:
             # Validate bet
-            balance = await self.core.get_user_balance(ctx.guild_id, ctx.user.id)
+            balance = await self.core.get_user_balance(ctx.guild_id, ctx.user.id if ctx.user else 0)
             valid, error_msg = BetValidation.validate_bet_amount(bet_amount, balance)
             
             if not valid:
@@ -105,7 +105,7 @@ class BlackjackGame:
                 return embed
                 
             # Check for existing session
-            if ctx.user.id in self.sessions:
+            if ctx.user.id if ctx.user else 0 in self.sessions:
                 embed = discord.Embed(
                     title="⚠️ Game in Progress",
                     description="You already have an active blackjack game",
@@ -115,7 +115,7 @@ class BlackjackGame:
                 
             # Deduct bet
             success = await self.core.update_user_balance(
-                ctx.guild_id, ctx.user.id, -bet_amount, f"Blackjack bet: ${bet_amount:,}"
+                ctx.guild_id, ctx.user.id if ctx.user else 0, -bet_amount, f"Blackjack bet: ${bet_amount:,}"
             )
             
             if not success:
@@ -127,7 +127,7 @@ class BlackjackGame:
                 return embed
                 
             # Create game session
-            session = BlackjackSession(ctx.user.id, ctx.guild_id, bet_amount)
+            session = BlackjackSession(ctx.user.id if ctx.user else 0, ctx.guild_id, bet_amount)
             
             # Deal initial cards
             session.player_hand.add_card(self.deal_card())
@@ -135,7 +135,7 @@ class BlackjackGame:
             session.player_hand.add_card(self.deal_card())
             session.dealer_hand.add_card(self.deal_card())
             
-            self.sessions[ctx.user.id] = session
+            self.sessions[ctx.user.id if ctx.user else 0] = session
             
             # Check for blackjack
             if session.player_hand.is_blackjack:

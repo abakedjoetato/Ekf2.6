@@ -72,9 +72,6 @@ class KillfeedParser:
                 except ValueError:
                     # Fallback to current time
                     timestamp = datetime.utcnow().replace(tzinfo=timezone.utc)
-                except ValueError:
-                    # Fallback to current time
-                    timestamp = datetime.utcnow().replace(tzinfo=timezone.utc)
 
             # Normalize suicide events
             is_suicide = killer == victim or weapon.lower() == 'suicide_by_relocation'
@@ -93,7 +90,6 @@ class KillfeedParser:
                     distance_float = float(distance)
                 else:
                     distance_float = 0.0
-            except ValueError:
                 distance_float = 0.0
 
             # Parse timestamp
@@ -130,9 +126,10 @@ class KillfeedParser:
                     distance_float = float(distance)
                 else:
                     distance_float = 0.0
-            except ValueError:
                 distance_float = 0.0
 
+                except Exception:
+                    pass
             return {
                 'timestamp': timestamp,
                 'killer': killer,

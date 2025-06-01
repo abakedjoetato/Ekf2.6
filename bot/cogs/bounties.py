@@ -129,7 +129,7 @@ class Bounties(commands.Cog):
         """Set a bounty on a target (Discord user or player name)"""
         try:
             guild_id = (ctx.guild.id if ctx.guild else None)
-            discord_id = ctx.user.id
+            discord_id = ctx.user.id if ctx.user else 0
 
             # Check premium access
             if not await self.check_premium_server(guild_id):
