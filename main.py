@@ -421,13 +421,17 @@ class EmeraldKillfeedBot(commands.Bot):
             from bot.utils.advanced_rate_limiter import AdvancedRateLimiter
             self.advanced_rate_limiter = AdvancedRateLimiter(self)
 
+            # Initialize channel router
+            from bot.utils.channel_router import ChannelRouter
+            self.channel_router = ChannelRouter(self)
+
             # Initialize parsers (PHASE 2) - Data parsers for killfeed & log events
             self.killfeed_parser = KillfeedParser(self)
             self.historical_parser = HistoricalParser(self)
             self.unified_log_parser = UnifiedLogParser(self)
             # Ensure consistent parser access
             self.log_parser = self.unified_log_parser  # Legacy compatibility
-            logger.info("Parsers initialized (PHASE 2) + Unified Log Parser + Advanced Rate Limiter + Batch Sender")
+            logger.info("Parsers initialized (PHASE 2) + Unified Log Parser + Advanced Rate Limiter + Batch Sender + Channel Router")
 
             return True
 

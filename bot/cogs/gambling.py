@@ -1,100 +1,410 @@
 """
-Emerald's Killfeed - Modular Gambling System
-Refactored gambling system with separated game modules
+Emerald's Killfeed - Advanced Gambling System (PREMIUM)
+Single /gamble command with interactive game selection and advanced UX
 """
 
 import discord
 from discord.ext import commands
+import asyncio
+import random
 import logging
-from bot.gambling.core import GamblingCore
-from bot.gambling.slots import SlotsGame
-from bot.gambling.blackjack import BlackjackGame
-from bot.gambling.roulette import RouletteGame
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
+class GameView(discord.ui.View):
+    """Interactive view for game selection and gameplay"""
+    
+    def __init__(self, user_id: int, bet_amount: int, gambling_cog):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.bet_amount = bet_amount
+        self.gambling_cog = gambling_cog
+        
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Ensure only the original user can interact"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your game!", ephemeral=True)
+            return False
+        return True
+        
+    @discord.ui.button(label="🎰 Slots", style=discord.ButtonStyle.primary, emoji="🎰")
+    async def slots_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """Play slots game"""
+        await interaction.response.defer()
+        result_embed, new_view = await self.gambling_cog.play_slots(interaction, self.bet_amount)
+        await interaction.edit_original_response(embed=result_embed, view=new_view)
+        
+    @discord.ui.button(label="🃏 Blackjack", style=discord.ButtonStyle.primary, emoji="🃏") 
+    async def blackjack_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """Play blackjack game"""
+        await interaction.response.defer()
+        result_embed, new_view = await self.gambling_cog.play_blackjack(interaction, self.bet_amount)
+        await interaction.edit_original_response(embed=result_embed, view=new_view)
+        
+    @discord.ui.button(label="🔴 Roulette", style=discord.ButtonStyle.primary, emoji="🔴")
+    async def roulette_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """Play roulette game"""
+        await interaction.response.defer()
+        result_embed, new_view = await self.gambling_cog.show_roulette_options(interaction, self.bet_amount)
+        await interaction.edit_original_response(embed=result_embed, view=new_view)
+
+class PlayAgainView(discord.ui.View):
+    """View for playing again after a game"""
+    
+    def __init__(self, user_id: int, gambling_cog):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.gambling_cog = gambling_cog
+        
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your game!", ephemeral=True)
+            return False
+        return True
+        
+    @discord.ui.button(label="🎲 Play Again", style=discord.ButtonStyle.success, emoji="🎲")
+    async def play_again_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """Start a new gambling session"""
+        await interaction.response.send_modal(BetModal(self.gambling_cog))
+        
+    @discord.ui.button(label="💰 Check Balance", style=discord.ButtonStyle.secondary, emoji="💰")
+    async def balance_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """Check current balance"""
+        await interaction.response.defer()
+        balance = await self.gambling_cog.get_user_balance(interaction.guild_id, interaction.user.id)
+        embed = discord.Embed(
+            title="💰 Current Balance",
+            description=f"**${balance:,}**",
+            color=0x00ff00
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+class BetModal(discord.ui.Modal):
+    """Modal for entering bet amount"""
+    
+    def __init__(self, gambling_cog):
+        super().__init__(title="Place Your Bet")
+        self.gambling_cog = gambling_cog
+        
+        self.bet_input = discord.ui.InputText(
+            label="Bet Amount",
+            placeholder="Enter amount ($10 - $50,000)",
+            min_length=2,
+            max_length=6
+        )
+        self.add_item(self.bet_input)
+        
+    async def callback(self, interaction: discord.Interaction):
+        try:
+            bet_amount = int(self.bet_input.value.replace('$', '').replace(',', ''))
+            
+            # Validate bet
+            balance = await self.gambling_cog.get_user_balance(interaction.guild_id, interaction.user.id)
+            if bet_amount < 10:
+                await interaction.response.send_message("Minimum bet is $10", ephemeral=True)
+                return
+            if bet_amount > 50000:
+                await interaction.response.send_message("Maximum bet is $50,000", ephemeral=True)
+                return
+            if bet_amount > balance:
+                await interaction.response.send_message(f"Insufficient balance. You have ${balance:,}", ephemeral=True)
+                return
+                
+            # Show game selection
+            embed = discord.Embed(
+                title="🎰 Casino Games",
+                description=f"**Bet Amount:** ${bet_amount:,}\n**Your Balance:** ${balance:,}\n\nChoose your game:",
+                color=0xffd700
+            )
+            view = GameView(interaction.user.id, bet_amount, self.gambling_cog)
+            await interaction.response.send_message(embed=embed, view=view)
+            
+        except ValueError:
+            await interaction.response.send_message("Please enter a valid number", ephemeral=True)
+
 class Gambling(commands.Cog):
-    """Modular gambling system with premium gating"""
+    """Advanced gambling system with premium gating and interactive UX"""
     
     def __init__(self, bot):
         self.bot = bot
-        self.core = GamblingCore(bot)
-        self.slots = SlotsGame(self.core)
-        self.blackjack = BlackjackGame(self.core)
-        self.roulette = RouletteGame(self.core)
         
-    @discord.slash_command(name="slots", description="Play the slot machine")
-    async def slots_command(self, ctx: discord.ApplicationContext, 
-                           bet: discord.Option(int, "Bet amount", min_value=10, max_value=50000)):
+    async def check_premium_access(self, guild_id: int) -> bool:
+        """Check if guild has premium access for gambling features"""
+        try:
+            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            if not guild_config:
+                return False
+            return guild_config.get('premium', False)
+        except Exception as e:
+            logger.error(f"Premium check failed: {e}")
+            return False
+            
+    async def get_user_balance(self, guild_id: int, user_id: int) -> int:
+        """Get user's current balance"""
+        try:
+            wallet = await self.bot.db_manager.get_wallet(guild_id, user_id)
+            return wallet.get('balance', 0) if wallet else 0
+        except Exception as e:
+            logger.error(f"Error getting balance: {e}")
+            return 0
+            
+    async def update_user_balance(self, guild_id: int, user_id: int, amount: int, description: str) -> bool:
+        """Update user balance and log transaction"""
+        try:
+            current_balance = await self.get_user_balance(guild_id, user_id)
+            new_balance = current_balance + amount
+            
+            if new_balance < 0:
+                return False
+                
+            await self.bot.db_manager.update_wallet(guild_id, user_id, new_balance)
+            
+            # Log wallet event
+            await self.add_wallet_event(guild_id, user_id, amount, 'gambling', description)
+            return True
+        except Exception as e:
+            logger.error(f"Error updating balance: {e}")
+            return False
+            
+    async def add_wallet_event(self, guild_id: int, discord_id: int, amount: int, event_type: str, description: str):
+        """Add wallet transaction event for tracking"""
+        try:
+            event_data = {
+                'guild_id': guild_id,
+                'discord_id': discord_id,
+                'amount': amount,
+                'event_type': event_type,
+                'description': description,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }
+            await self.bot.db_manager.add_wallet_event(event_data)
+        except Exception as e:
+            logger.error(f"Error adding wallet event: {e}")
+        
+    @discord.slash_command(name="gamble", description="Enter the casino with interactive games")
+    async def gamble_command(self, ctx: discord.ApplicationContext):
+        """Main gambling command with interactive UX"""
+        try:
+            # Check premium access
+            has_access = await self.check_premium_access(ctx.guild_id)
+            if not has_access:
+                embed = discord.Embed(
+                    title="🔒 Premium Required",
+                    description="Casino features require premium access",
+                    color=0xff0000
+                )
+                await ctx.respond(embed=embed, ephemeral=True)
+                return
+                
+            # Show bet input modal
+            modal = BetModal(self)
+            await ctx.response.send_modal(modal)
+            
+        except Exception as e:
+            logger.error(f"Gamble command error: {e}")
+            await ctx.respond("An error occurred", ephemeral=True)
+            
+    async def play_slots(self, interaction: discord.Interaction, bet_amount: int):
         """Play slots game"""
-        try:
-            # Check premium access
-            has_access = await self.core.check_premium_access(ctx.guild_id)
-            if not has_access:
-                embed = discord.Embed(
-                    title="🔒 Premium Required",
-                    description="Gambling features require premium access",
-                    color=0xff0000
-                )
-                await ctx.respond(embed=embed, ephemeral=True)
-                return
-                
-            await ctx.defer()
-            embed = await self.slots.play(ctx, bet)
-            await ctx.followup.send(embed=embed)
+        # Deduct bet
+        success = await self.update_user_balance(interaction.guild_id, interaction.user.id, -bet_amount, f"Slots bet ${bet_amount:,}")
+        if not success:
+            embed = discord.Embed(title="❌ Insufficient Balance", color=0xff0000)
+            return embed, None
             
-        except Exception as e:
-            logger.error(f"Slots command error: {e}")
-            await ctx.respond("An error occurred", ephemeral=True)
+        # Generate slot result
+        symbols = ["🍒", "🍋", "🍊", "🍇", "⭐", "💎", "7️⃣"]
+        reels = [random.choice(symbols) for _ in range(3)]
+        
+        # Calculate payout
+        payout = 0
+        if reels[0] == reels[1] == reels[2]:  # Three of a kind
+            if reels[0] == "💎":
+                payout = bet_amount * 10  # Diamond jackpot
+            elif reels[0] == "7️⃣":
+                payout = bet_amount * 7   # Lucky sevens
+            elif reels[0] == "⭐":
+                payout = bet_amount * 5   # Stars
+            else:
+                payout = bet_amount * 3   # Other matches
+        elif reels[0] == reels[1] or reels[1] == reels[2] or reels[0] == reels[2]:  # Two of a kind
+            payout = bet_amount  # Return bet
             
-    @discord.slash_command(name="blackjack", description="Start a blackjack game")
-    async def blackjack_command(self, ctx: discord.ApplicationContext,
-                               bet: discord.Option(int, "Bet amount", min_value=10, max_value=50000)):
-        """Start blackjack game"""
-        try:
-            # Check premium access
-            has_access = await self.core.check_premium_access(ctx.guild_id)
-            if not has_access:
-                embed = discord.Embed(
-                    title="🔒 Premium Required",
-                    description="Gambling features require premium access",
-                    color=0xff0000
-                )
-                await ctx.respond(embed=embed, ephemeral=True)
-                return
-                
-            await ctx.defer()
-            embed = await self.blackjack.start_game(ctx, bet)
-            await ctx.followup.send(embed=embed)
+        # Update balance if won
+        if payout > 0:
+            await self.update_user_balance(interaction.guild_id, interaction.user.id, payout, f"Slots win ${payout:,}")
             
-        except Exception as e:
-            logger.error(f"Blackjack command error: {e}")
-            await ctx.respond("An error occurred", ephemeral=True)
+        # Create result embed
+        profit = payout - bet_amount
+        color = 0x00ff00 if profit > 0 else 0xff0000 if profit < 0 else 0xffff00
+        
+        embed = discord.Embed(
+            title="🎰 Slot Machine",
+            description=f"{''.join(reels)}\n\n**Bet:** ${bet_amount:,}\n**Payout:** ${payout:,}\n**Profit:** ${profit:+,}",
+            color=color
+        )
+        
+        new_balance = await self.get_user_balance(interaction.guild_id, interaction.user.id)
+        embed.add_field(name="💰 Balance", value=f"${new_balance:,}", inline=True)
+        
+        view = PlayAgainView(interaction.user.id, self)
+        return embed, view
+        
+    async def play_blackjack(self, interaction: discord.Interaction, bet_amount: int):
+        """Start blackjack game (simplified version)"""
+        # Deduct bet
+        success = await self.update_user_balance(interaction.guild_id, interaction.user.id, -bet_amount, f"Blackjack bet ${bet_amount:,}")
+        if not success:
+            embed = discord.Embed(title="❌ Insufficient Balance", color=0xff0000)
+            return embed, None
             
-    @discord.slash_command(name="roulette", description="Play roulette")
-    async def roulette_command(self, ctx: discord.ApplicationContext,
-                              bet: discord.Option(int, "Bet amount", min_value=10, max_value=50000),
-                              choice: discord.Option(str, "Bet choice (red/black/even/odd/low/high/0-36)")):
-        """Play roulette game"""
-        try:
-            # Check premium access
-            has_access = await self.core.check_premium_access(ctx.guild_id)
-            if not has_access:
-                embed = discord.Embed(
-                    title="🔒 Premium Required", 
-                    description="Gambling features require premium access",
-                    color=0xff0000
-                )
-                await ctx.respond(embed=embed, ephemeral=True)
-                return
-                
-            await ctx.defer()
-            embed = await self.roulette.play(ctx, bet, choice)
-            await ctx.followup.send(embed=embed)
+        # Simple blackjack simulation
+        player_cards = [random.randint(1, 11), random.randint(1, 11)]
+        dealer_cards = [random.randint(1, 11), random.randint(1, 11)]
+        
+        player_total = sum(player_cards)
+        dealer_total = sum(dealer_cards)
+        
+        # Adjust for aces
+        if player_total > 21 and 11 in player_cards:
+            player_total -= 10
+        if dealer_total > 21 and 11 in dealer_cards:
+            dealer_total -= 10
             
-        except Exception as e:
-            logger.error(f"Roulette command error: {e}")
-            await ctx.respond("An error occurred", ephemeral=True)
+        # Determine winner
+        payout = 0
+        if player_total > 21:
+            result = "Bust! You lose."
+        elif dealer_total > 21:
+            result = "Dealer busts! You win!"
+            payout = bet_amount * 2
+        elif player_total > dealer_total:
+            result = "You win!"
+            payout = bet_amount * 2
+        elif dealer_total > player_total:
+            result = "Dealer wins!"
+        else:
+            result = "Push! Bet returned."
+            payout = bet_amount
+            
+        # Update balance if won
+        if payout > 0:
+            await self.update_user_balance(interaction.guild_id, interaction.user.id, payout, f"Blackjack win ${payout:,}")
+            
+        profit = payout - bet_amount
+        color = 0x00ff00 if profit > 0 else 0xff0000 if profit < 0 else 0xffff00
+        
+        embed = discord.Embed(
+            title="🃏 Blackjack",
+            description=f"**Your cards:** {player_total}\n**Dealer cards:** {dealer_total}\n\n{result}\n\n**Bet:** ${bet_amount:,}\n**Payout:** ${payout:,}\n**Profit:** ${profit:+,}",
+            color=color
+        )
+        
+        new_balance = await self.get_user_balance(interaction.guild_id, interaction.user.id)
+        embed.add_field(name="💰 Balance", value=f"${new_balance:,}", inline=True)
+        
+        view = PlayAgainView(interaction.user.id, self)
+        return embed, view
+        
+    async def show_roulette_options(self, interaction: discord.Interaction, bet_amount: int):
+        """Show roulette betting options"""
+        embed = discord.Embed(
+            title="🔴 Roulette",
+            description=f"**Bet Amount:** ${bet_amount:,}\n\nChoose your bet type:",
+            color=0xff0000
+        )
+        embed.add_field(name="Color Bets", value="🔴 Red (2x)\n⚫ Black (2x)", inline=True)
+        embed.add_field(name="Number Bets", value="🔢 Even (2x)\n🔢 Odd (2x)", inline=True)
+        embed.add_field(name="Range Bets", value="📉 Low 1-18 (2x)\n📈 High 19-36 (2x)", inline=True)
+        
+        # Create roulette view with bet options
+        view = RouletteView(interaction.user.id, bet_amount, self)
+        return embed, view
+
+class RouletteView(discord.ui.View):
+    """Roulette betting interface"""
+    
+    def __init__(self, user_id: int, bet_amount: int, gambling_cog):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.bet_amount = bet_amount
+        self.gambling_cog = gambling_cog
+        
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your game!", ephemeral=True)
+            return False
+        return True
+        
+    @discord.ui.button(label="🔴 Red", style=discord.ButtonStyle.danger)
+    async def red_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await self.play_roulette(interaction, "red")
+        
+    @discord.ui.button(label="⚫ Black", style=discord.ButtonStyle.secondary) 
+    async def black_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await self.play_roulette(interaction, "black")
+        
+    @discord.ui.button(label="🔢 Even", style=discord.ButtonStyle.primary)
+    async def even_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await self.play_roulette(interaction, "even")
+        
+    @discord.ui.button(label="🔢 Odd", style=discord.ButtonStyle.primary)
+    async def odd_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await self.play_roulette(interaction, "odd")
+        
+    async def play_roulette(self, interaction: discord.Interaction, bet_type: str):
+        """Play roulette with the selected bet type"""
+        await interaction.response.defer()
+        
+        # Deduct bet
+        success = await self.gambling_cog.update_user_balance(interaction.guild_id, interaction.user.id, -self.bet_amount, f"Roulette bet ${self.bet_amount:,}")
+        if not success:
+            embed = discord.Embed(title="❌ Insufficient Balance", color=0xff0000)
+            await interaction.edit_original_response(embed=embed, view=None)
+            return
+            
+        # Spin the wheel
+        number = random.randint(0, 36)
+        is_red = number in [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+        is_black = number != 0 and not is_red
+        is_even = number % 2 == 0 and number != 0
+        is_odd = number % 2 == 1
+        
+        # Check if bet won
+        won = False
+        if bet_type == "red" and is_red:
+            won = True
+        elif bet_type == "black" and is_black:
+            won = True
+        elif bet_type == "even" and is_even:
+            won = True
+        elif bet_type == "odd" and is_odd:
+            won = True
+            
+        payout = self.bet_amount * 2 if won else 0
+        
+        # Update balance if won
+        if payout > 0:
+            await self.gambling_cog.update_user_balance(interaction.guild_id, interaction.user.id, payout, f"Roulette win ${payout:,}")
+            
+        # Determine color for result
+        number_color = "🔴" if is_red else "⚫" if is_black else "🟢"
+        profit = payout - self.bet_amount
+        embed_color = 0x00ff00 if profit > 0 else 0xff0000
+        
+        embed = discord.Embed(
+            title="🔴 Roulette",
+            description=f"**Result:** {number_color} {number}\n**Your bet:** {bet_type.title()}\n**Outcome:** {'WIN!' if won else 'LOSE!'}\n\n**Bet:** ${self.bet_amount:,}\n**Payout:** ${payout:,}\n**Profit:** ${profit:+,}",
+            color=embed_color
+        )
+        
+        new_balance = await self.gambling_cog.get_user_balance(interaction.guild_id, interaction.user.id)
+        embed.add_field(name="💰 Balance", value=f"${new_balance:,}", inline=True)
+        
+        view = PlayAgainView(interaction.user.id, self.gambling_cog)
+        await interaction.edit_original_response(embed=embed, view=view)
 
 def setup(bot):
     bot.add_cog(Gambling(bot))
