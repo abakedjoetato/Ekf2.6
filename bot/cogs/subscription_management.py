@@ -20,12 +20,21 @@ class SubscriptionManagement(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
-        self.premium_manager = None
+        # Access premium manager directly from bot
+        self.premium_manager = getattr(bot, 'premium_manager_v2', None)
     
     async def cog_load(self):
         """Initialize premium manager when cog loads"""
-        if hasattr(self.bot, 'premium_manager_v2'):
+        # Ensure we have the premium manager reference
+        if hasattr(self.bot, 'premium_manager_v2') and self.premium_manager is None:
             self.premium_manager = self.bot.premium_manager_v2
+    
+    async def _ensure_premium_manager(self, ctx: discord.ApplicationContext) -> bool:
+        """Ensure premium manager is available, respond with error if not"""
+        if not self.premium_manager:
+            await ctx.respond("❌ Premium system not available", ephemeral=True)
+            return False
+        return True
     
     # Home Guild Management Commands
     home = discord.SlashCommandGroup("home", "Home Guild configuration commands")
@@ -495,6 +504,10 @@ class SubscriptionManagement(commands.Cog):
                     await ctx.respond("❌ Server not found", ephemeral=True)
                     return
                 
+                if not self.premium_manager:
+                    await ctx.respond("❌ Premium system not available", ephemeral=True)
+                    return
+                
                 is_premium = await self.premium_manager.is_server_premium(guild_id, server_id)
                 server_name = server_info.get("name", server_id)
                 
@@ -536,6 +549,10 @@ class SubscriptionManagement(commands.Cog):
                 
                 premium_servers = []
                 non_premium_servers = []
+                
+                if not self.premium_manager:
+                    await ctx.respond("❌ Premium system not available", ephemeral=True)
+                    return
                 
                 for server in servers:
                     server_id = server["server_id"]
