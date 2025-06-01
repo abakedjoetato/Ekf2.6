@@ -86,41 +86,18 @@ class UnifiedLogParser:
             if not log_content:
                 return
                 
-            # Determine if cold start needed
+            # Force cold start for accurate state rebuilding
+            logger.info(f"🔄 Force cold start: rebuilding current state from complete log for {server_name}")
+            self.lifecycle_manager.clear_guild_sessions(guild_id)
+            lines_to_process = log_content.splitlines()
+            
+            # Always rebuild current player state from complete log
+            await self.rebuild_player_state(lines_to_process, guild_id, server_id)
+            
+            # Don't send embeds during cold start
+            embeds = []
             current_size = len(log_content)
-            last_size = parser_state.get('last_log_size', 0)
-            cold_start = current_size < last_size or last_size == 0
             
-            if cold_start:
-                logger.info(f"🧊 Cold start: processing {len(log_content.splitlines())} lines to rebuild player state")
-                self.lifecycle_manager.clear_guild_sessions(guild_id)
-                lines_to_process = log_content.splitlines()
-                # Process all lines to rebuild current player state
-                await self.rebuild_player_state(lines_to_process, guild_id, server_id)
-            else:
-                logger.info(f"🔥 Hot start: processing {current_size - last_size} new bytes")
-                new_content = log_content[last_size:]
-                lines_to_process = new_content.splitlines()
-                
-                # Check if we need to rebuild player state (no active players tracked)
-                active_players = self.lifecycle_manager.get_active_players(guild_id)
-                server_players = [p for p in active_players.values() if p and p.get('server_id') == server_id]
-                
-                if len(server_players) == 0:
-                    logger.info(f"🔄 No active players tracked, rebuilding state from complete log")
-                    all_lines = log_content.splitlines()
-                    logger.info(f"🔍 Analyzing {len(all_lines)} total log lines for player history")
-                    await self.rebuild_player_state(all_lines, guild_id, server_id)
-                
-            # Process log lines
-            embeds = await self.process_log_lines(
-                lines_to_process, guild_id, server_id, server_name, cold_start
-            )
-            
-            # Send embeds
-            if embeds and not cold_start:
-                await self.send_embeds(guild_id, server_id, embeds)
-                
             # Update parser state
             await self.update_parser_state(guild_id, server_id, {
                 'last_log_size': current_size,
@@ -131,7 +108,7 @@ class UnifiedLogParser:
             # Update voice channel
             await self.update_voice_channel(guild_id, server_id, server_name)
             
-            logger.debug(f"{server_name}: {'Cold start' if cold_start else f'{len(embeds)} total events sent'}")
+            logger.debug(f"{server_name}: Cold start complete - state rebuilt from complete log")
             
         except Exception as e:
             logger.error(f"Error processing server {server_config.get('name', 'Unknown')}: {e}")
@@ -185,7 +162,30 @@ class UnifiedLogParser:
                     if disconnect_data:
                         logger.debug(f"State rebuild: {disconnect_data.get('player_name')} left (total: {len(active_players)})")
         
-        logger.debug(f"Player state rebuilt: {len(active_players)} players currently online")
+        logger.info(f"🎮 Player state rebuilt: {len(active_players)} players currently online")
+        
+        # Save currently active players to database with online status
+        if hasattr(self.bot, 'db_manager') and active_players:
+            for player_id in active_players:
+                # Get player data from lifecycle manager
+                player_data = self.lifecycle_manager.get_player_data(guild_id, player_id)
+                if player_data:
+                    # Mark as online in database
+                    session_data = {
+                        'player_name': player_data.get('player_name', f"Player{player_id[:8].upper()}"),
+                        'platform': player_data.get('platform', 'Unknown'),
+                        'status': 'online',
+                        'joined_at': player_data.get('joined_at'),
+                        'last_seen': datetime.now(timezone.utc)
+                    }
+                    
+                    try:
+                        await self.bot.db_manager.save_player_session(
+                            int(guild_id), server_id, player_id, session_data
+                        )
+                        logger.info(f"✅ Marked {session_data['player_name']} as online in database")
+                    except Exception as e:
+                        logger.error(f"Failed to save session for {player_id}: {e}")
             
     async def read_server_logs(self, host: str, port: int, username: str, server_id: str, password: Optional[str] = None) -> Optional[str]:
         """Read logs from server via SFTP"""
