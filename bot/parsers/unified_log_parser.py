@@ -28,8 +28,6 @@ class UnifiedLogParser:
     async def run_log_parser(self):
         """Main parser execution method"""
         try:
-            logger.info("🔄 Running unified log parser...")
-            
             # Get guilds from bot's connected guilds
             guilds = []
             for guild in self.bot.guilds:
@@ -37,6 +35,7 @@ class UnifiedLogParser:
                 if guild_doc:
                     guilds.append(guild_doc)
             
+            total_servers = 0
             for guild in guilds:
                 # Use the actual Discord guild ID, not the MongoDB document ID
                 discord_guild_id = guild.get('guild_id', 0)
@@ -45,14 +44,13 @@ class UnifiedLogParser:
                 if not servers or not discord_guild_id:
                     continue
                     
-                logger.info(f"📡 Processing {len(servers)} servers for Guild {discord_guild_id}")
+                total_servers += len(servers)
                 
                 for server_config in servers:
                     await self.process_server(discord_guild_id, server_config)
                     
-            logger.info("✅ Parser completed: {} servers processed".format(
-                sum(len(g.get('servers', [])) for g in guilds)
-            ))
+            if total_servers > 0:
+                logger.info(f"Parser completed: {total_servers} servers processed")
             
         except Exception as e:
             logger.error(f"Parser execution failed: {e}")
@@ -440,29 +438,11 @@ class UnifiedLogParser:
                         default_server.get('playercountvc') or 
                         legacy_channels.get('playercountvc'))
                 
-                logger.info(f"🔍 Legacy channels: {legacy_channels}")
-                logger.info(f"🔍 Server channels for {server_id}: {server_specific}")
-                logger.info(f"🔍 Default server channels: {default_server}")
-                logger.info(f"🔍 Legacy playercountvc: {legacy_channels.get('playercountvc')}")
-                logger.info(f"🔍 Voice channel ID: {vc_id}")
-                
-                if vc_id:
-                    voice_channel = self.bot.get_channel(int(vc_id))
-                    logger.info(f"🔍 Voice channel found: {voice_channel is not None}")
-                    
-                    if voice_channel:
-                        current_name = voice_channel.name
-                        logger.info(f"🔍 Current name: '{current_name}' -> Target: '{channel_name}'")
-                        
-                        if current_name != channel_name:
-                            await voice_channel.edit(name=channel_name)
-                            logger.info(f"✅ Voice channel updated to: {channel_name}")
-                        else:
-                            logger.info(f"🔄 Voice channel already correct: {channel_name}")
-                    else:
-                        logger.warning(f"❌ Voice channel not found with ID: {vc_id}")
-                else:
-                    logger.info(f"🔍 No voice channel configured for server {server_id}")
+                if vc_id and hasattr(self.bot, 'voice_channel_batcher'):
+                    # Use batched voice channel updater to prevent rate limiting
+                    await self.bot.voice_channel_batcher.queue_voice_channel_update(
+                        int(vc_id), server_name, player_count, max_players
+                    )
             else:
                 logger.warning(f"❌ No guild config found for guild {guild_id}")
                         
