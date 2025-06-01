@@ -419,9 +419,11 @@ class KillfeedParser:
                 # Handle actual PvP kill - proper streak and distance tracking
                 logger.info(f"Processing kill: {kill_data['killer']} -> {kill_data['victim']} in server {server_id}")
 
-                # Update killer: increment kills and streak
+                # Update killer: increment kills and streak with chronological validation
                 await self.bot.db_manager.increment_player_kill(
-                    guild_id, server_id, kill_data['killer'], kill_data.get('distance', 0)
+                    guild_id, server_id, kill_data['killer'], 
+                    kill_data.get('distance', 0), 
+                    kill_data.get('timestamp')
                 )
 
                 # Update victim: increment deaths and reset streak
@@ -528,7 +530,7 @@ class KillfeedParser:
             logger.error(f"Failed to send killfeed embed: {e}")
 
     async def parse_server_killfeed(self, guild_id: int, server_config: Dict[str, Any]):
-        """Parse killfeed for a single server with transition detection"""
+        """Parse killfeed for a single server with chronological processing and transition detection"""
         try:
             server_id = str(server_config.get('_id', 'unknown'))
             server_name = server_config.get('name', f'Server {server_id}')
@@ -556,10 +558,8 @@ class KillfeedParser:
             if server_key not in self.parsed_lines:
                 self.parsed_lines[server_key] = set()
 
-            # Count different event types
-            new_events = 0
-            pvp_kills = 0
-            suicides = 0
+            # CHRONOLOGICAL PROCESSING: Buffer and sort new lines by timestamp
+            new_lines_buffer = []
             skipped_duplicates = 0
 
             # Check if we're in transition state
@@ -569,6 +569,7 @@ class KillfeedParser:
             logger.debug(f"📊 Processing {len(lines)} total lines from {source_info} for {server_name}")
             logger.debug(f"📄 Current CSV file: {current_csv_file}")
 
+            # Phase 1: Collect new lines and parse timestamps
             for line in lines:
                 if not line.strip():
                     continue
@@ -577,17 +578,50 @@ class KillfeedParser:
                     skipped_duplicates += 1
                     continue
 
+                # Parse line to extract timestamp for chronological sorting
                 kill_data = await self.parse_csv_line(line)
                 if kill_data:
-                    await self.process_kill_event(guild_id, server_id, kill_data)
-                    self.parsed_lines[server_key].add(line)
-                    new_events += 1
+                    new_lines_buffer.append((kill_data['timestamp'], line, kill_data))
 
-                    # Track event types for better reporting
-                    if kill_data['is_suicide']:
-                        suicides += 1
-                    else:
-                        pvp_kills += 1
+            # Phase 2: Sort by timestamp for chronological processing
+            if new_lines_buffer:
+                new_lines_buffer.sort(key=lambda x: x[0])  # Sort by timestamp
+                logger.debug(f"⏰ Sorted {len(new_lines_buffer)} new events chronologically")
+
+            # Phase 3: Process events in chronological order with batching for memory efficiency
+            new_events = 0
+            pvp_kills = 0
+            suicides = 0
+            batch_size = 50  # Process in batches to manage memory
+
+            for i in range(0, len(new_lines_buffer), batch_size):
+                batch = new_lines_buffer[i:i + batch_size]
+                
+                # Process batch with controlled concurrency
+                batch_tasks = []
+                for timestamp, line, kill_data in batch:
+                    try:
+                        batch_tasks.append(self.process_kill_event(guild_id, server_id, kill_data))
+                        self.parsed_lines[server_key].add(line)
+                        new_events += 1
+
+                        # Track event types for better reporting
+                        if kill_data['is_suicide']:
+                            suicides += 1
+                        else:
+                            pvp_kills += 1
+
+                    except Exception as e:
+                        logger.error(f"Error preparing chronological event: {e}")
+                        continue
+                
+                # Execute batch with concurrency limit
+                if batch_tasks:
+                    await asyncio.gather(*batch_tasks, return_exceptions=True)
+                
+                # Brief pause between batches to prevent overwhelming the database
+                if i + batch_size < len(new_lines_buffer):
+                    await asyncio.sleep(0.01)  # 10ms pause between batches
 
             # Update processed line count in CSV state
             if server_key in self.csv_file_states:

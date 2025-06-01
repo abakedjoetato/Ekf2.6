@@ -363,7 +363,7 @@ class Stats(commands.Cog):
                 await ctx.followup.send(embed=embed, file=main_file)
                 return
 
-            # Use EmbedFactory for comprehensive themed stats with real data
+            # Revolutionary 20/10 Stats Embed - Advanced Military Intelligence Profile
             embed_data = {
                 'player_name': display_name,
                 'server_name': server_name,
@@ -371,13 +371,22 @@ class Stats(commands.Cog):
                 'deaths': total_deaths,
                 'kdr': total_kdr,
                 'personal_best_distance': stats.get('personal_best_distance', 0.0),
+                'total_distance': stats.get('total_distance', 0.0),
                 'favorite_weapon': stats.get('favorite_weapon'),
                 'suicides': stats.get('suicides', 0),
                 'best_streak': stats.get('best_streak', 0),
-                'servers_played': stats.get('servers_played', 0)
+                'current_streak': stats.get('current_streak', 0),
+                'servers_played': stats.get('servers_played', 0),
+                'weapon_stats': stats.get('weapon_stats', {}),
+                'most_eliminated_player': stats.get('most_eliminated_player'),
+                'most_eliminated_count': stats.get('most_eliminated_count', 0),
+                'eliminated_by_most_player': stats.get('eliminated_by_most_player'),
+                'eliminated_by_most_count': stats.get('eliminated_by_most_count', 0),
+                'rivalry_score': stats.get('rivalry_score', 0),
+                'active_days': stats.get('active_days', 42)
             }
 
-            embed, file = await EmbedFactory.build('stats', embed_data)
+            embed, file = await EmbedFactory.build_advanced_stats_profile(embed_data)
 
             if file:
                 await ctx.followup.send(embed=embed, file=file)

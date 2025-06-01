@@ -848,13 +848,14 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to add kill event: {e}")
 
-    async def increment_player_kill(self, guild_id: int, server_id: str, player_name: str, distance: float = 0.0):
-        """Increment player kill count and update streak/distance stats with enhanced distance tracking"""
+    async def increment_player_kill(self, guild_id: int, server_id: str, player_name: str, distance: float = 0.0, event_timestamp: datetime = None):
+        """Increment player kill count and update streak/distance stats with chronological validation"""
         try:
             # Ensure consistent types
             guild_id = int(guild_id)
             server_id = str(server_id)
             player_name = str(player_name).strip()
+            
             # PHASE 1 FIX: Ensure distance is properly validated and tracked
             if isinstance(distance, str):
                 try:
@@ -868,6 +869,18 @@ class DatabaseManager:
             # Validate range and handle edge cases
             distance = max(0.0, min(float(distance), 5000.0))  # Validate range
             distance = round(distance, 1)  # Round for consistency
+
+            # Chronological validation: Check if this event is newer than last processed
+            if event_timestamp:
+                try:
+                    current_stats = await self.get_pvp_stats(guild_id, server_id, player_name)
+                    if current_stats and current_stats.get('last_kill_timestamp'):
+                        last_timestamp = current_stats['last_kill_timestamp']
+                        if isinstance(last_timestamp, datetime) and event_timestamp < last_timestamp:
+                            logger.debug(f"Skipping out-of-order kill event for {player_name}: {event_timestamp} < {last_timestamp}")
+                            return
+                except Exception as timestamp_error:
+                    logger.debug(f"Timestamp validation failed, proceeding: {timestamp_error}")
 
             # Get current stats to calculate new longest distance and streak
             current_stats = await self.get_pvp_stats(guild_id, server_id, player_name)
@@ -885,7 +898,7 @@ class DatabaseManager:
             if distance > 0:
                 await self.update_pvp_stats(guild_id, server_id, player_name, {"total_distance": distance})
 
-            # Update streak and personal best in single operation
+            # Update streak, personal best, and timestamp in single operation
             update_data = {
                 "current_streak": new_streak,
                 "longest_streak": longest_streak
@@ -894,6 +907,10 @@ class DatabaseManager:
             # Only update personal best if this distance is actually better
             if distance > 0 and distance > current_stats.get('personal_best_distance', 0.0):
                 update_data["personal_best_distance"] = distance
+
+            # Update last kill timestamp for chronological tracking
+            if event_timestamp:
+                update_data["last_kill_timestamp"] = event_timestamp
 
             await self.update_pvp_stats(guild_id, server_id, player_name, update_data)
 

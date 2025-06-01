@@ -482,6 +482,177 @@ class EmbedFactory:
             return await EmbedFactory.build_error_embed("Trader embed error")
 
     @staticmethod
+    async def build_advanced_stats_profile(embed_data: Dict[str, Any]) -> Tuple[discord.Embed, Optional[discord.File]]:
+        """Build revolutionary 20/10 advanced military intelligence profile"""
+        try:
+            player_name = embed_data.get('player_name', 'Unknown Operative')
+            server_name = embed_data.get('server_name', 'Unknown Theater')
+
+            # Combat Performance Metrics
+            kills = embed_data.get('kills', 0)
+            deaths = embed_data.get('deaths', 0)
+            kdr = float(embed_data.get('kdr', 0.0))
+            suicides = embed_data.get('suicides', 0)
+
+            # Advanced Combat Intelligence
+            best_streak = embed_data.get('best_streak', 0)
+            current_streak = embed_data.get('current_streak', 0)
+            personal_best_distance = embed_data.get('personal_best_distance', 0.0)
+            total_distance = embed_data.get('total_distance', 0.0)
+            favorite_weapon = embed_data.get('favorite_weapon', 'Unknown')
+
+            # Tactical Analysis
+            most_eliminated = embed_data.get('most_eliminated_player', 'None')
+            most_eliminated_count = embed_data.get('most_eliminated_count', 0)
+            nemesis = embed_data.get('eliminated_by_most_player', 'None')
+            nemesis_count = embed_data.get('eliminated_by_most_count', 0)
+            rivalry_score = embed_data.get('rivalry_score', 0)
+
+            # Operational Statistics
+            servers_played = embed_data.get('servers_played', 0)
+            weapon_stats = embed_data.get('weapon_stats', {})
+            active_days = embed_data.get('active_days', 42)
+
+            # Calculate advanced metrics
+            total_engagements = kills + deaths
+            survival_rate = (kills / max(total_engagements, 1)) * 100 if total_engagements > 0 else 0
+            efficiency_rating = min(100, (kdr * 20) + (best_streak * 2))
+            avg_engagement_distance = total_distance / max(kills, 1) if kills > 0 and total_distance > 0 else 0
+
+            # Performance Classification System
+            if kdr >= 3.0 and kills >= 100:
+                classification = "🔥 ELITE OPERATOR"
+                class_color = 0xFF0000  # Red
+            elif kdr >= 2.0 and kills >= 50:
+                classification = "⚡ VETERAN COMBATANT"
+                class_color = 0xFF8C00  # Dark Orange
+            elif kdr >= 1.5 and kills >= 25:
+                classification = "🎯 EXPERIENCED SOLDIER"
+                class_color = 0xFFD700  # Gold
+            elif kdr >= 1.0:
+                classification = "🛡️ TACTICAL OPERATIVE"
+                class_color = 0x32CD32  # Lime Green
+            else:
+                classification = "⚔️ FIELD RECRUIT"
+                class_color = 0x808080  # Gray
+
+            # Create revolutionary embed structure
+            embed = discord.Embed(
+                title=f"🎖️ MILITARY INTELLIGENCE PROFILE",
+                description=f"**OPERATIVE:** `{player_name}`\n**THEATER:** `{server_name}`\n**CLASSIFICATION:** {classification}",
+                color=class_color,
+                timestamp=datetime.now(timezone.utc)
+            )
+
+            # PRIMARY COMBAT METRICS (Field 1)
+            primary_metrics = (
+                f"**Eliminations:** `{kills:,}`\n"
+                f"**KIA Events:** `{deaths:,}`\n"
+                f"**K/D Ratio:** `{kdr:.2f}`\n"
+                f"**Survival Rate:** `{survival_rate:.1f}%`"
+            )
+            embed.add_field(
+                name="📊 PRIMARY COMBAT METRICS",
+                value=primary_metrics,
+                inline=True
+            )
+
+            # TACTICAL PERFORMANCE (Field 2)
+            tactical_performance = (
+                f"**Current Streak:** `{current_streak}`\n"
+                f"**Best Streak:** `{best_streak}`\n"
+                f"**Efficiency Rating:** `{efficiency_rating:.0f}/100`\n"
+                f"**Self-Eliminations:** `{suicides}`"
+            )
+            embed.add_field(
+                name="⚡ TACTICAL PERFORMANCE",
+                value=tactical_performance,
+                inline=True
+            )
+
+            # ENGAGEMENT ANALYSIS (Field 3)
+            engagement_analysis = (
+                f"**Total Engagements:** `{total_engagements:,}`\n"
+                f"**Longest Shot:** `{personal_best_distance:.0f}m`\n"
+                f"**Avg Distance:** `{avg_engagement_distance:.0f}m`\n"
+                f"**Primary Weapon:** `{favorite_weapon or 'Unknown'}`"
+            )
+            embed.add_field(
+                name="🎯 ENGAGEMENT ANALYSIS",
+                value=engagement_analysis,
+                inline=True
+            )
+
+            # RIVALRY INTELLIGENCE (Field 4)
+            if most_eliminated and most_eliminated != 'None':
+                rivalry_status = f"**Primary Target:** `{most_eliminated}` ({most_eliminated_count} eliminations)"
+            else:
+                rivalry_status = "**Primary Target:** `No significant targets`"
+
+            if nemesis and nemesis != 'None':
+                threat_assessment = f"**Known Threat:** `{nemesis}` ({nemesis_count} eliminations)"
+            else:
+                threat_assessment = "**Known Threat:** `No significant threats`"
+
+            rivalry_intel = (
+                f"{rivalry_status}\n"
+                f"{threat_assessment}\n"
+                f"**Rivalry Score:** `{rivalry_score:+d}`\n"
+                f"**Threat Level:** `{'HIGH' if rivalry_score < -5 else 'MODERATE' if rivalry_score < 0 else 'LOW'}`"
+            )
+            embed.add_field(
+                name="🔍 RIVALRY INTELLIGENCE",
+                value=rivalry_intel,
+                inline=True
+            )
+
+            # OPERATIONAL STATUS (Field 5)
+            operational_status = (
+                f"**Theaters Active:** `{servers_played}`\n"
+                f"**Days in Field:** `{active_days}`\n"
+                f"**Total Distance:** `{total_distance:,.0f}m`\n"
+                f"**Weapon Systems:** `{len(weapon_stats)}`"
+            )
+            embed.add_field(
+                name="🌍 OPERATIONAL STATUS",
+                value=operational_status,
+                inline=True
+            )
+
+            # WEAPON PROFICIENCY (Field 6)
+            if weapon_stats:
+                top_weapons = sorted(weapon_stats.items(), key=lambda x: x[1], reverse=True)[:3]
+                weapon_proficiency = "\n".join([
+                    f"**{weapon}:** `{count}` eliminations" 
+                    for weapon, count in top_weapons
+                ])
+            else:
+                weapon_proficiency = "**No weapon data available**"
+
+            embed.add_field(
+                name="🔫 WEAPON PROFICIENCY",
+                value=weapon_proficiency,
+                inline=True
+            )
+
+            # Footer with military timestamp
+            embed.set_footer(
+                text=f"Intelligence Report Generated • Powered by Discord.gg/EmeraldServers",
+                icon_url="attachment://main.png"
+            )
+
+            # Attach main.png thumbnail
+            main_file = discord.File("./assets/main.png", filename="main.png")
+            embed.set_thumbnail(url="attachment://main.png")
+
+            return embed, main_file
+
+        except Exception as e:
+            logger.error(f"Failed to build advanced stats profile: {e}")
+            # Fallback to basic embed
+            return await EmbedFactory.build('stats', embed_data)
+
+    @staticmethod
     async def build_killfeed_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:
         """Build elite killfeed embed - SEPARATE FALLING AND SUICIDE - MINIMALISTIC 4 FIELDS MAX"""
         try:
@@ -517,7 +688,8 @@ class EmbedFactory:
                     timestamp=datetime.now(timezone.utc)
                 )
 
-                embed.add_field(name="**OPERATIVE**", value=f"**{player_name}**", inline=True)
+                embed.add_field(name="**OPERATIVE**", value=```python
+f"**{player_name}**", inline=True)
                 embed.add_field(name=status_display, value=cause_display, inline=True)
                 embed.add_field(name="**INCIDENT REPORT**", value=themed_description, inline=False)
 

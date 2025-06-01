@@ -685,13 +685,17 @@ class HistoricalParser:
             
             logger.info(f"📝 Processing {total_lines:,} historical log lines")
 
-            # Process each line with comprehensive error handling
+            # CHRONOLOGICAL PROCESSING: Parse all lines and sort globally by timestamp
+            kill_events_buffer = []
+            
+            logger.info(f"🔄 Phase 1: Parsing {total_lines:,} lines and extracting timestamps")
+            
             for i, line in enumerate(lines):
                 if not line.strip():
                     continue
 
                 try:
-                    # Parse kill event (but don't send embeds)
+                    # Parse kill event to extract timestamp
                     kill_data = await self.killfeed_parser.parse_csv_line(line)
                     if kill_data:
                         # Validate kill data
@@ -699,53 +703,99 @@ class HistoricalParser:
                             logger.debug(f"Skipping entry with null player name: {kill_data}")
                             continue
 
-                        # Add to database without sending embeds
-                        await self.bot.db_manager.add_kill_event(guild_id, server_id, kill_data)
+                        kill_events_buffer.append((kill_data['timestamp'], kill_data))
 
-                        # Update stats using proper MongoDB update syntax
-                        if not kill_data['is_suicide']:
-                            # Update killer stats atomically
-                            await self.bot.db_manager.pvp_data.update_one(
-                                {
-                                    "guild_id": guild_id,
-                                    "server_id": server_id,
-                                    "player_name": kill_data['killer']
-                                },
-                                {
-                                    "$inc": {"kills": 1},
-                                    "$setOnInsert": {"deaths": 0, "suicides": 0}
-                                },
-                                upsert=True
-                            )
+                except Exception as e:
+                    logger.warning(f"Error parsing line {i}: {e}")
+                    continue
 
-                        # Update victim stats atomically
-                        update_field = "suicides" if kill_data['is_suicide'] else "deaths"
+                # Update progress periodically during parsing
+                if i % 1000 == 0 and embed_message:
+                    current_time = datetime.now()
+                    if (current_time - last_update_time).total_seconds() >= 30:
+                        await self.update_progress_embed(
+                            channel, embed_message, i + 1, total_lines, server_id, processing_report
+                        )
+                        last_update_time = current_time
+
+            # Sort all events chronologically
+            logger.info(f"⏰ Phase 2: Sorting {len(kill_events_buffer)} events chronologically")
+            kill_events_buffer.sort(key=lambda x: x[0])  # Sort by timestamp
+            
+            logger.info(f"🔄 Phase 3: Processing {len(kill_events_buffer)} events in chronological order with memory management")
+            
+            # Process events in batches for memory efficiency
+            batch_size = 100  # Larger batches for historical processing
+            batches_processed = 0
+            
+            for batch_start in range(0, len(kill_events_buffer), batch_size):
+                batch_end = min(batch_start + batch_size, len(kill_events_buffer))
+                batch = kill_events_buffer[batch_start:batch_end]
+                
+                # Process batch sequentially to maintain chronological order
+                for i, (timestamp, kill_data) in enumerate(batch):
+                try:
+                    # Add to database without sending embeds
+                    await self.bot.db_manager.add_kill_event(guild_id, server_id, kill_data)
+
+                    # Update stats using proper MongoDB update syntax
+                    if not kill_data['is_suicide']:
+                        # Update killer stats atomically
                         await self.bot.db_manager.pvp_data.update_one(
                             {
                                 "guild_id": guild_id,
                                 "server_id": server_id,
-                                "player_name": kill_data['victim']
+                                "player_name": kill_data['killer']
                             },
                             {
-                                "$inc": {update_field: 1},
-                                "$setOnInsert": {"kills": 0}
+                                "$inc": {"kills": 1},
+                                "$setOnInsert": {"deaths": 0, "suicides": 0}
                             },
                             upsert=True
                         )
 
-                        processed_count += 1
+                    # Update victim stats atomically
+                    update_field = "suicides" if kill_data['is_suicide'] else "deaths"
+                    await self.bot.db_manager.pvp_data.update_one(
+                        {
+                            "guild_id": guild_id,
+                            "server_id": server_id,
+                            "player_name": kill_data['victim']
+                        },
+                        {
+                            "$inc": {update_field: 1},
+                            "$setOnInsert": {"kills": 0}
+                        },
+                        upsert=True
+                    )
+
+                    processed_count += 1
 
                 except Exception as e:
-                    logger.warning(f"Error processing line {i}: {e}")
+                    logger.warning(f"Error processing chronological event {batch_start + i}: {e}")
                     continue
 
-                # Update progress embed every 30 seconds
+                # Batch-level progress tracking
+                batches_processed += 1
+                current_batch_progress = batch_start + len(batch)
+                
+                # Update progress embed every 30 seconds or every 10 batches
                 current_time = datetime.now()
-                if embed_message and (current_time - last_update_time).total_seconds() >= 30:
+                if embed_message and ((current_time - last_update_time).total_seconds() >= 30 or batches_processed % 10 == 0):
                     await self.update_progress_embed(
-                        channel, embed_message, i + 1, total_lines, server_id, processing_report
+                        channel, embed_message, current_batch_progress, len(kill_events_buffer), server_id, processing_report
                     )
                     last_update_time = current_time
+                
+                # Memory management: Force garbage collection every 50 batches
+                if batches_processed % 50 == 0:
+                    import gc
+                    gc.collect()
+                    logger.debug(f"Memory cleanup performed after {batches_processed} batches")
+                
+                # Brief pause between large batches to prevent resource exhaustion
+                if batch_end < len(kill_events_buffer):
+                    await asyncio.sleep(0.05)  # 50ms pause between batches
 
             # Complete the refresh
             duration = (datetime.now() - start_time).total_seconds()
