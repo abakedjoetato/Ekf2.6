@@ -177,21 +177,24 @@ class Gambling(commands.Cog):
         
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access for gambling features"""
+        # Gambling is guild-wide premium feature - requires at least 1 premium server
         try:
-            guild_doc = await self.bot.db_manager.get_guild(guild_id)
-            if not guild_doc:
+            if hasattr(self.bot, 'premium_manager_v2'):
+                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
+            else:
+                # Fallback to old method
+                guild_doc = await self.bot.db_manager.get_guild(guild_id)
+                if not guild_doc:
+                    return False
+                
+                servers = guild_doc.get('servers', [])
+                for server_config in servers:
+                    server_id = server_config.get('server_id', server_config.get('_id', 'default'))
+                    if await self.bot.db_manager.is_premium_server(guild_id, server_id):
+                        return True
                 return False
-            
-            # Check if any server in the guild has premium access
-            servers = guild_doc.get('servers', [])
-            for server_config in servers:
-                server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                if await self.bot.db_manager.is_premium_server(guild_id, server_id):
-                    return True
-            
-            return False
         except Exception as e:
-            logger.error(f"Premium check failed: {e}")
+            logger.error(f"Premium check failed for gambling: {e}")
             return False
             
     async def get_user_balance(self, guild_id: int, user_id: int) -> int:
