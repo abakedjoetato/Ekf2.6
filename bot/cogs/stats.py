@@ -6,6 +6,7 @@ Uses py-cord 2.6.1 syntax and EmbedFactory
 """
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 
@@ -15,6 +16,12 @@ from bot.utils.embed_factory import EmbedFactory
 from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
+
+def should_use_inline(field_value: str, max_inline_chars: int = 20) -> bool:
+    """Determine if field should be inline based on content length to prevent wrapping"""
+    # Remove Discord formatting for accurate length calculation
+    clean_text = re.sub(r'[*`_~<>:]', '', str(field_value))
+    return len(clean_text) <= max_inline_chars
 
 class Stats(discord.Cog):
     """

@@ -8,9 +8,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 import logging
 import random
+import re
 from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+def should_use_inline(field_value: str, max_inline_chars: int = 20) -> bool:
+    """Determine if field should be inline based on content length to prevent wrapping"""
+    # Remove Discord formatting for accurate length calculation
+    clean_text = re.sub(r'[*`_~<>:]', '', str(field_value))
+    return len(clean_text) <= max_inline_chars
 
 class EmbedFactory:
     """Elite embed factory with 10/10 visual quality and advanced analytics"""
@@ -627,7 +634,7 @@ class EmbedFactory:
             embed.add_field(
                 name="PRIMARY COMBAT METRICS",
                 value=primary_metrics,
-                inline=True
+                inline=should_use_inline(primary_metrics)
             )
 
             # TACTICAL PERFORMANCE (Field 2)
@@ -640,7 +647,7 @@ class EmbedFactory:
             embed.add_field(
                 name="TACTICAL PERFORMANCE",
                 value=tactical_performance,
-                inline=True
+                inline=should_use_inline(tactical_performance)
             )
 
             # ENGAGEMENT ANALYSIS (Field 3)
@@ -653,7 +660,7 @@ class EmbedFactory:
             embed.add_field(
                 name="ENGAGEMENT ANALYSIS",
                 value=engagement_analysis,
-                inline=True
+                inline=should_use_inline(engagement_analysis)
             )
 
             # RIVALRY INTELLIGENCE (Field 4)
@@ -676,7 +683,7 @@ class EmbedFactory:
             embed.add_field(
                 name="🔍 RIVALRY INTELLIGENCE",
                 value=rivalry_intel,
-                inline=True
+                inline=should_use_inline(rivalry_intel)
             )
 
             # OPERATIONAL STATUS (Field 5)
@@ -689,7 +696,7 @@ class EmbedFactory:
             embed.add_field(
                 name="🌍 OPERATIONAL STATUS",
                 value=operational_status,
-                inline=True
+                inline=should_use_inline(operational_status)
             )
 
             # WEAPON PROFICIENCY (Field 6)
