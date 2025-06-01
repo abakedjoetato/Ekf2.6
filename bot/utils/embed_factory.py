@@ -650,7 +650,21 @@ class EmbedFactory:
         except Exception as e:
             logger.error(f"Failed to build advanced stats profile: {e}")
             # Fallback to basic embed
-            return await EmbedFactory.build('stats', embed_data)
+            try:
+                basic_embed = discord.Embed(
+                    title="**OPERATIVE STATS**",
+                    description=f"**{embed_data.get('player_name', 'Unknown')}**",
+                    color=0x00BFFF,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                main_file = discord.File("./assets/main.png", filename="main.png")
+                basic_embed.set_thumbnail(url="attachment://main.png")
+                return basic_embed, main_file
+            except Exception as fallback_error:
+                logger.error(f"Fallback embed creation failed: {fallback_error}")
+                # Ultimate fallback
+                simple_embed = discord.Embed(title="Stats Error", color=0xFF0000)
+                return simple_embed, None
 
     @staticmethod
     async def build_killfeed_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:
@@ -688,8 +702,7 @@ class EmbedFactory:
                     timestamp=datetime.now(timezone.utc)
                 )
 
-                embed.add_field(name="**OPERATIVE**", value=```python
-f"**{player_name}**", inline=True)
+                embed.add_field(name="**OPERATIVE**", value=f"**{player_name}**", inline=True)
                 embed.add_field(name=status_display, value=cause_display, inline=True)
                 embed.add_field(name="**INCIDENT REPORT**", value=themed_description, inline=False)
 
