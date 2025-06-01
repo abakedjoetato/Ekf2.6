@@ -67,7 +67,7 @@ class UnifiedLogParser:
         return {
             # Player connection patterns - explicit matching based on provided examples
             'player_queue_join': re.compile(
-                r'LogNet: Join request: /Game/Maps/world_\d+/World_\d+\?.*?eosid=\|([a-f0-9]+).*?Name=([^&\?\s]+).*?(?:platformid=([^&\?\s]+))?',
+                r'LogNet: Join request: /Game/Maps/world_\d+/World_\d+\?.*?eosid=\|([a-f0-9]+).*?Name=([^&\?]+?)(?:&|\?|$).*?(?:platformid=([^&\?\s]+))?',
                 re.IGNORECASE
             ),
             'player_registered': re.compile(
