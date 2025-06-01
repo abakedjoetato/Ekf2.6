@@ -294,7 +294,7 @@ class RouletteConfigModal(discord.ui.Modal):
         self.user_id = user_id
         self.balance = balance
         
-        self.bet_amount = discord.ui.TextInput(
+        self.bet_amount = discord.ui.InputText(
             label="Stake Amount ($100 - $25,000)",
             placeholder="Enter your bet amount...",
             required=True,
@@ -302,7 +302,7 @@ class RouletteConfigModal(discord.ui.Modal):
         )
         self.add_item(self.bet_amount)
         
-        self.bet_type = discord.ui.TextInput(
+        self.bet_type = discord.ui.InputText(
             label="Bet Configuration",
             placeholder="red, black, odd, even, 1-18, 19-36, or number (0-36)",
             required=True,
@@ -344,7 +344,7 @@ class RocketConfigModal(discord.ui.Modal):
         self.user_id = user_id
         self.balance = balance
         
-        self.bet_amount = discord.ui.TextInput(
+        self.bet_amount = discord.ui.InputText(
             label="Mission Investment ($100 - $25,000)",
             placeholder="Enter your bet amount...",
             required=True,
@@ -352,7 +352,7 @@ class RocketConfigModal(discord.ui.Modal):
         )
         self.add_item(self.bet_amount)
         
-        self.target_multiplier = discord.ui.TextInput(
+        self.target_multiplier = discord.ui.InputText(
             label="Target Multiplier (1.1x - 10.0x)",
             placeholder="Auto-cashout target (optional)",
             required=False,
