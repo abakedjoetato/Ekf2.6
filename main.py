@@ -134,7 +134,7 @@ class EmeraldKillfeedBot(commands.Bot):
             'bot.cogs.gambling_ultra_v2',
             'bot.cogs.bounties',
             'bot.cogs.factions',
-            'bot.cogs.premium',
+            'bot.cogs.subscription_management',
             'bot.cogs.parsers'
         ]
 
@@ -428,6 +428,13 @@ class EmeraldKillfeedBot(commands.Bot):
             # Initialize voice channel batcher to prevent rate limiting
             from bot.utils.voice_channel_batch import VoiceChannelBatcher
             self.voice_channel_batcher = VoiceChannelBatcher(self)
+
+            # Initialize premium manager V2 (mixed server model)
+            from bot.utils.premium_manager_v2 import PremiumManagerV2
+            self.premium_manager_v2 = PremiumManagerV2(self.database)
+            
+            # Legacy compatibility for existing code
+            self.premium_manager = self.premium_manager_v2
 
             # Initialize parsers (PHASE 2) - Data parsers for killfeed & log events
             self.killfeed_parser = KillfeedParser(self)
