@@ -26,7 +26,7 @@ class UnifiedLogParser:
         self.parser_states: Dict[str, Dict] = {}
         
     async def run_log_parser(self):
-        """Main parser execution method"""
+        """Main parser execution method with automatic server detection"""
         try:
             # Get guilds from bot's connected guilds
             guilds = []
@@ -34,6 +34,13 @@ class UnifiedLogParser:
                 guild_doc = await self.bot.db_manager.get_guild(guild.id)
                 if guild_doc:
                     guilds.append(guild_doc)
+                else:
+                    # Check if we need to auto-detect servers for this guild
+                    await self.check_for_unregistered_servers(guild.id)
+                    # Try to get guild doc again after potential auto-registration
+                    guild_doc = await self.bot.db_manager.get_guild(guild.id)
+                    if guild_doc:
+                        guilds.append(guild_doc)
             
             total_servers = 0
             for guild in guilds:
