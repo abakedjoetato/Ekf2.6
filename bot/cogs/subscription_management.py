@@ -9,7 +9,7 @@ from bot.utils.premium_manager_v2 import home_guild_admin_only, bot_owner_only, 
 from bot.cogs.autocomplete import ServerAutocomplete
 
 
-class SubscriptionManagement(commands.Cog):
+class SubscriptionManagement(discord.Cog):
     """
     SUBSCRIPTION MANAGEMENT
     - /sub add <guild_id> [reason] - Add 1 premium server slot (Bot Owner + Home Guild Admins)

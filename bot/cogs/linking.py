@@ -15,7 +15,7 @@ from discord.ext import commands
 
 logger = logging.getLogger(__name__)
 
-class Linking(commands.Cog):
+class Linking(discord.Cog):
     """
     LINKING (FREE)
     - /link <char>, /alt add/remove, /linked, /unlink

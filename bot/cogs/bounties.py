@@ -16,7 +16,7 @@ from discord.ext import commands
 
 logger = logging.getLogger(__name__)
 
-class Bounties(commands.Cog):
+class Bounties(discord.Cog):
     """
     BOUNTIES (PREMIUM)
     - Manual bounties via /bounty set <target> <amount> (24h lifespan)

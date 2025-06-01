@@ -17,7 +17,7 @@ from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
 
-class Stats(commands.Cog):
+class Stats(discord.Cog):
     """
     PVP STATS (FREE)
     - /stats shows: Kills, deaths, KDR, Suicides, Longest streak, Most used weapon, Rival/Nemesis

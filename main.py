@@ -131,7 +131,7 @@ class EmeraldKillfeedBot(commands.Bot):
             'bot.cogs.leaderboards_fixed',
             'bot.cogs.automated_leaderboard',
             'bot.cogs.economy',
-            'bot.cogs.gambling_ultra_v2',
+            'bot.cogs.ultra_casino_clean',
             'bot.cogs.bounties',
             'bot.cogs.factions',
             'bot.cogs.subscription_management',

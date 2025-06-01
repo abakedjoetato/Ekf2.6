@@ -13,7 +13,7 @@ from discord.ext import commands
 
 logger = logging.getLogger(__name__)
 
-class Core(commands.Cog):
+class Core(discord.Cog):
     """
     CORE SYSTEM
     - Basic bot information and utility commands

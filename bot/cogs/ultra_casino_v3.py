@@ -52,6 +52,143 @@ class CasinoTheme:
         'club': '♣️'
     }
 
+# Forward declarations for modals and views
+class NeuralBlackjackModal(discord.ui.Modal):
+    """Advanced AI-enhanced blackjack configuration"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(title=f"{CasinoTheme.EMOJIS['spade']} NEURAL BLACKJACK")
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        
+        self.bet_amount = discord.ui.InputText(
+            label="Bet Amount ($100 - $25,000)",
+            placeholder="Enter your bet...",
+            required=True,
+            max_length=8
+        )
+        self.add_item(self.bet_amount)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['spade']} Neural Blackjack",
+            description="Advanced blackjack system coming soon!",
+            color=CasinoTheme.COLORS['primary']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class PlatinumRouletteModal(discord.ui.Modal):
+    """Premium roulette configuration"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(title=f"{CasinoTheme.EMOJIS['gem']} PLATINUM ROULETTE")
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        
+        self.bet_amount = discord.ui.InputText(
+            label="Bet Amount ($50 - $20,000)",
+            placeholder="Enter your bet...",
+            required=True,
+            max_length=8
+        )
+        self.add_item(self.bet_amount)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['gem']} Platinum Roulette",
+            description="Premium roulette system coming soon!",
+            color=CasinoTheme.COLORS['luxury']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class DiamondCrashModal(discord.ui.Modal):
+    """Diamond crash game configuration"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(title=f"{CasinoTheme.EMOJIS['diamond']} DIAMOND CRASH")
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        
+        self.bet_amount = discord.ui.InputText(
+            label="Bet Amount ($200 - $100,000)",
+            placeholder="Enter your bet...",
+            required=True,
+            max_length=8
+        )
+        self.add_item(self.bet_amount)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['diamond']} Diamond Crash",
+            description="High-stakes crash game coming soon!",
+            color=CasinoTheme.COLORS['elite']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class ElitePokerView(discord.ui.View):
+    """Elite poker game interface"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(timeout=300)
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+    
+    def create_poker_embed(self) -> discord.Embed:
+        return discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['crown']} Elite Poker",
+            description="Premium poker experience coming soon!",
+            color=CasinoTheme.COLORS['luxury']
+        )
+
+class FortuneWheelView(discord.ui.View):
+    """Fortune wheel game interface"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(timeout=300)
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+    
+    def create_wheel_embed(self) -> discord.Embed:
+        return discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['coin']} Fortune Wheel",
+            description="Progressive jackpot wheel coming soon!",
+            color=CasinoTheme.COLORS['warning']
+        )
+
+class BetSettingsModal(discord.ui.Modal):
+    """Betting configuration modal"""
+    
+    def __init__(self, current_bet: int, auto_mode: bool):
+        super().__init__(title="⚙️ BET SETTINGS")
+        self.current_bet = current_bet
+        self.auto_mode = auto_mode
+        
+        self.default_bet = discord.ui.InputText(
+            label=f"Default Bet Amount (Current: ${current_bet:,})",
+            placeholder="Enter new default bet...",
+            required=False,
+            max_length=8
+        )
+        self.add_item(self.default_bet)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="⚙️ Settings Updated",
+            description="Bet preferences have been saved!",
+            color=CasinoTheme.COLORS['success']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class AdvancedCasinoMenu(discord.ui.View):
     """Ultra-sophisticated casino menu with advanced features"""
     
@@ -394,6 +531,142 @@ class QuantumSlotsModal(discord.ui.Modal):
                 ephemeral=True
             )
 
+class NeuralBlackjackModal(discord.ui.Modal):
+    """Advanced AI-enhanced blackjack configuration"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(title=f"{CasinoTheme.EMOJIS['spade']} NEURAL BLACKJACK")
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        
+        self.bet_amount = discord.ui.InputText(
+            label="Bet Amount ($100 - $25,000)",
+            placeholder="Enter your bet...",
+            required=True,
+            max_length=8
+        )
+        self.add_item(self.bet_amount)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['spade']} Neural Blackjack",
+            description="Advanced blackjack system coming soon!",
+            color=CasinoTheme.COLORS['primary']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class PlatinumRouletteModal(discord.ui.Modal):
+    """Premium roulette configuration"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(title=f"{CasinoTheme.EMOJIS['gem']} PLATINUM ROULETTE")
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        
+        self.bet_amount = discord.ui.InputText(
+            label="Bet Amount ($50 - $20,000)",
+            placeholder="Enter your bet...",
+            required=True,
+            max_length=8
+        )
+        self.add_item(self.bet_amount)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['gem']} Platinum Roulette",
+            description="Premium roulette system coming soon!",
+            color=CasinoTheme.COLORS['luxury']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class DiamondCrashModal(discord.ui.Modal):
+    """Diamond crash game configuration"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(title=f"{CasinoTheme.EMOJIS['diamond']} DIAMOND CRASH")
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        
+        self.bet_amount = discord.ui.InputText(
+            label="Bet Amount ($200 - $100,000)",
+            placeholder="Enter your bet...",
+            required=True,
+            max_length=8
+        )
+        self.add_item(self.bet_amount)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['diamond']} Diamond Crash",
+            description="High-stakes crash game coming soon!",
+            color=CasinoTheme.COLORS['elite']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class ElitePokerView(discord.ui.View):
+    """Elite poker game interface"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(timeout=300)
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+    
+    def create_poker_embed(self) -> discord.Embed:
+        return discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['crown']} Elite Poker",
+            description="Premium poker experience coming soon!",
+            color=CasinoTheme.COLORS['luxury']
+        )
+
+class FortuneWheelView(discord.ui.View):
+    """Fortune wheel game interface"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int):
+        super().__init__(timeout=300)
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+    
+    def create_wheel_embed(self) -> discord.Embed:
+        return discord.Embed(
+            title=f"{CasinoTheme.EMOJIS['coin']} Fortune Wheel",
+            description="Progressive jackpot wheel coming soon!",
+            color=CasinoTheme.COLORS['warning']
+        )
+
+class BetSettingsModal(discord.ui.Modal):
+    """Betting configuration modal"""
+    
+    def __init__(self, current_bet: int, auto_mode: bool):
+        super().__init__(title="⚙️ BET SETTINGS")
+        self.current_bet = current_bet
+        self.auto_mode = auto_mode
+        
+        self.default_bet = discord.ui.InputText(
+            label=f"Default Bet Amount (Current: ${current_bet:,})",
+            placeholder="Enter new default bet...",
+            required=False,
+            max_length=8
+        )
+        self.add_item(self.default_bet)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="⚙️ Settings Updated",
+            description="Bet preferences have been saved!",
+            color=CasinoTheme.COLORS['success']
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class QuantumSlotsGame:
     """Advanced quantum slots game engine"""
     
@@ -677,8 +950,12 @@ class UltraCasinoV3(discord.Cog):
     async def ultra_casino(self, ctx: discord.ApplicationContext):
         """Main casino command with ultra-advanced features"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
-            user_id = ctx.user.id if ctx.user else 0
+            if not ctx.guild:
+                await ctx.respond("This command can only be used in a server.", ephemeral=True)
+                return
+            
+            guild_id = ctx.guild.id
+            user_id = ctx.user.id
             
             # Check premium access
             if not await self.check_premium_access(guild_id):

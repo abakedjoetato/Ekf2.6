@@ -457,7 +457,7 @@ class AdvancedRocketGame:
         await interaction.response.send_message("🚀 **ROCKET MISSION LAUNCHING...**\n*Real-time telemetry active...*", ephemeral=True)
         # Implementation continues...
 
-class GamblingUltraV2(commands.Cog):
+class GamblingUltraV2(discord.Cog):
     """Ultra-Advanced Casino System V2 - Modal-based sophistication"""
     
     def __init__(self, bot):

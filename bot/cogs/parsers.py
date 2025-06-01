@@ -15,7 +15,7 @@ from discord import Option
 
 logger = logging.getLogger(__name__)
 
-class Parsers(commands.Cog):
+class Parsers(discord.Cog):
     """
     PARSER MANAGEMENT
     - Killfeed parser controls

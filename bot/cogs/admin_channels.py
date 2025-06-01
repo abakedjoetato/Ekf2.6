@@ -14,7 +14,7 @@ from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
 
-class AdminChannels(commands.Cog):
+class AdminChannels(discord.Cog):
     """
     ADMIN CHANNEL COMMANDS (PHASE 3)
     - /setchannel killfeed (FREE)

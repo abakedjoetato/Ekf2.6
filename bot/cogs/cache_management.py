@@ -13,7 +13,7 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-class CacheManagement(commands.Cog):
+class CacheManagement(discord.Cog):
     """Administrative commands for cache system management"""
     
     def __init__(self, bot):

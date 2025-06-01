@@ -15,7 +15,7 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-class Economy(commands.Cog):
+class Economy(discord.Cog):
     """
     ECONOMY (PREMIUM)
     - Currency stored per Discord user, scoped to guild

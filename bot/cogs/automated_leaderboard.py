@@ -14,7 +14,7 @@ from bot.utils.embed_factory import EmbedFactory
 
 logger = logging.getLogger(__name__)
 
-class AutomatedLeaderboard(commands.Cog):
+class AutomatedLeaderboard(discord.Cog):
     """Automated consolidated leaderboard system"""
 
     def __init__(self, bot):

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-class AdminBatch(commands.Cog):
+class AdminBatch(discord.Cog):
     """Admin commands for batch sender management"""
 
     def __init__(self, bot):
