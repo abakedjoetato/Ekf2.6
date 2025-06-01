@@ -21,6 +21,19 @@ class Factions(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+    
+    async def check_premium_access(self, guild_id: int) -> bool:
+        """Check if guild has premium access - unified validation"""
+        try:
+            if hasattr(self.bot, 'premium_manager_v2'):
+                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
+            elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
+                return await self.bot.db_manager.has_premium_access(guild_id)
+            else:
+                return False
+        except Exception as e:
+            logger.error(f"Premium access check failed: {e}")
+            return False
 
     async def check_premium_server(self, guild_id: int) -> bool:
         """Check if guild has premium access for faction features"""
