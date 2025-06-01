@@ -34,7 +34,7 @@ class PlayerLifecycleManager:
         
         logger.debug(f"Player queued: {player_id} -> '{player_name}' on {platform}")
         
-    def update_player_join(self, guild_id: str, player_id: str, 
+    def update_player_join(self, guild_id: int, player_id: str, 
                           server_id: str, timestamp: datetime) -> Dict[str, Any]:
         """Update player join state and return session data"""
         lifecycle_key = self.get_lifecycle_key(guild_id, player_id)
@@ -72,7 +72,7 @@ class PlayerLifecycleManager:
         self.player_sessions[session_key] = session_data
         return session_data
         
-    def update_player_disconnect(self, guild_id: str, player_id: str, 
+    def update_player_disconnect(self, guild_id: int, player_id: str, 
                                 timestamp: datetime) -> Optional[Dict[str, Any]]:
         """Update player disconnect state"""
         lifecycle_key = self.get_lifecycle_key(guild_id, player_id)

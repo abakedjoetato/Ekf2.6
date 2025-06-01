@@ -125,7 +125,11 @@ class UnifiedLogParser:
             
             async with asyncssh.connect(
                 host, port=port, username=username,
-                known_hosts=None, client_keys=None
+                known_hosts=None, client_keys=None,
+                kex_algs=['diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256'],
+                encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com'],
+                mac_algs=['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
+                compression_algs=['none']
             ) as conn:
                 logger.info(f"✅ SFTP connected to {host}:{port}")
                 
@@ -145,7 +149,7 @@ class UnifiedLogParser:
             logger.error(f"SFTP connection failed for {host}:{port} - {e}")
             return None
             
-    async def process_log_lines(self, lines: List[str], guild_id: str, server_id: str, 
+    async def process_log_lines(self, lines: List[str], guild_id: int, server_id: str, 
                                server_name: str, cold_start: bool) -> List[Any]:
         """Process log lines and generate embeds"""
         embeds = []
