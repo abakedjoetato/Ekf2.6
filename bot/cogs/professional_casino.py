@@ -100,6 +100,12 @@ class GameSelectionMenu(discord.ui.Select):
                 description="Simple heads or tails probability game",
                 emoji="🪙",
                 value="coinflip"
+            ),
+            discord.SelectOption(
+                label="🚀 Rocket Crash",
+                description="Cash out before the rocket crashes for multiplied wins",
+                emoji="🚀",
+                value="rocket"
             )
         ]
         
@@ -243,6 +249,8 @@ class BetAmountMenu(discord.ui.Select):
             game_view = CoinFlipGameView(self.bet_view.bot, self.bet_view.guild_id, self.bet_view.user_id, self.balance, bet_amount)
         elif self.bet_view.game_type == "roulette":
             game_view = RouletteGameView(self.bet_view.bot, self.bet_view.guild_id, self.bet_view.user_id, self.balance, bet_amount)
+        elif self.bet_view.game_type == "rocket":
+            game_view = RocketCrashGameView(self.bet_view.bot, self.bet_view.guild_id, self.bet_view.user_id, self.balance, bet_amount)
         else:
             await interaction.response.send_message("Game coming soon!", ephemeral=True)
             return
@@ -649,6 +657,180 @@ class RouletteBetMenu(discord.ui.Select):
                 'casino_roulette'
             )
         except:
+            return False
+
+class RocketCrashGameView(discord.ui.View):
+    """Professional rocket crash game with real-time multiplier action"""
+    
+    def __init__(self, bot, guild_id: int, user_id: int, balance: int, bet_amount: int):
+        super().__init__(timeout=120)
+        self.bot = bot
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.balance = balance
+        self.bet_amount = bet_amount
+        self.multiplier = 1.00
+        self.crashed = False
+        self.cashed_out = False
+        self.rocket_running = False
+        self.crash_point = random.uniform(1.02, 15.0)  # Random crash between 1.02x and 15x
+        
+    def create_game_embed(self, status="ready"):
+        """Create the rocket crash game embed"""
+        if status == "ready":
+            embed = discord.Embed(
+                title="🚀 ROCKET CRASH MISSION",
+                description=f"**Mission Investment:** ${self.bet_amount:,}\n**Current Multiplier:** {self.multiplier:.2f}x\n**Potential Payout:** ${int(self.bet_amount * self.multiplier):,}\n\n🛸 **Mission Control:** Rocket on standby - ready for launch!",
+                color=0x00ff00
+            )
+        elif status == "flying":
+            altitude = min(int((self.multiplier - 1) * 8), 12)
+            rocket_display = "🚀" + "⬆️" * altitude
+            
+            embed = discord.Embed(
+                title="🚀 ROCKET IN FLIGHT",
+                description=f"**Altitude:** {rocket_display}\n**Live Multiplier:** {self.multiplier:.2f}x\n**Current Value:** ${int(self.bet_amount * self.multiplier):,}\n\n⚡ **Mission Control:** Rocket climbing! Cash out anytime!",
+                color=0xff6600
+            )
+        elif status == "crashed":
+            embed = discord.Embed(
+                title="💥 ROCKET CRASHED",
+                description=f"**Crash Point:** {self.crash_point:.2f}x\n**Your Multiplier:** {self.multiplier:.2f}x\n**Mission Result:** FAILED\n**Loss:** -${self.bet_amount:,}",
+                color=0xff0000
+            )
+        else:  # cashed_out
+            payout = int(self.bet_amount * self.multiplier)
+            profit = payout - self.bet_amount
+            embed = discord.Embed(
+                title="💰 SUCCESSFUL CASH OUT",
+                description=f"**Cash Out Multiplier:** {self.multiplier:.2f}x\n**Total Payout:** ${payout:,}\n**Mission Profit:** ${profit:+,}\n\n🎉 **Mission Control:** Successful extraction!",
+                color=0x00ff00
+            )
+            
+        return embed
+    
+    @discord.ui.button(label="🚀 LAUNCH ROCKET", style=discord.ButtonStyle.danger, row=0)
+    async def launch_rocket(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This rocket mission belongs to another pilot.", ephemeral=True)
+            return
+            
+        if self.rocket_running:
+            return
+            
+        # Deduct bet amount
+        success = await self.update_balance(-self.bet_amount)
+        if not success:
+            await interaction.response.send_message("Insufficient funds for rocket mission!", ephemeral=True)
+            return
+            
+        await self._start_rocket_sequence(interaction)
+        
+    @discord.ui.button(label="💰 CASH OUT", style=discord.ButtonStyle.success, row=0, disabled=True)
+    async def cash_out(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This rocket mission belongs to another pilot.", ephemeral=True)
+            return
+            
+        if not self.crashed and not self.cashed_out and self.rocket_running:
+            self.cashed_out = True
+            await self._process_cash_out(interaction)
+    
+    @discord.ui.button(label="🔙 Back to Casino", style=discord.ButtonStyle.secondary, row=1)
+    async def back_to_casino(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This session belongs to another player.", ephemeral=True)
+            return
+            
+        current_balance = await self.get_current_balance()
+        casino_view = CasinoMainView(self.bot, self.guild_id, self.user_id, current_balance)
+        embed = casino_view.create_main_embed()
+        await interaction.response.edit_message(embed=embed, view=casino_view)
+    
+    async def _start_rocket_sequence(self, interaction: discord.Interaction):
+        """Start the rocket launch with real-time multiplier updates"""
+        await interaction.response.defer()
+        self.rocket_running = True
+        
+        # Enable cash out, disable launch
+        self.cash_out.disabled = False
+        self.launch_rocket.disabled = True
+        
+        # Real-time rocket flight
+        import asyncio
+        while self.multiplier < self.crash_point and not self.cashed_out:
+            # Dynamic speed based on altitude
+            if self.multiplier < 2.0:
+                increment = random.uniform(0.01, 0.04)
+                delay = 0.8
+            elif self.multiplier < 5.0:
+                increment = random.uniform(0.02, 0.07)
+                delay = 0.6
+            else:
+                increment = random.uniform(0.03, 0.12)
+                delay = 0.4
+                
+            self.multiplier = round(self.multiplier + increment, 2)
+            
+            embed = self.create_game_embed("flying")
+            try:
+                await interaction.edit_original_response(embed=embed, view=self)
+            except:
+                break
+                
+            await asyncio.sleep(delay)
+        
+        # Handle crash if not cashed out
+        if not self.cashed_out:
+            self.crashed = True
+            await self._process_crash(interaction)
+    
+    async def _process_cash_out(self, interaction: discord.Interaction):
+        """Process successful cash out"""
+        await interaction.response.defer()
+        payout = int(self.bet_amount * self.multiplier)
+        profit = payout - self.bet_amount
+        
+        # Add winnings to balance
+        await self.update_balance(profit)
+        
+        embed = self.create_game_embed("cashed_out")
+        self.clear_items()
+        self.add_item(discord.ui.Button(label="🔙 Back to Casino", style=discord.ButtonStyle.secondary, custom_id="back"))
+        
+        await interaction.edit_original_response(embed=embed, view=self)
+    
+    async def _process_crash(self, interaction: discord.Interaction):
+        """Process rocket crash"""
+        embed = self.create_game_embed("crashed")
+        self.clear_items()
+        self.add_item(discord.ui.Button(label="🔙 Back to Casino", style=discord.ButtonStyle.secondary, custom_id="back"))
+        
+        try:
+            await interaction.edit_original_response(embed=embed, view=self)
+        except:
+            pass
+    
+    async def get_current_balance(self):
+        """Get user's current balance"""
+        try:
+            db = self.bot.db
+            user_doc = await db.economy.find_one({"guild_id": self.guild_id, "user_id": self.user_id})
+            return user_doc.get("balance", 0) if user_doc else 0
+        except Exception:
+            return 0
+    
+    async def update_balance(self, amount):
+        """Update user's balance"""
+        try:
+            db = self.bot.db
+            result = await db.economy.update_one(
+                {"guild_id": self.guild_id, "user_id": self.user_id},
+                {"$inc": {"balance": amount}},
+                upsert=True
+            )
+            return result.acknowledged
+        except Exception:
             return False
 
 class ProfessionalCasino(discord.Cog):
