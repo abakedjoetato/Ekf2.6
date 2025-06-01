@@ -448,21 +448,13 @@ class KillfeedParser:
             if not guild_config:
                 return
 
-            # Try server-specific channel first, then fall back to default
-            server_channels = guild_config.get('server_channels', {})
-            killfeed_channel_id = None
-
-            # Check server-specific channel
-            if server_id in server_channels:
-                killfeed_channel_id = server_channels[server_id].get('killfeed')
-
-            # Fall back to default server channels
-            if not killfeed_channel_id and 'default' in server_channels:
-                killfeed_channel_id = server_channels['default'].get('killfeed')
-
-            # Legacy fallback to old channel structure
-            if not killfeed_channel_id:
-                killfeed_channel_id = guild_config.get('channels', {}).get('killfeed')
+            # Use standardized channel structure with server-specific and default fallback
+            channels = guild_config.get('channels', {})
+            server_channels = channels.get(server_id, {})
+            default_channels = channels.get('default', {})
+            
+            # Use server-specific channel, fallback to default
+            killfeed_channel_id = server_channels.get('killfeed') or default_channels.get('killfeed')
 
             if not killfeed_channel_id:
                 logger.debug(f"No killfeed channel configured for guild {guild_id}, server {server_id}")
