@@ -29,7 +29,7 @@ class AdminBatch(commands.Cog):
             embed = discord.Embed(
                 title="Batch Sender Statistics",
                 color=0x00FF00,
-                timestamp=discord.utils.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
 
             embed.add_field(
@@ -78,7 +78,7 @@ class AdminBatch(commands.Cog):
             embed = discord.Embed(
                 title="Batch Flush Complete",
                 color=0x00FF00,
-                timestamp=discord.utils.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
 
             embed.add_field(

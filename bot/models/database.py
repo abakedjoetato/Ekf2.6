@@ -896,7 +896,10 @@ class DatabaseManager:
 
             # Add distance to total_distance (accumulated) if distance > 0
             if distance > 0:
-                await self.update_pvp_stats(guild_id, server_id, player_name, {"total_distance": distance})
+                # Use atomic increment to accumulate total distance
+                current_total = current_stats.get('total_distance', 0.0) if current_stats else 0.0
+                new_total = current_total + distance
+                await self.update_pvp_stats(guild_id, server_id, player_name, {"total_distance": new_total})
 
             # Update streak, personal best, and timestamp in single operation
             update_data = {
