@@ -86,10 +86,13 @@ class UnifiedLogParser:
             if not log_content:
                 return
                 
-            # Determine if cold start needed (first run only)
+            # Determine if cold start needed (first run for this server)
             current_size = len(log_content)
             last_size = parser_state.get('last_log_size', 0)
-            cold_start = last_size == 0  # Only on first run
+            last_processed = parser_state.get('last_processed')
+            
+            # Cold start if: no previous size recorded OR no last_processed timestamp
+            cold_start = last_size == 0 or last_processed is None
             
             if cold_start:
                 logger.info(f"🧊 Cold start: rebuilding current state from complete log for {server_name}")
