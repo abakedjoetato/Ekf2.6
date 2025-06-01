@@ -816,22 +816,20 @@ class RocketCrashGameView(discord.ui.View):
     async def get_current_balance(self):
         """Get user's current balance"""
         try:
-            db = self.bot.db
-            user_doc = await db.economy.find_one({"guild_id": self.guild_id, "user_id": self.user_id})
-            return user_doc.get("balance", 0) if user_doc else 0
+            wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
+            return wallet.get('balance', 0)
         except Exception:
             return 0
     
     async def update_balance(self, amount):
         """Update user's balance"""
         try:
-            db = self.bot.db
-            result = await db.economy.update_one(
-                {"guild_id": self.guild_id, "user_id": self.user_id},
-                {"$inc": {"balance": amount}},
-                upsert=True
+            return await self.bot.db_manager.update_wallet(
+                self.guild_id, 
+                self.user_id, 
+                amount, 
+                'casino_rocket'
             )
-            return result.acknowledged
         except Exception:
             return False
 
@@ -1052,22 +1050,20 @@ class BlackjackGameView(discord.ui.View):
     async def get_current_balance(self):
         """Get user's current balance"""
         try:
-            db = self.bot.db
-            user_doc = await db.economy.find_one({"guild_id": self.guild_id, "user_id": self.user_id})
-            return user_doc.get("balance", 0) if user_doc else 0
+            wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
+            return wallet.get('balance', 0)
         except Exception:
             return 0
     
     async def update_balance(self, amount):
         """Update user's balance"""
         try:
-            db = self.bot.db
-            result = await db.economy.update_one(
-                {"guild_id": self.guild_id, "user_id": self.user_id},
-                {"$inc": {"balance": amount}},
-                upsert=True
+            return await self.bot.db_manager.update_wallet(
+                self.guild_id, 
+                self.user_id, 
+                amount, 
+                'casino_blackjack'
             )
-            return result.acknowledged
         except Exception:
             return False
 
