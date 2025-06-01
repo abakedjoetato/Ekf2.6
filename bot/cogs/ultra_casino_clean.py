@@ -45,7 +45,8 @@ class CasinoTheme:
         'gem': '💠',
         'trophy': '🏆',
         'coin': '🪙',
-        'spade': '♠️'
+        'spade': '♠️',
+        'warning': '⚠️'
     }
 
 class QuantumSlotsModal(discord.ui.Modal):
@@ -463,10 +464,7 @@ class UltraCasinoV3Clean(discord.Cog):
     async def get_user_balance(self, guild_id: int, user_id: int) -> int:
         """Get user's current balance"""
         try:
-            wallet = await self.bot.db_manager.user_wallets.find_one({
-                'guild_id': guild_id,
-                'discord_id': user_id
-            })
+            wallet = await self.bot.db_manager.get_wallet(guild_id, user_id)
             return wallet.get('balance', 0) if wallet else 0
         except Exception:
             return 0
