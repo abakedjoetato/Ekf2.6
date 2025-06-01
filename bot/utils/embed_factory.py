@@ -14,6 +14,34 @@ logger = logging.getLogger(__name__)
 
 class EmbedFactory:
     """Elite embed factory with 10/10 visual quality and advanced analytics"""
+    @staticmethod
+    def get_thumbnail_for_type(embed_type: str) -> Tuple[str, str]:
+        """Get correct thumbnail file and filename for embed type"""
+        thumbnail_mappings = {
+            'stats': 'WeaponStats.png',
+            'profile': 'main.png', 
+            'leaderboard': 'Leaderboard.png',
+            'killfeed': 'Killfeed.png',
+            'suicide': 'Suicide.png',
+            'falling': 'Falling.png',
+            'mission': 'Mission.png',
+            'airdrop': 'Airdrop.png',
+            'helicrash': 'Helicrash.png',
+            'trader': 'Trader.png',
+            'vehicle': 'Vehicle.png',
+            'bounty': 'Bounty.png',
+            'faction': 'Faction.png',
+            'connection': 'Connections.png',
+            'gambling': 'Gamble.png',
+            'admin': 'main.png',
+            'error': 'main.png',
+            'success': 'main.png',
+            'info': 'main.png'
+        }
+        
+        thumbnail = thumbnail_mappings.get(embed_type.lower(), 'main.png')
+        return f"./assets/{thumbnail}", thumbnail
+
 
     # Asset paths validation
     ASSETS_PATH = Path('./assets')
@@ -638,14 +666,14 @@ class EmbedFactory:
             # Footer with military timestamp
             embed.set_footer(
                 text=f"Intelligence Report Generated • Powered by Discord.gg/EmeraldServers",
-                icon_url="attachment://main.png"
+                icon_url="attachment://Killfeed.png"
             )
 
             # Attach main.png thumbnail
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
+            killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
+            embed.set_thumbnail(url="attachment://Killfeed.png")
 
-            return embed, main_file
+            return embed, killfeed_file
 
         except Exception as e:
             logger.error(f"Failed to build advanced stats profile: {e}")
@@ -657,8 +685,8 @@ class EmbedFactory:
                     color=0x00BFFF,
                     timestamp=datetime.now(timezone.utc)
                 )
-                main_file = discord.File("./assets/main.png", filename="main.png")
-                basic_embed.set_thumbnail(url="attachment://main.png")
+                killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
+                basic_embed.set_thumbnail(url="attachment://Killfeed.png")
                 return basic_embed, main_file
             except Exception as fallback_error:
                 logger.error(f"Fallback embed creation failed: {fallback_error}")
@@ -829,7 +857,7 @@ class EmbedFactory:
             main_file = discord.File("./assets/WeaponStats.png", filename="WeaponStats.png")
             embed.set_thumbnail(url="attachment://WeaponStats.png")
 
-            return embed, main_file
+            return embed, killfeed_file
 
         except Exception as e:
             logger.error(f"Error building stats embed: {e}")
@@ -943,10 +971,10 @@ class EmbedFactory:
 
             embed.set_footer(text="Powered by Emerald")
 
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
+            killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
+            embed.set_thumbnail(url="attachment://Killfeed.png")
 
-            return embed, main_file
+            return embed, killfeed_file
 
         except Exception as e:
             logger.error(f"Error building economy balance embed: {e}")
@@ -969,10 +997,10 @@ class EmbedFactory:
 
             embed.set_footer(text="Powered by Emerald")
 
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
+            killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
+            embed.set_thumbnail(url="attachment://Killfeed.png")
 
-            return embed, main_file
+            return embed, killfeed_file
 
         except Exception as e:
             logger.error(f"Error building economy work embed: {e}")
@@ -991,10 +1019,10 @@ class EmbedFactory:
 
             embed.set_footer(text="Powered by Emerald")
 
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
+            killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
+            embed.set_thumbnail(url="attachment://Killfeed.png")
 
-            return embed, main_file
+            return embed, killfeed_file
 
         except Exception as e:
             logger.error(f"Error building generic embed: {e}")
@@ -1017,10 +1045,10 @@ class EmbedFactory:
 
             embed.set_footer(text="Powered by Emerald")
 
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
+            killfeed_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
+            embed.set_thumbnail(url="attachment://Killfeed.png")
 
-            return embed, main_file
+            return embed, killfeed_file
 
         except Exception as e:
             logger.error(f"Critical error building error embed: {e}")

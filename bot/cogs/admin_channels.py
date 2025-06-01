@@ -170,12 +170,13 @@ class AdminChannels(commands.Cog):
             
             # Set appropriate thumbnail
             thumbnails = {
-                'killfeed': 'Killfeed.png',
-                'leaderboard': 'Leaderboard.png',
-                'events': 'Mission.png',
-                'connections': 'Connections.png',
-                'bounties': 'Bounty.png'
-            }
+            'killfeed': 'Killfeed.png',
+            'leaderboard': 'Leaderboard.png', 
+            'playercountvc': 'Connections.png',
+            'events': 'Mission.png',
+            'connections': 'Connections.png',
+            'bounties': 'Bounty.png'
+        }
             
             if channel_type in thumbnails:
                 embed.set_thumbnail(url=f"attachment://{thumbnails[channel_type]}")

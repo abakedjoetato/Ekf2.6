@@ -356,11 +356,11 @@ class Stats(commands.Cog):
                     color=0x808080,
                     timestamp=datetime.now(timezone.utc)
                 )
-                main_file = discord.File("./assets/main.png", filename="main.png")
-                embed.set_thumbnail(url="attachment://main.png")
+                weaponstats_file = discord.File("./assets/WeaponStats.png", filename="WeaponStats.png")
+                embed.set_thumbnail(url="attachment://WeaponStats.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
                 
-                await ctx.followup.send(embed=embed, file=main_file)
+                await ctx.followup.send(embed=embed, file=weaponstats_file)
                 return
 
             # Revolutionary 20/10 Stats Embed - Advanced Military Intelligence Profile

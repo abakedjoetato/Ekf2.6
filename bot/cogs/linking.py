@@ -121,13 +121,13 @@ class Linking(commands.Cog):
                     inline=True
                 )
                 
-                main_file = discord.File("./assets/main.png", filename="main.png")
+                connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
 
                 
-                embed.set_thumbnail(url="attachment://main.png")
+                embed.set_thumbnail(url="attachment://Connections.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                await ctx.respond(embed=embed, file=main_file)
+                await ctx.respond(embed=embed, file=connections_file)
             else:
                 await ctx.respond("Failed to link character. Please try again.", ephemeral=True)
                 
@@ -216,13 +216,13 @@ class Linking(commands.Cog):
                     inline=False
                 )
                 
-                main_file = discord.File("./assets/main.png", filename="main.png")
+                connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
 
                 
-                embed.set_thumbnail(url="attachment://main.png")
+                embed.set_thumbnail(url="attachment://Connections.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                await ctx.respond(embed=embed, file=main_file)
+                await ctx.respond(embed=embed, file=connections_file)
             else:
                 await ctx.respond("Failed to add alternate character.", ephemeral=True)
                 
@@ -295,13 +295,13 @@ class Linking(commands.Cog):
                         inline=True
                     )
                 
-                main_file = discord.File("./assets/main.png", filename="main.png")
+                connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
 
                 
-                embed.set_thumbnail(url="attachment://main.png")
+                embed.set_thumbnail(url="attachment://Connections.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                await ctx.respond(embed=embed, file=main_file)
+                await ctx.respond(embed=embed, file=connections_file)
             else:
                 await ctx.respond("Failed to remove alternate character.", ephemeral=True)
                 
@@ -357,13 +357,13 @@ class Linking(commands.Cog):
                 inline=True
             )
             
-            main_file = discord.File("./assets/main.png", filename="main.png")
+            connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
 
             
-            embed.set_thumbnail(url="attachment://main.png")
+            embed.set_thumbnail(url="attachment://Connections.png")
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-            await ctx.respond(embed=embed, file=main_file)
+            await ctx.respond(embed=embed, file=connections_file)
             
         except Exception as e:
             logger.error(f"Failed to show linked characters: {e}")
