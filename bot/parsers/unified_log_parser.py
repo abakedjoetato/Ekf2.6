@@ -326,7 +326,7 @@ class UnifiedLogParser:
                 'first_line_hash': ''
             }
 
-    async def reset_server_state(self, guild_id: str, server_id: str, reason: str):
+    async def reset_server_state(self, guild_id: int, server_id: str, reason: str):
         """Reset all server state when file reset is detected"""
         try:
             server_key = f"{guild_id}_{server_id}"
@@ -464,7 +464,7 @@ class UnifiedLogParser:
             logger.error(f"Error getting log content: {e}")
             return None
 
-    async def parse_log_content(self, content: str, guild_id: str, server_id: str, cold_start: bool = False, server_name: str = "Unknown Server") -> List[discord.Embed]:
+    async def parse_log_content(self, content: str, guild_id: int, server_id: str, cold_start: bool = False, server_name: str = "Unknown Server") -> List[discord.Embed]:
         """Parse log content and return embeds"""
         embeds = []
         if not content:
@@ -866,7 +866,7 @@ class UnifiedLogParser:
 
         # Update voice channel once at the end if needed
         if voice_channel_needs_update:
-            await self.update_voice_channel(str(guild_id))
+            await self.update_voice_channel(guild_id)
 
         if not cold_start:
             logger.info(f"🔍 Generated {len(embeds)} events")
@@ -938,7 +938,7 @@ class UnifiedLogParser:
         # Vehicle embeds are suppressed per task requirements
         return None
 
-    async def update_voice_channel(self, guild_id: str):
+    async def update_voice_channel(self, guild_id: int):
         """ADVANCED voice channel update with server name, counts, and queue info"""
         try:
             # Convert guild_id to int with better validation
@@ -1292,7 +1292,7 @@ class UnifiedLogParser:
             is_cold_start = not file_state.get('cold_start_complete', False)
 
             # Parse content with server context
-            embeds = await self.parse_log_content(content, str(guild_id), server_id, is_cold_start, server_name)
+            embeds = await self.parse_log_content(content, guild_id, server_id, is_cold_start, server_name)
 
             # Send embeds (only if not cold start)
             if not is_cold_start and embeds:
@@ -1480,7 +1480,7 @@ class UnifiedLogParser:
                                         'player_id': player_id,
                                         'player_name': session.get('player_name', f"Player{player_id[:8].upper()}"),
                                         'platform': session.get('platform', 'Unknown'),
-                                        'guild_id': str(guild_id),
+                                        'guild_id': guild_id,
                                         'server_id': server_id,
                                         'joined_at': session.get('joined_at', datetime.now(timezone.utc).isoformat()),
                                         'status': 'online'
@@ -1501,7 +1501,7 @@ class UnifiedLogParser:
         except Exception as e:
             logger.error(f"Failed to load persistent state: {e}")
 
-    async def _update_server_info(self, guild_id: str, server_id: str, max_players: Optional[int]):
+    async def _update_server_info(self, guild_id: int, server_id: str, max_players: Optional[int]):
         """Update server information in database"""
         try:
             if not hasattr(self.bot, 'db_manager') or not self.bot.db_manager:
@@ -1745,7 +1745,7 @@ class UnifiedLogParser:
             import traceback
             logger.error(f"State reset traceback: {traceback.format_exc()}")
 
-    def get_active_player_count(self, guild_id: str) -> int:
+    def get_active_player_count(self, guild_id: int) -> int:
         """Get active player count for a guild"""
         try:
             guild_prefix = f"{guild_id}_"

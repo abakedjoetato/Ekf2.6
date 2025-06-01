@@ -3,6 +3,7 @@ Admin Batch Management Cog - Monitor and control batch sender
 """
 
 import discord
+import discord
 from discord.ext import commands
 import logging
 from datetime import datetime, timezone
@@ -15,92 +16,7 @@ class AdminBatch(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @discord.slash_command(name="batch_stats", description="Show batch sender statistics")
-    @commands.has_permissions(administrator=True)
-    async def batch_stats(self, ctx: discord.ApplicationContext):
-        """Show current batch sender statistics"""
-        try:
-            if not hasattr(self.bot, 'batch_sender'):
-                await ctx.respond("Batch sender not initialized", ephemeral=True)
-                return
-
-            stats = self.bot.batch_sender.get_queue_stats()
-
-            embed = discord.Embed(
-                title="Batch Sender Statistics",
-                color=0x00FF00,
-                timestamp=datetime.now(timezone.utc)
-            )
-
-            embed.add_field(
-                name="Queue Stats",
-                value=f"**Total Queued:** {stats['total_queued_messages']}\n"
-                      f"**Active Channels:** {stats['active_channels']}\n"
-                      f"**Processing Channels:** {stats['processing_channels']}",
-                inline=False
-            )
-
-            if stats['queues_by_channel']:
-                channel_list = []
-                for ch_id, count in list(stats['queues_by_channel'].items())[:10]:  # Show top 10
-                    channel = self.bot.get_channel(int(ch_id))
-                    channel_name = channel.name if channel else f"Channel {ch_id}"
-                    channel_list.append(f"#{channel_name}: {count}")
-
-                embed.add_field(
-                    name="Channel Queues",
-                    value='\n'.join(channel_list) if channel_list else "No queued messages",
-                    inline=False
-                )
-
-            await ctx.respond(embed=embed, ephemeral=True)
-
-        except Exception as e:
-            logger.error(f"Error in batch_stats command: {e}")
-            await ctx.respond(f"Error getting batch stats: {e}", ephemeral=True)
-
-    @discord.slash_command(name="flush_batches", description="Force flush all pending message batches")
-    @commands.has_permissions(administrator=True)
-    async def flush_batches(self, ctx: discord.ApplicationContext):
-        """Force flush all pending message batches"""
-        try:
-            if not hasattr(self.bot, 'batch_sender'):
-                await ctx.respond("Batch sender not initialized", ephemeral=True)
-                return
-
-            stats_before = self.bot.batch_sender.get_queue_stats()
-            await ctx.respond("🔄 Flushing all message batches...", ephemeral=True)
-
-            await self.bot.batch_sender.flush_all_queues()
-
-            stats_after = self.bot.batch_sender.get_queue_stats()
-
-            embed = discord.Embed(
-                title="Batch Flush Complete",
-                color=0x00FF00,
-                timestamp=datetime.now(timezone.utc)
-            )
-
-            embed.add_field(
-                name="Results",
-                value=f"**Messages Flushed:** {stats_before['total_queued_messages']}\n"
-                      f"**Remaining Queued:** {stats_after['total_queued_messages']}",
-                inline=False
-            )
-
-            await ctx.edit(embed=embed)
-
-        except Exception as e:
-            logger.error(f"Error in flush_batches command: {e}")
-            await ctx.respond(f"Error flushing batches: {e}", ephemeral=True)
-
-    @discord.slash_command(name="debug_player_count", description="Debug current player count tracking")
-    @commands.has_permissions(administrator=True)
-    async def debug_player_count(self, ctx: discord.ApplicationContext, server_id: str = None):
-        """Debug current player count tracking"""
-        try:
-            await ctx.defer(ephemeral=True)
-
+    
             guild_id = ctx.guild_id
 
             # Get all servers for this guild

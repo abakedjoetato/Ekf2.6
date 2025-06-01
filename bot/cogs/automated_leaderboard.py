@@ -4,6 +4,7 @@ Posts and updates consolidated leaderboards every 30 minutes
 """
 
 import discord
+import discord
 from discord.ext import commands, tasks
 import asyncio
 import logging

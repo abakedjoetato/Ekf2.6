@@ -81,7 +81,7 @@ class DatabaseManager:
             for doc in all_parser_docs:
                 try:
                     # Normalize key components
-                    guild_id = str(doc.get('guild_id', ''))
+                    guild_id = int(doc.get('guild_id', ''))
                     server_id = str(doc.get('server_id', ''))
                     parser_type = str(doc.get('parser_type', 'log_parser'))
                     
@@ -138,7 +138,7 @@ class DatabaseManager:
             session_groups = {}
             for doc in all_session_docs:
                 try:
-                    guild_id = str(doc.get('guild_id', ''))
+                    guild_id = int(doc.get('guild_id', ''))
                     server_id = str(doc.get('server_id', ''))
                     player_id = str(doc.get('player_id', ''))
                     

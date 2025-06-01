@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import discord
+import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
 

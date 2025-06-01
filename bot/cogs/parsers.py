@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 import discord
+import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
 from discord import Option
@@ -224,189 +225,7 @@ class Parsers(commands.Cog):
             logger.error(f"Failed to show parser stats: {e}")
             await ctx.respond("Failed to retrieve parser statistics.", ephemeral=True)
 
-    @discord.slash_command(name="parse_historical", description="Parse historical data from CSV files")
-    @commands.has_permissions(administrator=True)
-    async def parse_historical(self, ctx: discord.ApplicationContext):
-        """Parse historical data from CSV files"""
-        try:
-            if not self.bot.historical_parser:
-                await ctx.respond("Historical parser not initialized", ephemeral=True)
-                return
-
-            await ctx.defer()
-
-            # Run historical parser
-            await self.bot.historical_parser.run_historical_parser()
-
-            embed = discord.Embed(
-                title="Historical Parser",
-                description="Historical data parsing completed successfully",
-                color=0x00FF00,
-                timestamp=datetime.now(timezone.utc)
-            )
-
-            await ctx.followup.send(embed=embed)
-
-        except Exception as e:
-            logger.error(f"Historical parsing failed: {e}")
-            await ctx.followup.send("Historical parsing failed", ephemeral=True)
-
-    @discord.slash_command(name="resetlogparser", description="Reset log parser state and player counts")
-    @commands.has_permissions(administrator=True)
-    async def resetlogparser(self, ctx: discord.ApplicationContext, 
-                            server_id: Option(str, "Server ID to reset (leave empty for all)", required=False) = None):
-        """Reset log parser state and player counts"""
-        await ctx.defer()
-
-        try:
-            if not hasattr(self.bot, 'log_parser'):
-                await ctx.followup.send("Log parser not initialized")
-                return
-
-            guild_id = ctx.guild.id
-            reset_count = 0
-
-            if server_id:
-                # Reset specific server
-                server_key = f"{guild_id}_{server_id}"
-
-                # Reset connection parser
-                if hasattr(self.bot.log_parser, 'connection_parser'):
-                    self.bot.log_parser.connection_parser.reset_server_counts(server_key)
-
-                # Reset file states
-                if server_key in self.bot.log_parser.file_states:
-                    del self.bot.log_parser.file_states[server_key]
-
-                # Reset legacy position tracking
-                if server_key in self.bot.log_parser.last_log_position:
-                    del self.bot.log_parser.last_log_position[server_key]
-
-                reset_count = 1
-                logger.info(f"Reset log parser for server {server_id} in guild {guild_id}")
-            else:
-                # Reset all servers for this guild
-                guild_prefix = f"{guild_id}_"
-
-                # Reset connection parser for all servers
-                if hasattr(self.bot.log_parser, 'connection_parser'):
-                    connection_parser = self.bot.log_parser.connection_parser
-                    servers_to_reset = [k for k in connection_parser.server_counts.keys() if k.startswith(guild_prefix)]
-                    for server_key in servers_to_reset:
-                        connection_parser.reset_server_counts(server_key)
-                        reset_count += 1
-
-                # Reset file states
-                keys_to_remove = [k for k in self.bot.log_parser.file_states.keys() if k.startswith(guild_prefix)]
-                for key in keys_to_remove:
-                    del self.bot.log_parser.file_states[key]
-
-                # Reset legacy position tracking  
-                keys_to_remove = [k for k in self.bot.log_parser.last_log_position.keys() if k.startswith(guild_prefix)]
-                for key in keys_to_remove:
-                    del self.bot.log_parser.last_log_position[key]
-
-            # Create success embed
-            embed = discord.Embed(
-                title="🔄 Log Parser Reset",
-                description=f"Successfully reset log parser state for {reset_count} server{'s' if reset_count != 1 else ''}",
-                color=0x00FF00,
-                timestamp=datetime.now(timezone.utc)
-            )
-
-            embed.add_field(
-                name="What was reset:",
-                value="• Player count tracking\n• Connection states\n• File position tracking\n• Parser will restart from current log position",
-                inline=False
-            )
-
-            await ctx.followup.send(embed=embed)
-
-        except Exception as e:
-            logger.error(f"Failed to reset log parser: {e}")
-            await ctx.followup.send(f"Failed to reset: {str(e)}")
-
-    @discord.slash_command(name="investigate_playercount", description="Deep investigation of player count issues")
-    async def investigate_playercount(self, ctx: discord.ApplicationContext, 
-                                     server_id: Option(str, "Specific server ID to investigate", required=False) = None):
-        """Comprehensive player count investigation"""
-        await ctx.defer(ephemeral=True)
-
-        guild_id = ctx.guild.id
-
-        if not hasattr(self.bot, 'log_parser') or not self.bot.log_parser:
-            await ctx.followup.send("Log parser not initialized")
-            return
-
-        # Get guild config
-        guild_config = await self.bot.db_manager.get_guild(guild_id)
-        if not guild_config or not guild_config.get('servers'):
-            await ctx.followup.send("No servers configured for this guild")
-            return
-
-        servers = guild_config.get('servers', [])
-        connection_parser = self.bot.log_parser.connection_parser
-
-        investigation_results = []
-
-        for server_config in servers:
-            server_name = server_config.get('name', 'Unknown')
-            current_server_id = str(server_config.get('_id', 'unknown'))
-
-            if server_id and current_server_id != server_id:
-                continue
-
-            server_key = f"{guild_id}_{current_server_id}"
-
-            # 1. Verify regex patterns
-            pattern_results = connection_parser.verify_regex_patterns()
-
-            # 2. Test counting logic
-            counting_results = connection_parser.test_counting_logic(server_key)
-
-            # 3. Check file processing state
-            file_state = self.bot.log_parser.file_states.get(server_key, {})
-
-            investigation_results.append({
-                'server_name': server_name,
-                'server_id': current_server_id,
-                'pattern_results': pattern_results,
-                'counting_results': counting_results,
-                'file_state': file_state
-            })
-
-        # Create detailed report
-        embed = discord.Embed(
-            title="🔬 Player Count Investigation Report",
-            color=0x00ff00,
-            timestamp=datetime.now(timezone.utc)
-        )
-
-        for result in investigation_results:
-            pattern_summary = {k: v['match_count'] for k, v in result['pattern_results'].items()}
-            counting = result['counting_results']
-
-            embed.add_field(
-                name=f"🔍 {result['server_name']} Investigation",
-                value=f"**Pattern Matches:** {sum(pattern_summary.values())} total\n"
-                      f"**Queue Count:** Manual={counting.get('manual_count', {}).get('queue_count', 0)}, "
-                      f"Official={counting.get('official_stats', {}).get('queue_count', 0)}\n"
-                      f"**Player Count:** Manual={counting.get('manual_count', {}).get('player_count', 0)}, "
-                      f"Official={counting.get('official_stats', {}).get('player_count', 0)}\n"
-                      f"**File State:** Size={result['file_state'].get('file_size', 0)}, "
-                      f"Lines={result['file_state'].get('line_count', 0)}",
-                inline=False
-            )
-
-        await ctx.followup.send(embed=embed)
-
-    @discord.slash_command(name="test_log_parser", description="Test the unified log parser with sample data")
-    @commands.has_permissions(administrator=True)
-    async def test_log_parser(self, ctx: discord.ApplicationContext, lines: int = 10):
-        """Test the unified log parser"""
-        try:
-            await ctx.defer()
-
+    
             # Get parser instance
             if not hasattr(self.bot, 'unified_parser'):
                 embed = discord.Embed(
@@ -576,7 +395,7 @@ class Parsers(commands.Cog):
                     parser.server_status.clear()
             
             # Update voice channels to reflect reset counts (0 players)
-            await parser.update_voice_channel(str(guild_id))
+            await parser.update_voice_channel(guild_id)
 
             # Trigger immediate cold start
             try:
