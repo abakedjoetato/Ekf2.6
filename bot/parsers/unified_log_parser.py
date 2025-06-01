@@ -283,18 +283,38 @@ class UnifiedLogParser:
     async def update_voice_channel(self, guild_id: int, server_id: str, server_name: str):
         """Update voice channel with current player count"""
         try:
+            # First try to get accurate count from lifecycle manager
             active_players = self.lifecycle_manager.get_active_players(guild_id)
             server_players = [p for p in active_players.values() if p.get('server_id') == server_id]
-            player_count = len(server_players)
+            tracked_player_count = len(server_players)
+            
+            # Try to get real player count via server query as fallback
+            actual_player_count = tracked_player_count
+            
+            # Get server config to find host for querying
+            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            if guild_config:
+                servers = guild_config.get('servers', {})
+                server_config = servers.get(server_id, {})
+                host = server_config.get('host')
+                
+                if host:
+                    from bot.utils.server_query import ServerQuery
+                    query_result = await ServerQuery.query_deadside_server(host)
+                    if query_result and query_result.get('query_successful'):
+                        actual_player_count = query_result.get('players', tracked_player_count)
+                        logger.info(f"🔍 Server query successful: {actual_player_count} players online")
+                    else:
+                        logger.debug(f"🔍 Server query failed, using tracked count: {tracked_player_count}")
+                        
+            player_count = actual_player_count
             
             logger.info(f"🎯 Voice channel update: {server_name} has {player_count} players")
-            logger.info(f"🔍 Total active players for guild: {len(active_players)}")
-            logger.info(f"🔍 Players on server {server_id}: {[p.get('player_name', 'Unknown') for p in server_players]}")
+            logger.info(f"🔍 Tracked players: {tracked_player_count}, Actual players: {actual_player_count}")
             
-            # Debug: Show all active sessions
-            if len(active_players) > 0:
-                for key, player in active_players.items():
-                    logger.info(f"🔍 Active player: {player.get('player_name')} on server {player.get('server_id')} (status: {player.get('status')})")
+            # Debug: Show tracked players
+            if len(server_players) > 0:
+                logger.info(f"🔍 Tracked players on server {server_id}: {[p.get('player_name', 'Unknown') for p in server_players]}")
             
             # Get max players from config
             max_players = 50  # Default

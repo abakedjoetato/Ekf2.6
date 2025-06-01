@@ -51,6 +51,10 @@ class LogEventProcessor:
             'helicrash_event': re.compile(r'LogSFPS:.*(?:helicrash|helicopter.*crash)', re.IGNORECASE),
             'trader_spawn': re.compile(r'LogSFPS:.*trader.*(?:spawn|ready|arrived)', re.IGNORECASE),
             
+            # Player activity patterns (for detecting active players)
+            'player_activity': re.compile(r'LogNet:.*UChannel.*ActorChannel.*\|([a-f0-9]+)', re.IGNORECASE),
+            'player_network_activity': re.compile(r'LogNet:.*Player.*\|([a-f0-9]+)', re.IGNORECASE),
+            
             # Timestamp pattern
             'timestamp': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\]')
         }
