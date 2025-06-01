@@ -528,6 +528,10 @@ class Stats(commands.Cog):
                         timestamp=datetime.now(timezone.utc)
                     )
                     
+                    # Add thumbnail matching connection theme
+                    connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
+                    embed.set_thumbnail(url="attachment://Connections.png")
+                    
                     # Add tactical status header
                     status_emoji = "🟢" if len(server_players) >= 10 else "🟡" if len(server_players) >= 5 else "🔴"
                     server_status = "HIGH ACTIVITY" if len(server_players) >= 10 else "MODERATE ACTIVITY" if len(server_players) >= 5 else "LOW ACTIVITY"
@@ -589,8 +593,16 @@ class Stats(commands.Cog):
                         text="🎯 Live Intelligence • Discord.gg/EmeraldServers",
                         icon_url="https://cdn.discordapp.com/icons/1359926538649440309/a_2bb2ad93aeb4a3b7b1aebc47b7fa0e6c.gif"
                     )
+                    
+                    # Add thumbnail for empty server
+                    connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
+                    embed.set_thumbnail(url="attachment://Connections.png")
                 
-                await ctx.followup.send(embed=embed)
+                # Send embed with file attachment
+                if server_players:
+                    await ctx.followup.send(embed=embed, file=connections_file)
+                else:
+                    await ctx.followup.send(embed=embed, file=connections_file)
             else:
                 await ctx.followup.send("Player tracking system not available.", ephemeral=True)
 
