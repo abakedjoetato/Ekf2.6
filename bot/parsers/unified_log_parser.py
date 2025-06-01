@@ -38,16 +38,17 @@ class UnifiedLogParser:
                     guilds.append(guild_doc)
             
             for guild in guilds:
-                guild_id = str(guild['_id'])
+                # Use the actual Discord guild ID, not the MongoDB document ID
+                discord_guild_id = guild.get('guild_id', 0)
                 servers = guild.get('servers', [])
                 
-                if not servers:
+                if not servers or not discord_guild_id:
                     continue
                     
-                logger.info(f"📡 Processing {len(servers)} servers for Guild {guild_id}")
+                logger.info(f"📡 Processing {len(servers)} servers for Guild {discord_guild_id}")
                 
                 for server_config in servers:
-                    await self.process_server(guild_id, server_config)
+                    await self.process_server(discord_guild_id, server_config)
                     
             logger.info("✅ Parser completed: {} servers processed".format(
                 sum(len(g.get('servers', [])) for g in guilds)
@@ -56,7 +57,7 @@ class UnifiedLogParser:
         except Exception as e:
             logger.error(f"Parser execution failed: {e}")
             
-    async def process_server(self, guild_id: str, server_config: Dict[str, Any]):
+    async def process_server(self, guild_id: int, server_config: Dict[str, Any]):
         """Process individual server logs"""
         try:
             server_name = server_config.get('name', 'Unknown Server')
@@ -72,7 +73,7 @@ class UnifiedLogParser:
             logger.info(f"🔍 Processing {server_name} (ID: {server_id}, Host: {host})")
             
             # Get parser state
-            parser_state = await self.get_parser_state(int(guild_id), server_id)
+            parser_state = await self.get_parser_state(guild_id, server_id)
             
             # Connect and read logs
             log_content = await self.read_server_logs(host, port, username, server_id)
@@ -103,7 +104,7 @@ class UnifiedLogParser:
                 await self.send_embeds(guild_id, server_id, embeds)
                 
             # Update parser state
-            await self.update_parser_state(int(guild_id), server_id, {
+            await self.update_parser_state(guild_id, server_id, {
                 'last_log_size': current_size,
                 'last_processed': datetime.now(timezone.utc).isoformat(),
                 'server_name': server_name
