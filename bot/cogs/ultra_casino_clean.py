@@ -404,30 +404,24 @@ class UltraCasinoV3Clean(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access based on active premium servers"""
         try:
-            # Method 1: Check for premium assignments in new system
-            premium_assignments = await self.bot.db_manager.premium_assignments.find_one({'guild_id': guild_id})
-            if premium_assignments and premium_assignments.get('used_slots', 0) > 0:
-                return True
-            
-            # Method 2: Check for active premium servers in server_premium_status
-            server_statuses = await self.bot.db_manager.server_premium_status.find({
-                'guild_id': guild_id,
-                'is_premium': True
-            }).to_list(length=1)
-            if server_statuses:
-                return True
-            
-            # Method 3: Check legacy premium servers in guild_configs
+            # Method 1: Check guild config for premium servers
             guild_config = await self.bot.db_manager.guild_configs.find_one({'guild_id': guild_id})
             if guild_config:
+                # Check for premium_enabled flag (manual override)
+                if guild_config.get('premium_enabled', False):
+                    return True
+                
+                # Check for servers with premium status
                 servers = guild_config.get('servers', [])
                 for server in servers:
                     if server.get('premium', False):
                         return True
-                
-                # Also check for manual premium_enabled flag
-                if guild_config.get('premium_enabled', False):
-                    return True
+            
+            # Method 2: Check if guild has any servers (basic access)
+            guild_doc = await self.bot.db_manager.get_guild(guild_id)
+            if guild_doc and guild_doc.get('servers'):
+                # If guild has configured servers, grant access
+                return True
             
             return False
         except Exception as e:
