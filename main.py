@@ -34,6 +34,7 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot.models.database import DatabaseManager
+from bot.utils.premium_sync import PremiumSyncManager
 
 # Configure logging first
 logging.basicConfig(
@@ -106,6 +107,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
         # Initialize variables
         self.db_manager = None
+        self.premium_sync = None
         self.scheduler = AsyncIOScheduler()
         self.killfeed_parser = None
         self.log_parser = None
@@ -430,6 +432,14 @@ class EmeraldKillfeedBot(commands.Bot):
             # Initialize database indexes
             await self.db_manager.initialize_indexes()
             logger.info("Database architecture initialized (PHASE 1)")
+            
+            # Initialize premium sync manager
+            self.premium_sync = PremiumSyncManager(self.db_manager)
+            
+            # Validate and sync all guild premium flags
+            updated_guilds = await self.premium_sync.validate_all_guilds()
+            if updated_guilds > 0:
+                logger.info(f"Premium flag sync: {updated_guilds} guilds updated")
 
             # Initialize batch sender for rate limit management
             from bot.utils.batch_sender import BatchSender
