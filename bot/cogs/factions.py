@@ -24,22 +24,9 @@ class Factions(commands.Cog):
 
     async def check_premium_server(self, guild_id: int) -> bool:
         """Check if guild has premium access for faction features"""
-        # Factions is guild-wide premium feature - requires at least 1 premium server
         try:
-            if hasattr(self.bot, 'premium_manager_v2'):
-                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
-            else:
-                # Fallback to old method
-                guild_doc = await self.bot.db_manager.get_guild(guild_id)
-                if not guild_doc:
-                    return False
-
-                servers = guild_doc.get('servers', [])
-                for server_config in servers:
-                    server_id = server_config.get('server_id', 'default')
-                    if await self.bot.db_manager.is_premium_server(guild_id, server_id):
-                        return True
-                return False
+            # Factions is guild-wide premium feature - check if guild has any premium access
+            return await self.bot.db_manager.has_premium_access(guild_id)
         except Exception as e:
             logger.error(f"Premium check failed for factions: {e}")
             return False
