@@ -35,18 +35,18 @@ class Linking(commands.Cog):
             # Validate character name
             character = character.strip()
             if not character:
-                await ctx.respond("❌ Character name cannot be empty!", ephemeral=True)
+                await ctx.respond("Character name cannot be empty!", ephemeral=True)
                 return
             
             if len(character) > 32:
-                await ctx.respond("❌ Character name too long! Maximum 32 characters.", ephemeral=True)
+                await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
                 return
             
             # Validate that player exists in PvP data
             actual_player_name = await self.bot.db_manager.find_player_in_pvp_data(guild_id, character)
             if not actual_player_name:
                 await ctx.respond(
-                    f"❌ Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
+                    f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
                 return
@@ -62,7 +62,7 @@ class Linking(commands.Cog):
             
             if existing_link and existing_link['discord_id'] != discord_id:
                 await ctx.respond(
-                    f"❌ Character **{character}** is already linked to another Discord account!",
+                    f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
                 return
@@ -72,7 +72,7 @@ class Linking(commands.Cog):
                 success = await self.bot.db_manager.link_player(guild_id, discord_id, character)
             except Exception as db_error:
                 logger.error(f"Database error during character linking: {db_error}")
-                await ctx.respond("❌ Database error occurred. Please try again later.", ephemeral=True)
+                await ctx.respond("Database error occurred. Please try again later.", ephemeral=True)
                 return
             
             if success:
@@ -80,11 +80,11 @@ class Linking(commands.Cog):
                 try:
                     player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
                     if not player_data:
-                        await ctx.respond("❌ Failed to retrieve updated player data.", ephemeral=True)
+                        await ctx.respond("Failed to retrieve updated player data.", ephemeral=True)
                         return
                 except Exception as db_error:
                     logger.error(f"Database error retrieving updated player data: {db_error}")
-                    await ctx.respond("❌ Database error occurred. Please try again later.", ephemeral=True)
+                    await ctx.respond("Database error occurred. Please try again later.", ephemeral=True)
                     return
                 
                 # Set Discord nickname to primary character name
@@ -116,7 +116,7 @@ class Linking(commands.Cog):
                 )
                 
                 embed.add_field(
-                    name="⭐ Primary Character",
+                    name="Primary Character",
                     value=player_data['primary_character'],
                     inline=True
                 )
@@ -129,11 +129,11 @@ class Linking(commands.Cog):
 
                 await ctx.respond(embed=embed, file=main_file)
             else:
-                await ctx.respond("❌ Failed to link character. Please try again.", ephemeral=True)
+                await ctx.respond("Failed to link character. Please try again.", ephemeral=True)
                 
         except Exception as e:
             logger.error(f"Failed to link character: {e}")
-            await ctx.respond("❌ Failed to link character.", ephemeral=True)
+            await ctx.respond("Failed to link character.", ephemeral=True)
     
     alt = discord.SlashCommandGroup("alt", "Manage alternate characters")
     
@@ -148,7 +148,7 @@ class Linking(commands.Cog):
             player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
             if not player_data:
                 await ctx.respond(
-                    "❌ You must link your main character first using `/link <character>`!",
+                    "You must link your main character first using `/link <character>`!",
                     ephemeral=True
                 )
                 return
@@ -156,18 +156,18 @@ class Linking(commands.Cog):
             # Validate character name
             character = character.strip()
             if not character:
-                await ctx.respond("❌ Character name cannot be empty!", ephemeral=True)
+                await ctx.respond("Character name cannot be empty!", ephemeral=True)
                 return
             
             if len(character) > 32:
-                await ctx.respond("❌ Character name too long! Maximum 32 characters.", ephemeral=True)
+                await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
                 return
             
             # Validate that player exists in PvP data
             actual_player_name = await self.bot.db_manager.find_player_in_pvp_data(guild_id, character)
             if not actual_player_name:
                 await ctx.respond(
-                    f"❌ Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
+                    f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
                 return
@@ -177,7 +177,7 @@ class Linking(commands.Cog):
             
             # Check if character is already linked
             if character in player_data['linked_characters']:
-                await ctx.respond(f"❌ **{character}** is already linked to your account!", ephemeral=True)
+                await ctx.respond(f"**{character}** is already linked to your account!", ephemeral=True)
                 return
             
             # Check if character is linked to another user
@@ -188,7 +188,7 @@ class Linking(commands.Cog):
             
             if existing_link and existing_link['discord_id'] != discord_id:
                 await ctx.respond(
-                    f"❌ Character **{character}** is already linked to another Discord account!",
+                    f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
                 return
@@ -224,11 +224,11 @@ class Linking(commands.Cog):
 
                 await ctx.respond(embed=embed, file=main_file)
             else:
-                await ctx.respond("❌ Failed to add alternate character.", ephemeral=True)
+                await ctx.respond("Failed to add alternate character.", ephemeral=True)
                 
         except Exception as e:
             logger.error(f"Failed to add alt character: {e}")
-            await ctx.respond("❌ Failed to add alternate character.", ephemeral=True)
+            await ctx.respond("Failed to add alternate character.", ephemeral=True)
     
     @alt.command(name="remove", description="Remove an alternate character")
     async def alt_remove(self, ctx: discord.ApplicationContext, character: str):
@@ -240,19 +240,19 @@ class Linking(commands.Cog):
             # Get player data
             player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
             if not player_data:
-                await ctx.respond("❌ You don't have any linked characters!", ephemeral=True)
+                await ctx.respond("You don't have any linked characters!", ephemeral=True)
                 return
             
             # Validate character name
             character = character.strip()
             if character not in player_data['linked_characters']:
-                await ctx.respond(f"❌ **{character}** is not linked to your account!", ephemeral=True)
+                await ctx.respond(f"**{character}** is not linked to your account!", ephemeral=True)
                 return
             
             # Prevent removing primary character if it's the only one
             if len(player_data['linked_characters']) == 1:
                 await ctx.respond(
-                    "❌ Cannot remove your only character! Use `/unlink` to remove all characters.",
+                    "Cannot remove your only character! Use `/unlink` to remove all characters.",
                     ephemeral=True
                 )
                 return
@@ -290,7 +290,7 @@ class Linking(commands.Cog):
                     )
                     
                     embed.add_field(
-                        name="⭐ Primary Character",
+                        name="Primary Character",
                         value=updated_player['primary_character'],
                         inline=True
                     )
@@ -303,11 +303,11 @@ class Linking(commands.Cog):
 
                 await ctx.respond(embed=embed, file=main_file)
             else:
-                await ctx.respond("❌ Failed to remove alternate character.", ephemeral=True)
+                await ctx.respond("Failed to remove alternate character.", ephemeral=True)
                 
         except Exception as e:
             logger.error(f"Failed to remove alt character: {e}")
-            await ctx.respond("❌ Failed to remove alternate character.", ephemeral=True)
+            await ctx.respond("Failed to remove alternate character.", ephemeral=True)
     
     @discord.slash_command(name="linked", description="View your linked characters")
     async def linked(self, ctx: discord.ApplicationContext, user: discord.Member = None):
@@ -322,12 +322,12 @@ class Linking(commands.Cog):
             if not player_data:
                 if target_user == ctx.user:
                     await ctx.respond(
-                        "❌ You don't have any linked characters! Use `/link <character>` to get started.",
+                        "You don't have any linked characters! Use `/link <character>` to get started.",
                         ephemeral=True
                     )
                 else:
                     await ctx.respond(
-                        f"❌ {target_user.mention} doesn't have any linked characters!",
+                        f"{target_user.mention} doesn't have any linked characters!",
                         ephemeral=True
                     )
                 return
@@ -346,7 +346,7 @@ class Linking(commands.Cog):
             )
             
             embed.add_field(
-                name="⭐ Primary Character",
+                name="Primary Character",
                 value=player_data['primary_character'],
                 inline=True
             )
@@ -367,7 +367,7 @@ class Linking(commands.Cog):
             
         except Exception as e:
             logger.error(f"Failed to show linked characters: {e}")
-            await ctx.respond("❌ Failed to retrieve linked characters.", ephemeral=True)
+            await ctx.respond("Failed to retrieve linked characters.", ephemeral=True)
     
     @discord.slash_command(name="unlink", description="Unlink all your characters")
     async def unlink(self, ctx: discord.ApplicationContext):
@@ -380,14 +380,14 @@ class Linking(commands.Cog):
             player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
             
             if not player_data:
-                await ctx.respond("❌ You don't have any linked characters!", ephemeral=True)
+                await ctx.respond("You don't have any linked characters!", ephemeral=True)
                 return
             
             # Create confirmation embed
             characters_list = "\n".join([f"• {char}" for char in player_data['linked_characters']])
             
             embed = discord.Embed(
-                title="⚠️ Confirm Unlinking",
+                title="Confirm Unlinking",
                 description="Are you sure you want to unlink ALL your characters?",
                 color=0xFF6B6B,
                 timestamp=datetime.now(timezone.utc)
@@ -400,7 +400,7 @@ class Linking(commands.Cog):
             )
             
             embed.add_field(
-                name="⚠️ Warning",
+                name="Warning",
                 value="This will remove all character links and cannot be undone!",
                 inline=False
             )
@@ -413,10 +413,10 @@ class Linking(commands.Cog):
                     super().__init__(timeout=timeout)
                     self.value = None
                     
-                @discord.ui.button(label="✅ Confirm", style=discord.ButtonStyle.danger)
+                @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
                 async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
                     if interaction.user.id != discord_id:
-                        await interaction.response.send_message("❌ Only the command user can confirm this action!", ephemeral=True)
+                        await interaction.response.send_message("Only the command user can confirm this action!", ephemeral=True)
                         return
                     
                     self.value = True
@@ -431,7 +431,7 @@ class Linking(commands.Cog):
                         
                         if result.deleted_count > 0:
                             success_embed = discord.Embed(
-                                title="✅ Characters Unlinked",
+                                title="Characters Unlinked",
                                 description="All your characters have been successfully unlinked!",
                                 color=0x00FF00,
                                 timestamp=datetime.now(timezone.utc)
@@ -441,7 +441,7 @@ class Linking(commands.Cog):
                             await interaction.response.edit_message(embed=success_embed, view=None)
                         else:
                             error_embed = discord.Embed(
-                                title="❌ Unlinking Failed",
+                                title="Unlinking Failed",
                                 description="Failed to unlink characters. Please try again.",
                                 color=0xFF0000,
                                 timestamp=datetime.now(timezone.utc)
@@ -451,24 +451,24 @@ class Linking(commands.Cog):
                     except Exception as e:
                         logger.error(f"Failed to unlink characters in confirm button: {e}")
                         error_embed = discord.Embed(
-                            title="❌ Unlinking Failed",
+                            title="Unlinking Failed",
                             description="An error occurred while unlinking characters.",
                             color=0xFF0000,
                             timestamp=datetime.now(timezone.utc)
                         )
                         await interaction.response.edit_message(embed=error_embed, view=None)
                 
-                @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary)
+                @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
                 async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
                     if interaction.user.id != discord_id:
-                        await interaction.response.send_message("❌ Only the command user can cancel this action!", ephemeral=True)
+                        await interaction.response.send_message("Only the command user can cancel this action!", ephemeral=True)
                         return
                     
                     self.value = False
                     self.stop()
                     
                     cancel_embed = discord.Embed(
-                        title="❌ Unlinking Cancelled",
+                        title="Unlinking Cancelled",
                         description="Your characters remain linked.",
                         color=0xFFD700,
                         timestamp=datetime.now(timezone.utc)
@@ -479,7 +479,7 @@ class Linking(commands.Cog):
                 
                 async def on_timeout(self):
                     timeout_embed = discord.Embed(
-                        title="⏰ Confirmation Timeout",
+                        title="Confirmation Timeout",
                         description="Unlinking cancelled due to timeout.",
                         color=0x808080,
                         timestamp=datetime.now(timezone.utc)
@@ -514,11 +514,11 @@ class Linking(commands.Cog):
         except Exception as e:
             logger.error(f"Failed to unlink characters: {e}")
             try:
-                await ctx.respond("❌ Failed to unlink characters. Please try again.", ephemeral=True)
+                await ctx.respond("Failed to unlink characters. Please try again.", ephemeral=True)
             except:
                 # If ctx.respond fails, try followup
                 try:
-                    await ctx.followup.send("❌ Failed to unlink characters. Please try again.", ephemeral=True)
+                    await ctx.followup.send("Failed to unlink characters. Please try again.", ephemeral=True)
                 except:
                     logger.error("Failed to send error message to user")
 

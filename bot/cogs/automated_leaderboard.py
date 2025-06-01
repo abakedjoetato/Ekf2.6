@@ -192,7 +192,7 @@ class AutomatedLeaderboard(commands.Cog):
                     faction = await self.get_player_faction(guild_id, name)
                     faction_tag = f" [{faction}]" if faction else ""
                     killer_lines.append(f"**{i}.** {name}{faction_tag} — {kills:,} Kills")
-                sections.append(f"**🔥 TOP KILLERS**\n" + "\n".join(killer_lines))
+                sections.append(f"**TOP KILLERS**\n" + "\n".join(killer_lines))
 
             if top_kdr:
                 kdr_lines = []
@@ -202,7 +202,7 @@ class AutomatedLeaderboard(commands.Cog):
                     faction = await self.get_player_faction(guild_id, name)
                     faction_tag = f" [{faction}]" if faction else ""
                     kdr_lines.append(f"**{i}.** {name}{faction_tag} — {kdr:.2f} KDR")
-                sections.append(f"**⚡ BEST KDR**\n" + "\n".join(kdr_lines))
+                sections.append(f"**BEST KDR**\n" + "\n".join(kdr_lines))
 
             if top_distance:
                 distance_lines = []

@@ -40,7 +40,7 @@ class Premium(commands.Cog):
         try:
             # Check if user is bot owner
             if not self.is_bot_owner(ctx.user.id):
-                await ctx.respond("❌ Only the bot owner can use this command!", ephemeral=True)
+                await ctx.respond("Only the bot owner can use this command!", ephemeral=True)
                 return
 
             guild_id = ctx.guild.id
@@ -77,7 +77,7 @@ class Premium(commands.Cog):
             )
 
             embed.add_field(
-                name="🎯 Benefits",
+                name="Benefits",
                 value="• Full access to all premium features\n• Administrative controls\n• Premium management commands",
                 inline=False
             )
@@ -92,7 +92,7 @@ class Premium(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to set home server: {e}")
-            await ctx.respond("❌ Failed to set home server.", ephemeral=True)
+            await ctx.respond("Failed to set home server.", ephemeral=True)
 
     premium = discord.SlashCommandGroup("premium", "Premium management commands")
 
@@ -126,12 +126,12 @@ class Premium(commands.Cog):
             })
 
             if not is_owner and not home_guild:
-                await ctx.respond("❌ Premium management is only available to bot owners or in the home server!", ephemeral=True)
+                await ctx.respond("Premium management is only available to bot owners or in the home server!", ephemeral=True)
                 return
 
             # Validate duration
             if duration_days <= 0 or duration_days > 365:
-                await ctx.respond("❌ Duration must be between 1 and 365 days!", ephemeral=True)
+                await ctx.respond("Duration must be between 1 and 365 days!", ephemeral=True)
                 return
 
             # Calculate expiration date
@@ -142,14 +142,14 @@ class Premium(commands.Cog):
 
             if success:
                 embed = discord.Embed(
-                    title="⭐ Premium Assigned",
+                    title="Premium Assigned",
                     description=f"Premium status assigned to server **{server_id}**!",
                     color=0xFFD700,
                     timestamp=datetime.now(timezone.utc)
                 )
 
                 embed.add_field(
-                    name="⏰ Duration",
+                    name="Duration",
                     value=f"{duration_days} days",
                     inline=True
                 )
@@ -161,7 +161,7 @@ class Premium(commands.Cog):
                 )
 
                 embed.add_field(
-                    name="🎯 Features Unlocked",
+                    name="Features Unlocked",
                     value="• Economy System\n• Gambling Games\n• Bounty System\n• Faction System\n• Log Parser\n• Leaderboards",
                     inline=False
                 )
@@ -174,11 +174,11 @@ class Premium(commands.Cog):
 
                 await ctx.respond(embed=embed, file=main_file)
             else:
-                await ctx.respond("❌ Failed to assign premium status.", ephemeral=True)
+                await ctx.respond("Failed to assign premium status.", ephemeral=True)
 
         except Exception as e:
             logger.error(f"Failed to assign premium: {e}")
-            await ctx.respond("❌ Failed to assign premium.", ephemeral=True)
+            await ctx.respond("Failed to assign premium.", ephemeral=True)
 
     @premium.command(name="revoke", description="Revoke premium from a server")
     @discord.default_permissions(administrator=True)
@@ -210,14 +210,14 @@ class Premium(commands.Cog):
             })
 
             if not is_owner and not home_guild:
-                await ctx.respond("❌ Premium management is only available to bot owners or in the home server!", ephemeral=True)
+                await ctx.respond("Premium management is only available to bot owners or in the home server!", ephemeral=True)
                 return
 
             # Check if server has premium
             is_premium = await self.bot.db_manager.is_premium_server(target_guild_id, server_id)
 
             if not is_premium:
-                await ctx.respond(f"❌ Server **{server_id}** does not have premium status!", ephemeral=True)
+                await ctx.respond(f"Server **{server_id}** does not have premium status!", ephemeral=True)
                 return
 
             # Revoke premium
@@ -225,14 +225,14 @@ class Premium(commands.Cog):
 
             if success:
                 embed = discord.Embed(
-                    title="❌ Premium Revoked",
+                    title="Premium Revoked",
                     description=f"Premium status revoked from server **{server_id}**.",
                     color=0xFF6B6B,
                     timestamp=datetime.now(timezone.utc)
                 )
 
                 embed.add_field(
-                    name="⚠️ Note",
+                    name="Note",
                     value="Premium features are now disabled for this server.",
                     inline=False
                 )
@@ -245,11 +245,11 @@ class Premium(commands.Cog):
 
                 await ctx.respond(embed=embed, file=main_file)
             else:
-                await ctx.respond("❌ Failed to revoke premium status.", ephemeral=True)
+                await ctx.respond("Failed to revoke premium status.", ephemeral=True)
 
         except Exception as e:
             logger.error(f"Failed to revoke premium: {e}")
-            await ctx.respond("❌ Failed to revoke premium.", ephemeral=True)
+            await ctx.respond("Failed to revoke premium.", ephemeral=True)
 
     @premium.command(name="status", description="Check premium status for servers")
     async def premium_status(self, ctx: discord.ApplicationContext):
@@ -261,20 +261,20 @@ class Premium(commands.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.respond("❌ This guild is not configured!", ephemeral=True)
+                await ctx.respond("This guild is not configured!", ephemeral=True)
                 return
 
             servers = guild_config.get('servers', [])
 
             if not servers:
                 embed = discord.Embed(
-                    title="⭐ Premium Status",
+                    title="Premium Status",
                     description="No game servers configured for this guild.",
                     color=0x808080,
                     timestamp=datetime.now(timezone.utc)
                 )
                 embed.add_field(
-                    name="🎯 Next Steps",
+                    name="Next Steps",
                     value="Use `/server add` to add game servers first.",
                     inline=False
                 )
@@ -309,7 +309,7 @@ class Premium(commands.Cog):
 
             # Create status embed
             embed = discord.Embed(
-                title="⭐ Premium Status",
+                title="Premium Status",
                 description=f"Premium status for **{ctx.guild.name}**",
                 color=0xFFD700 if premium_servers else 0x808080,
                 timestamp=datetime.now(timezone.utc)
@@ -317,7 +317,7 @@ class Premium(commands.Cog):
 
             if premium_servers:
                 embed.add_field(
-                    name="✅ Premium Servers",
+                    name="Premium Servers",
                     value="\n".join(premium_servers),
                     inline=False
                 )
@@ -353,7 +353,7 @@ class Premium(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to check premium status: {e}")
-            await ctx.respond("❌ Failed to check premium status.", ephemeral=True)
+            await ctx.respond("Failed to check premium status.", ephemeral=True)
 
     server = discord.SlashCommandGroup("server", "Game server management commands")
 
@@ -373,11 +373,11 @@ class Premium(commands.Cog):
             password = password.strip()
 
             if not all([serverid, name, host, username, password]):
-                await ctx.respond("❌ All fields are required: name, host, port, username, password, serverid", ephemeral=True)
+                await ctx.respond("All fields are required: name, host, port, username, password, serverid", ephemeral=True)
                 return
 
             if not (1 <= port <= 65535):
-                await ctx.respond("❌ Port must be between 1 and 65535", ephemeral=True)
+                await ctx.respond("Port must be between 1 and 65535", ephemeral=True)
                 return
 
             # Get or create guild
@@ -389,7 +389,7 @@ class Premium(commands.Cog):
             existing_servers = guild_config.get('servers', [])
             for server in existing_servers:
                 if server.get('_id') == serverid:
-                    await ctx.respond(f"❌ Server **{serverid}** is already added!", ephemeral=True)
+                    await ctx.respond(f"Server **{serverid}** is already added!", ephemeral=True)
                     return
 
             # Create server config with full SFTP credentials
@@ -412,7 +412,7 @@ class Premium(commands.Cog):
 
             # Respond with success
             embed = discord.Embed(
-                title="✅ Server Added",
+                title="Server Added",
                 description=f"Server **{name}** has been added to this guild!",
                 color=0x00FF00,
                 timestamp=datetime.now(timezone.utc)
@@ -441,7 +441,7 @@ class Premium(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to add server: {e}")
-            await ctx.respond("❌ Failed to add server. Please try again.", ephemeral=True)
+            await ctx.respond("Failed to add server. Please try again.", ephemeral=True)
 
     @server.command(name="list", description="List all configured servers in this guild")
     async def server_list(self, ctx: discord.ApplicationContext):
@@ -453,20 +453,20 @@ class Premium(commands.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.respond("❌ This guild is not configured!", ephemeral=True)
+                await ctx.respond("This guild is not configured!", ephemeral=True)
                 return
 
             servers = guild_config.get('servers', [])
 
             if not servers:
                 embed = discord.Embed(
-                    title="📋 Server List",
+                    title="Server List",
                     description="No servers configured for this guild.",
                     color=0x808080,
                     timestamp=datetime.now(timezone.utc)
                 )
                 embed.add_field(
-                    name="🎯 Next Steps",
+                    name="Next Steps",
                     value="Use `/server add` to add a game server.",
                     inline=False
                 )
@@ -476,7 +476,7 @@ class Premium(commands.Cog):
 
             # Create server list embed
             embed = discord.Embed(
-                title="📋 Server List",
+                title="Server List",
                 description=f"Configured servers for **{ctx.guild.name}**",
                 color=0x3498DB,
                 timestamp=datetime.now(timezone.utc)
@@ -500,7 +500,7 @@ class Premium(commands.Cog):
 
                 # Check premium status
                 is_premium = await self.bot.db_manager.is_premium_server(guild_id, server_id)
-                premium_status = "⭐ Premium" if is_premium else "🆓 Free tier"
+                premium_status = "Premium" if is_premium else "🆓 Free tier"
 
                 # Format server details
                 server_details = f"**Host:** {sftp_host}:{sftp_port}\n**Status:** {premium_status}"
@@ -521,7 +521,7 @@ class Premium(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to list servers: {e}")
-            await ctx.respond("❌ Failed to list servers. Please try again.", ephemeral=True)
+            await ctx.respond("Failed to list servers. Please try again.", ephemeral=True)
 
     @server.command(name="remove", description="Remove a server from this guild")
     @discord.default_permissions(administrator=True)
@@ -540,7 +540,7 @@ class Premium(commands.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.respond("❌ This guild is not configured!", ephemeral=True)
+                await ctx.respond("This guild is not configured!", ephemeral=True)
                 return
 
             # Find server in the guild config - handle both old and new formats
@@ -557,19 +557,19 @@ class Premium(commands.Cog):
                     break
 
             if not server_found:
-                await ctx.respond(f"❌ Server **{server_id}** not found in this guild!", ephemeral=True)
+                await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
                 return
 
             # Confirm removal
             confirm_embed = discord.Embed(
-                title="⚠️ Confirm Server Removal",
+                title="Confirm Server Removal",
                 description=f"Are you sure you want to remove the server **{server_name}**?",
                 color=0xFF6B6B,
                 timestamp=datetime.now(timezone.utc)
             )
 
             confirm_embed.add_field(
-                name="⚠️ Warning",
+                name="Warning",
                 value="This will permanently remove all server configuration and data. This action cannot be undone.",
                 inline=False
             )
@@ -583,13 +583,13 @@ class Premium(commands.Cog):
                     super().__init__(timeout=60)
                     self.value = None
 
-                @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="❌")
+                @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="")
                 async def cancel_button(self, button, interaction):
                     self.value = False
                     self.stop()
                     await interaction.response.edit_message(content="🛑 Server removal cancelled.", embed=None, view=None)
 
-                @discord.ui.button(label="Remove Server", style=discord.ButtonStyle.danger, emoji="⚠️")
+                @discord.ui.button(label="Remove Server", style=discord.ButtonStyle.danger, emoji="")
                 async def confirm_button(self, button, interaction):
                     self.value = True
                     self.stop()
@@ -608,7 +608,7 @@ class Premium(commands.Cog):
 
                 if result:
                     success_embed = discord.Embed(
-                        title="✅ Server Removed",
+                        title="Server Removed",
                         description=f"The server **{server_name}** has been removed from this guild.",
                         color=0x00FF00,
                         timestamp=datetime.now(timezone.utc)
@@ -619,11 +619,11 @@ class Premium(commands.Cog):
 
                     await ctx.followup.send(embed=success_embed)
                 else:
-                    await ctx.followup.send("❌ Failed to remove server. Please try again.")
+                    await ctx.followup.send("Failed to remove server. Please try again.")
 
         except Exception as e:
             logger.error(f"Failed to remove server: {e}")
-            await ctx.respond("❌ Failed to remove server. Please try again.", ephemeral=True)
+            await ctx.respond("Failed to remove server. Please try again.", ephemeral=True)
 
     @server.command(name="refresh", description="Refresh data for a server")
     @discord.default_permissions(administrator=True)
@@ -642,7 +642,7 @@ class Premium(commands.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.respond("❌ This guild is not configured!", ephemeral=True)
+                await ctx.respond("This guild is not configured!", ephemeral=True)
                 return
 
             # Find server in the guild config
@@ -659,7 +659,7 @@ class Premium(commands.Cog):
                     break
 
             if not server_found or not server_config:
-                await ctx.respond(f"❌ Server **{server_id}** not found in this guild!", ephemeral=True)
+                await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
                 return
 
             # Respond with initial message
@@ -667,7 +667,7 @@ class Premium(commands.Cog):
 
             # Verify we have the historical parser
             if not hasattr(self.bot, 'historical_parser'):
-                await ctx.followup.send("❌ Historical parser is not available!")
+                await ctx.followup.send("Historical parser is not available!")
                 return
 
             # Run historical data refresh
@@ -675,11 +675,11 @@ class Premium(commands.Cog):
                 await self.bot.historical_parser.refresh_server_data(guild_id, server_config, channel=ctx.channel)
             except Exception as e:
                 logger.error(f"Failed to refresh data: {e}")
-                await ctx.followup.send("❌ Failed to start data refresh. Please try again later.")
+                await ctx.followup.send("Failed to start data refresh. Please try again later.")
 
         except Exception as e:
             logger.error(f"Failed to refresh server data: {e}")
-            await ctx.respond("❌ Failed to initiate data refresh. Please try again.", ephemeral=True)
+            await ctx.respond("Failed to initiate data refresh. Please try again.", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(Premium(bot))

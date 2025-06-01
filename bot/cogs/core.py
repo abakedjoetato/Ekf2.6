@@ -37,7 +37,7 @@ class Core(commands.Cog):
 
             # Add bot information fields
             embed.add_field(
-                name="📊 Server Statistics",
+                name="Server Statistics",
                 value=f"**Guilds:** {len(self.bot.guilds)}\n**Users:** {sum(guild.member_count for guild in self.bot.guilds if guild.member_count):,}",
                 inline=True
             )
@@ -62,7 +62,7 @@ class Core(commands.Cog):
             await ctx.respond(embed=embed, file=main_file)
         except Exception as e:
             logger.error(f"Failed to show bot info: {e}")
-            await ctx.respond("❌ Failed to retrieve bot information.", ephemeral=True)
+            await ctx.respond("Failed to retrieve bot information.", ephemeral=True)
 
     @discord.slash_command(name="ping", description="Check bot latency")
     async def ping(self, ctx):
@@ -79,11 +79,11 @@ class Core(commands.Cog):
 
             # Status indicator
             if latency < 100:
-                status = "🟢 Excellent"
+                status = " Excellent"
             elif latency < 300:
                 status = "🟡 Good"
             else:
-                status = "🔴 Poor"
+                status = " Poor"
 
             embed.add_field(
                 name="📡 Connection Status",
@@ -97,7 +97,7 @@ class Core(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to ping: {e}")
-            await ctx.respond("❌ Failed to check latency.", ephemeral=True)
+            await ctx.respond("Failed to check latency.", ephemeral=True)
 
     @discord.slash_command(name="help", description="Show help information")
     async def help(self, ctx):
@@ -119,7 +119,7 @@ class Core(commands.Cog):
 
             # Premium commands
             embed.add_field(
-                name="⭐ Premium Commands",
+                name="Premium Commands",
                 value="• `/balance` - Check wallet\n• `/work` - Earn money\n• `/bounty` - Bounty system\n• `/faction` - Faction management\n• `/gambling` - Casino games",
                 inline=False
             )
@@ -146,24 +146,24 @@ class Core(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to show help: {e}")
-            await ctx.respond("❌ Failed to show help information.", ephemeral=True)
+            await ctx.respond("Failed to show help information.", ephemeral=True)
 
     @discord.slash_command(name="status", description="Check bot and system status")
     async def status(self, ctx: discord.ApplicationContext):
         """Display comprehensive bot status information"""
         try:
             # Check database connection
-            db_status = "🟢 Connected"
+            db_status = " Connected"
             try:
                 await self.bot.mongo_client.admin.command('ping')
             except:
-                db_status = "🔴 Disconnected"
+                db_status = " Disconnected"
 
             # Check scheduler status
-            scheduler_status = "🟢 Running" if self.bot.scheduler.running else "🔴 Stopped"
+            scheduler_status = " Running" if self.bot.scheduler.running else " Stopped"
 
             embed = discord.Embed(
-                title="📊 System Status",
+                title="System Status",
                 description="Current bot and system status",
                 color=0x00FF7F,
                 timestamp=datetime.now(timezone.utc)
@@ -171,18 +171,18 @@ class Core(commands.Cog):
 
             embed.add_field(
                 name="🤖 Bot Status",
-                value=f"• Status: **🟢 Online**\n• Uptime: **{self._format_uptime()}**\n• Latency: **{round(self.bot.latency * 1000)}ms**",
+                value=f"• Status: ** Online**\n• Uptime: **{self._format_uptime()}**\n• Latency: **{round(self.bot.latency * 1000)}ms**",
                 inline=True
             )
 
             embed.add_field(
                 name="🔗 Connections",
-                value=f"• Database: **{db_status}**\n• Scheduler: **{scheduler_status}**\n• Discord: **🟢 Connected**",
+                value=f"• Database: **{db_status}**\n• Scheduler: **{scheduler_status}**\n• Discord: ** Connected**",
                 inline=True
             )
 
             embed.add_field(
-                name="📈 Statistics",
+                name="Statistics",
                 value=f"• Guilds: **{len(self.bot.guilds)}**\n• Users: **{len(self.bot.users)}**\n• Commands: **{len(self.bot.pending_application_commands)}**",
                 inline=True
             )
@@ -196,7 +196,7 @@ class Core(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to show status: {e}")
-            await ctx.respond("❌ Failed to retrieve status information.", ephemeral=True)
+            await ctx.respond("Failed to retrieve status information.", ephemeral=True)
 
     def _format_uptime(self) -> str:
         """Format bot uptime in human readable format"""

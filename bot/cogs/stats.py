@@ -270,7 +270,7 @@ class Stats(commands.Cog):
         """View PvP statistics for yourself, another user, or a player name"""
         try:
             if not ctx.guild:
-                await ctx.respond("❌ This command can only be used in a server!", ephemeral=True)
+                await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
             guild_id = ctx.guild.id
@@ -290,7 +290,7 @@ class Stats(commands.Cog):
                             break
                     
                     if not server_found:
-                        await ctx.respond("❌ Server not found for this guild.", ephemeral=True)
+                        await ctx.respond("Server not found for this guild.", ephemeral=True)
                         return
 
             # Handle different target types
@@ -299,7 +299,7 @@ class Stats(commands.Cog):
                 resolve_result = await self.resolve_player(ctx, ctx.author)
                 if not resolve_result:
                     await ctx.respond(
-                        "❌ You don't have any linked characters! Use `/link <character>` to get started.",
+                        "You don't have any linked characters! Use `/link <character>` to get started.",
                         ephemeral=True
                     )
                     return
@@ -322,7 +322,7 @@ class Stats(commands.Cog):
                     resolve_result = await self.resolve_player(ctx, user_mention)
                     if not resolve_result:
                         await ctx.respond(
-                            f"❌ {user_mention.mention} doesn't have any linked characters!",
+                            f"{user_mention.mention} doesn't have any linked characters!",
                             ephemeral=True
                         )
                         return
@@ -332,7 +332,7 @@ class Stats(commands.Cog):
                     resolve_result = await self.resolve_player(ctx, target)
                     if not resolve_result:
                         await ctx.respond(
-                            "❌ Unable to find a linked user or matching player by that name.",
+                            "Unable to find a linked user or matching player by that name.",
                             ephemeral=True
                         )
                         return
@@ -398,16 +398,16 @@ class Stats(commands.Cog):
             import traceback
             logger.error(f"Stack trace: {traceback.format_exc()}")
             if ctx.response.is_done():
-                await ctx.followup.send("❌ Failed to retrieve statistics.", ephemeral=True)
+                await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
             else:
-                await ctx.respond("❌ Failed to retrieve statistics.", ephemeral=True)
+                await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
 
     @discord.slash_command(name="compare", description="Compare stats with another player")
     async def compare(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Compare your stats with another player"""
         try:
             if not ctx.guild:
-                await ctx.respond("❌ This command can only be used in a server!", ephemeral=True)
+                await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
             guild_id = ctx.guild.id
@@ -415,7 +415,7 @@ class Stats(commands.Cog):
             user2 = user
 
             if user1.id == user2.id:
-                await ctx.respond("❌ You can't compare stats with yourself!", ephemeral=True)
+                await ctx.respond("You can't compare stats with yourself!", ephemeral=True)
                 return
 
             # Get both players' data
@@ -424,14 +424,14 @@ class Stats(commands.Cog):
 
             if not player1_data or not isinstance(player1_data, dict):
                 await ctx.respond(
-                    "❌ You don't have any linked characters! Use `/link <character>` to get started.",
+                    "You don't have any linked characters! Use `/link <character>` to get started.",
                     ephemeral=True
                 )
                 return
 
             if not player2_data or not isinstance(player2_data, dict):
                 await ctx.respond(
-                    f"❌ {user2.mention} doesn't have any linked characters!",
+                    f"{user2.mention} doesn't have any linked characters!",
                     ephemeral=True
                 )
                 return
@@ -460,7 +460,7 @@ class Stats(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to compare stats: {e}")
-            await ctx.respond("❌ Failed to compare statistics.", ephemeral=True)
+            await ctx.respond("Failed to compare statistics.", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(Stats(bot))

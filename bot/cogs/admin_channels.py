@@ -74,7 +74,7 @@ class AdminChannels(commands.Cog):
                 has_premium = await self.check_premium_access(guild_id)
                 if not has_premium:
                     embed = discord.Embed(
-                        title="🔒 Premium Feature Required",
+                        title="Premium Feature Required",
                         description=f"Setting **{channel_type}** channel requires premium subscription!",
                         color=0xFF6B6B,
                         timestamp=datetime.now(timezone.utc)
@@ -87,13 +87,13 @@ class AdminChannels(commands.Cog):
                     )
                     
                     embed.add_field(
-                        name="⭐ Premium Channels",
+                        name="Premium Channels",
                         value="• **leaderboard** - Automated leaderboards\n• **playercountvc** - Live player count\n• **events** - Server events\n• **connections** - Player activity\n• **bounties** - Bounty system",
                         inline=False
                     )
                     
                     embed.add_field(
-                        name="🚀 Upgrade Now",
+                        name="Upgrade Now",
                         value="Contact an admin to upgrade to premium!",
                         inline=False
                     )
@@ -107,7 +107,7 @@ class AdminChannels(commands.Cog):
             if channel.type != expected_type:
                 type_name = "voice" if expected_type == discord.ChannelType.voice else "text"
                 embed = discord.Embed(
-                    title="❌ Invalid Channel Type",
+                    title="Invalid Channel Type",
                     description=f"Channel type **{channel_type}** requires a **{type_name}** channel!",
                     color=0xFF6B6B
                 )
@@ -130,14 +130,14 @@ class AdminChannels(commands.Cog):
             
             # Create success embed
             embed = discord.Embed(
-                title=f"✅ {channel_type.title()} Channel Set",
+                title=f"{channel_type.title()} Channel Set",
                 description=f"Successfully configured {channel.mention} for **{channel_type}** on server **{server_id}**!",
                 color=0x00FF7F,
                 timestamp=datetime.now(timezone.utc)
             )
             
             embed.add_field(
-                name="📝 Description",
+                name="Description",
                 value=channel_config['description'],
                 inline=True
             )
@@ -188,7 +188,7 @@ class AdminChannels(commands.Cog):
             
         except Exception as e:
             logger.error(f"Failed to set {channel_type} channel: {e}")
-            await ctx.respond("❌ Failed to configure channel.", ephemeral=True)
+            await ctx.respond("Failed to configure channel.", ephemeral=True)
     
     @discord.slash_command(name="setchannels", description="Configure multiple channels at once")
     @discord.default_permissions(administrator=True)
@@ -234,7 +234,7 @@ class AdminChannels(commands.Cog):
                 expected_type = channel_config['type']
                 if channel.type != expected_type:
                     type_name = "voice" if expected_type == discord.ChannelType.voice else "text"
-                    await ctx.respond(f"❌ **{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+                    await ctx.respond(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
                     return
                 
                 # Add to updates
@@ -247,19 +247,19 @@ class AdminChannels(commands.Cog):
             
             if premium_required:
                 embed = discord.Embed(
-                    title="🔒 Premium Features Skipped",
+                    title="Premium Features Skipped",
                     description=f"The following channels require premium subscription: **{', '.join(premium_required)}**",
                     color=0xFF6B6B,
                     timestamp=datetime.now(timezone.utc)
                 )
                 embed.add_field(
-                    name="🚀 Upgrade Now",
+                    name="Upgrade Now",
                     value="Contact an admin to upgrade to premium for advanced channels!",
                     inline=False
                 )
                 if configured_channels:
                     embed.add_field(
-                        name="✅ Configured (Free)",
+                        name="Configured (Free)",
                         value="\n".join([ch for ch in configured_channels if 'killfeed' in ch]),
                         inline=False
                     )
@@ -267,7 +267,7 @@ class AdminChannels(commands.Cog):
                 return
             
             if not channel_updates:
-                await ctx.respond("❌ No valid channels provided to configure.", ephemeral=True)
+                await ctx.respond("No valid channels provided to configure.", ephemeral=True)
                 return
             
             # Apply all updates at once
@@ -279,14 +279,14 @@ class AdminChannels(commands.Cog):
             
             # Create success embed
             embed = discord.Embed(
-                title="✅ Channels Configured Successfully",
+                title="Channels Configured Successfully",
                 description=f"Multiple channels have been configured for server **{server_id}**!",
                 color=0x00FF7F,
                 timestamp=datetime.now(timezone.utc)
             )
             
             embed.add_field(
-                name="📋 Configured Channels",
+                name="Configured Channels",
                 value="\n".join(configured_channels),
                 inline=False
             )
@@ -305,7 +305,7 @@ class AdminChannels(commands.Cog):
             
         except Exception as e:
             logger.error(f"Failed to set multiple channels: {e}")
-            await ctx.respond("❌ Failed to configure channels.", ephemeral=True)
+            await ctx.respond("Failed to configure channels.", ephemeral=True)
 
     @discord.slash_command(name="clearchannels", description="Clear all configured channels")
     @discord.default_permissions(administrator=True)
@@ -360,7 +360,7 @@ class AdminChannels(commands.Cog):
             
             if configured_channels:
                 embed.add_field(
-                    name="📋 Previously Configured",
+                    name="Previously Configured",
                     value="\n".join(configured_channels),
                     inline=False
                 )
@@ -379,7 +379,7 @@ class AdminChannels(commands.Cog):
             
         except Exception as e:
             logger.error(f"Failed to clear channels: {e}")
-            await ctx.respond("❌ Failed to clear channel configurations.", ephemeral=True)
+            await ctx.respond("Failed to clear channel configurations.", ephemeral=True)
     
     @discord.slash_command(name="channels", description="View current channel configuration")
     async def view_channels(self, ctx,
@@ -391,7 +391,7 @@ class AdminChannels(commands.Cog):
             server_channels = guild_config.get('server_channels', {}).get(server_id, {}) if guild_config else {}
             
             embed = discord.Embed(
-                title="📋 Channel Configuration",
+                title="Channel Configuration",
                 description=f"Current channel setup for server **{server_id}**",
                 color=0x3498DB,
                 timestamp=datetime.now(timezone.utc)
@@ -399,10 +399,10 @@ class AdminChannels(commands.Cog):
             
             # Check premium status
             has_premium = await self.check_premium_access(guild_id)
-            premium_status = "✅ Active" if has_premium else "❌ Not Active"
+            premium_status = "Active" if has_premium else "Not Active"
             
             embed.add_field(
-                name="⭐ Premium Status",
+                name="Premium Status",
                 value=premium_status,
                 inline=True
             )
@@ -417,24 +417,24 @@ class AdminChannels(commands.Cog):
                 if channel_id:
                     channel = ctx.guild.get_channel(channel_id)
                     if channel:
-                        status = "🟢" if config['premium'] and not has_premium else "🟢"
+                        status = "" if config['premium'] and not has_premium else ""
                         configured.append(f"{status} **{channel_type}**: {channel.mention}")
                     else:
-                        configured.append(f"🔴 **{channel_type}**: #deleted-channel")
+                        configured.append(f" **{channel_type}**: #deleted-channel")
                 else:
-                    premium_icon = "🔒" if config['premium'] else "⚪"
+                    premium_icon = "" if config['premium'] else ""
                     not_configured.append(f"{premium_icon} **{channel_type}**: Not set")
             
             if configured:
                 embed.add_field(
-                    name="✅ Configured Channels",
+                    name="Configured Channels",
                     value="\n".join(configured),
                     inline=False
                 )
             
             if not_configured:
                 embed.add_field(
-                    name="⚪ Available Channels",
+                    name="Available Channels",
                     value="\n".join(not_configured),
                     inline=False
                 )
@@ -445,13 +445,13 @@ class AdminChannels(commands.Cog):
                 inline=False
             )
             
-            embed.set_footer(text="🔒 = Premium Required • Powered by Discord.gg/EmeraldServers")
+            embed.set_footer(text="= Premium Required • Powered by Discord.gg/EmeraldServers")
             
             await ctx.respond(embed=embed)
             
         except Exception as e:
             logger.error(f"Failed to view channels: {e}")
-            await ctx.respond("❌ Failed to retrieve channel configuration.", ephemeral=True)
+            await ctx.respond("Failed to retrieve channel configuration.", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(AdminChannels(bot))

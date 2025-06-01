@@ -130,22 +130,22 @@ class Bounties(commands.Cog):
 
             # Validate amount
             if amount <= 0:
-                await ctx.respond("❌ Bounty amount must be positive!", ephemeral=True)
+                await ctx.respond("Bounty amount must be positive!", ephemeral=True)
                 return
 
             if amount < 100:
-                await ctx.respond("❌ Minimum bounty amount is $100!", ephemeral=True)
+                await ctx.respond("Minimum bounty amount is $100!", ephemeral=True)
                 return
 
             if amount > 50000:
-                await ctx.respond("❌ Maximum bounty amount is $50,000!", ephemeral=True)
+                await ctx.respond("Maximum bounty amount is $50,000!", ephemeral=True)
                 return
 
             # Check if user has enough money
             wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
             if wallet['balance'] < amount:
                 await ctx.respond(
-                    f"❌ Insufficient funds! You have **${wallet['balance']:,}** but need **${amount:,}**",
+                    f"Insufficient funds! You have **${wallet['balance']:,}** but need **${amount:,}**",
                     ephemeral=True
                 )
                 return
@@ -171,7 +171,7 @@ class Bounties(commands.Cog):
 
             if not resolve_result:
                 await ctx.respond(
-                    "❌ Unable to find a linked user or matching player by that name.",
+                    "Unable to find a linked user or matching player by that name.",
                     ephemeral=True
                 )
                 return
@@ -181,7 +181,7 @@ class Bounties(commands.Cog):
             # Prevent self-bounties
             user_characters = await self.get_player_character_names(guild_id, discord_id)
             if target_character in user_characters:
-                await ctx.respond("❌ You cannot set a bounty on yourself!", ephemeral=True)
+                await ctx.respond("You cannot set a bounty on yourself!", ephemeral=True)
                 return
 
             # Check if bounty already exists
@@ -193,14 +193,14 @@ class Bounties(commands.Cog):
             })
 
             if existing_bounty:
-                await ctx.respond(f"❌ There is already an active bounty on **{target_character}**!", ephemeral=True)
+                await ctx.respond(f"There is already an active bounty on **{target_character}**!", ephemeral=True)
                 return
 
             # Deduct money from user
             success = await self.bot.db_manager.update_wallet(guild_id, discord_id, -amount, "bounty_set")
 
             if not success:
-                await ctx.respond("❌ Failed to process payment. Please try again.", ephemeral=True)
+                await ctx.respond("Failed to process payment. Please try again.", ephemeral=True)
                 return
 
             # Create bounty
@@ -227,20 +227,20 @@ class Bounties(commands.Cog):
 
             # Create bounty embed
             embed = discord.Embed(
-                title="🎯 Bounty Set",
+                title="Bounty Set",
                 description=f"A bounty has been placed on **{target_character}**!",
                 color=0xFF4500,
                 timestamp=datetime.now(timezone.utc)
             )
 
             embed.add_field(
-                name="💰 Reward",
+                name="Reward",
                 value=f"**${amount:,}**",
                 inline=True
             )
 
             embed.add_field(
-                name="⏰ Expires",
+                name="Expires",
                 value=f"<t:{int((datetime.now(timezone.utc) + timedelta(hours=24)).timestamp())}:R>",
                 inline=True
             )
@@ -252,7 +252,7 @@ class Bounties(commands.Cog):
             )
 
             embed.add_field(
-                name="📋 Instructions",
+                name="Instructions",
                 value="Kill the target to claim the bounty!\nBounty expires in 24 hours.",
                 inline=False
             )
@@ -266,7 +266,7 @@ class Bounties(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to set bounty: {e}")
-            await ctx.respond("❌ Failed to set bounty.", ephemeral=True)
+            await ctx.respond("Failed to set bounty.", ephemeral=True)
 
     @bounty.command(name="list", description="List active bounties")
     async def bounty_list(self, ctx: discord.ApplicationContext):
@@ -346,7 +346,7 @@ class Bounties(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to list bounties: {e}")
-            await ctx.respond("❌ Failed to retrieve bounties.", ephemeral=True)
+            await ctx.respond("Failed to retrieve bounties.", ephemeral=True)
 
     async def check_bounty_claims(self, guild_id: int, killer_character: str, victim_character: str):
         """Check if a kill claims any bounties"""
@@ -440,7 +440,7 @@ class Bounties(commands.Cog):
             )
 
             embed.add_field(
-                name="💰 Reward",
+                name="Reward",
                 value=f"**${bounty['amount']:,}**",
                 inline=True
             )
@@ -584,25 +584,25 @@ class Bounties(commands.Cog):
             )
 
             embed.add_field(
-                name="💰 Reward",
+                name="Reward",
                 value=f"**${amount:,}**",
                 inline=True
             )
 
             embed.add_field(
-                name="🔥 Trigger",
+                name="Trigger",
                 value=f"{kill_count} kills in 1 hour",
                 inline=True
             )
 
             embed.add_field(
-                name="⏰ Expires",
+                name="Expires",
                 value="<t:" + str(int((datetime.now(timezone.utc) + timedelta(hours=2)).timestamp())) + ":R>",
                 inline=True
             )
 
             embed.add_field(
-                name="🎯 Target",
+                name="Target",
                 value=target_name,
                 inline=False
             )
@@ -617,7 +617,7 @@ class Bounties(commands.Cog):
         except Exception as e:
             logger.error(f"Failed to send auto-bounty embed: {e}")
 
-    bounty = discord.SlashCommandGroup("bounty", "🎯 Bounty system commands")
+    bounty = discord.SlashCommandGroup("bounty", "Bounty system commands")
 
     @bounty.command(name="set", description="Set a bounty on a player")
     async def bounty_set_cmd(self, ctx: discord.ApplicationContext, 
@@ -640,13 +640,13 @@ class Bounties(commands.Cog):
             # Check wallet balance
             wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
             if wallet['balance'] < amount:
-                await ctx.respond(f"❌ Insufficient funds! You have ${wallet['balance']:,}", ephemeral=True)
+                await ctx.respond(f"Insufficient funds! You have ${wallet['balance']:,}", ephemeral=True)
                 return
                 
             # Resolve target
             target_result = await self.resolve_target(ctx, target)
             if not target_result:
-                await ctx.respond("❌ Target not found or invalid!", ephemeral=True)
+                await ctx.respond("Target not found or invalid!", ephemeral=True)
                 return
                 
             target_name, target_discord_id = target_result
@@ -669,7 +669,7 @@ class Bounties(commands.Cog):
             await self.bot.db_manager.db.bounties.insert_one(bounty_doc)
             
             embed = discord.Embed(
-                title="🎯 Bounty Set",
+                title="Bounty Set",
                 description=f"**Target:** {target_name}\n**Amount:** ${amount:,}\n**Expires:** <t:{int((datetime.now(timezone.utc) + timedelta(hours=24)).timestamp())}:R>",
                 color=0xffa500
             )
@@ -677,7 +677,7 @@ class Bounties(commands.Cog):
             
         except Exception as e:
             logger.error(f"Failed to set bounty: {e}")
-            await ctx.respond("❌ Failed to set bounty", ephemeral=True)
+            await ctx.respond("Failed to set bounty", ephemeral=True)
 
     @bounty.command(name="list", description="View active bounties")
     async def bounty_list_cmd(self, ctx: discord.ApplicationContext):
@@ -693,7 +693,7 @@ class Bounties(commands.Cog):
             
             if not bounties:
                 embed = discord.Embed(
-                    title="📋 Active Bounties",
+                    title="Active Bounties",
                     description="No active bounties found.",
                     color=0x7f5af0
                 )
@@ -701,7 +701,7 @@ class Bounties(commands.Cog):
                 return
                 
             embed = discord.Embed(
-                title="📋 Active Bounties",
+                title="Active Bounties",
                 color=0xffa500
             )
             
@@ -710,12 +710,12 @@ class Bounties(commands.Cog):
                 expires_timestamp = int(bounty['expires_at'].timestamp())
                 bounty_text += f"**{bounty['target_name']}** - ${bounty['bounty_amount']:,} (expires <t:{expires_timestamp}:R>)\n"
                 
-            embed.add_field(name="🎯 Targets", value=bounty_text, inline=False)
+            embed.add_field(name="Targets", value=bounty_text, inline=False)
             await ctx.respond(embed=embed, ephemeral=True)
             
         except Exception as e:
             logger.error(f"Failed to list bounties: {e}")
-            await ctx.respond("❌ Failed to list bounties", ephemeral=True)
+            await ctx.respond("Failed to list bounties", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(Bounties(bot))

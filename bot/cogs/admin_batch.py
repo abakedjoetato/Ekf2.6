@@ -21,19 +21,19 @@ class AdminBatch(commands.Cog):
         """Show current batch sender statistics"""
         try:
             if not hasattr(self.bot, 'batch_sender'):
-                await ctx.respond("❌ Batch sender not initialized", ephemeral=True)
+                await ctx.respond("Batch sender not initialized", ephemeral=True)
                 return
 
             stats = self.bot.batch_sender.get_queue_stats()
 
             embed = discord.Embed(
-                title="📊 Batch Sender Statistics",
+                title="Batch Sender Statistics",
                 color=0x00FF00,
                 timestamp=discord.utils.utcnow()
             )
 
             embed.add_field(
-                name="📈 Queue Stats",
+                name="Queue Stats",
                 value=f"**Total Queued:** {stats['total_queued_messages']}\n"
                       f"**Active Channels:** {stats['active_channels']}\n"
                       f"**Processing Channels:** {stats['processing_channels']}",
@@ -48,7 +48,7 @@ class AdminBatch(commands.Cog):
                     channel_list.append(f"#{channel_name}: {count}")
 
                 embed.add_field(
-                    name="📋 Channel Queues",
+                    name="Channel Queues",
                     value='\n'.join(channel_list) if channel_list else "No queued messages",
                     inline=False
                 )
@@ -57,7 +57,7 @@ class AdminBatch(commands.Cog):
 
         except Exception as e:
             logger.error(f"Error in batch_stats command: {e}")
-            await ctx.respond(f"❌ Error getting batch stats: {e}", ephemeral=True)
+            await ctx.respond(f"Error getting batch stats: {e}", ephemeral=True)
 
     @discord.slash_command(name="flush_batches", description="Force flush all pending message batches")
     @commands.has_permissions(administrator=True)
@@ -65,7 +65,7 @@ class AdminBatch(commands.Cog):
         """Force flush all pending message batches"""
         try:
             if not hasattr(self.bot, 'batch_sender'):
-                await ctx.respond("❌ Batch sender not initialized", ephemeral=True)
+                await ctx.respond("Batch sender not initialized", ephemeral=True)
                 return
 
             stats_before = self.bot.batch_sender.get_queue_stats()
@@ -76,13 +76,13 @@ class AdminBatch(commands.Cog):
             stats_after = self.bot.batch_sender.get_queue_stats()
 
             embed = discord.Embed(
-                title="✅ Batch Flush Complete",
+                title="Batch Flush Complete",
                 color=0x00FF00,
                 timestamp=discord.utils.utcnow()
             )
 
             embed.add_field(
-                name="📊 Results",
+                name="Results",
                 value=f"**Messages Flushed:** {stats_before['total_queued_messages']}\n"
                       f"**Remaining Queued:** {stats_after['total_queued_messages']}",
                 inline=False
@@ -92,7 +92,7 @@ class AdminBatch(commands.Cog):
 
         except Exception as e:
             logger.error(f"Error in flush_batches command: {e}")
-            await ctx.respond(f"❌ Error flushing batches: {e}", ephemeral=True)
+            await ctx.respond(f"Error flushing batches: {e}", ephemeral=True)
 
     @discord.slash_command(name="debug_player_count", description="Debug current player count tracking")
     @commands.has_permissions(administrator=True)
@@ -106,12 +106,12 @@ class AdminBatch(commands.Cog):
             # Get all servers for this guild
             guild_config = await self.bot.db_manager.get_guild(guild_id)
             if not guild_config:
-                await ctx.respond("❌ No guild configuration found", ephemeral=True)
+                await ctx.respond("No guild configuration found", ephemeral=True)
                 return
 
             servers = guild_config.get('servers', [])
             if not servers:
-                await ctx.respond("❌ No servers configured for this guild", ephemeral=True)
+                await ctx.respond("No servers configured for this guild", ephemeral=True)
                 return
 
             embed = discord.Embed(
@@ -153,14 +153,14 @@ class AdminBatch(commands.Cog):
                     found_server = any(str(s.get('_id', '')) == server_id for s in servers)
                     if not found_server:
                         embed.add_field(
-                            name="❌ Server Not Found",
+                            name="Server Not Found",
                             value=f"Server ID `{server_id}` not found in guild configuration",
                             inline=False
                         )
 
             else:
                 embed.add_field(
-                    name="❌ Parser Not Available",
+                    name="Parser Not Available",
                     value="Connection parser not found or not initialized",
                     inline=False
                 )
@@ -169,7 +169,7 @@ class AdminBatch(commands.Cog):
 
         except Exception as e:
             logger.error(f"Error in debug_player_count command: {e}")
-            await ctx.respond(f"❌ Error debugging player count: {str(e)}", ephemeral=True)
+            await ctx.respond(f"Error debugging player count: {str(e)}", ephemeral=True)
 
     @discord.slash_command(name="reset_player_count", description="Reset player count tracking for a server")
     @commands.has_permissions(administrator=True)
@@ -192,18 +192,18 @@ class AdminBatch(commands.Cog):
                 )
 
                 embed.add_field(
-                    name="📊 New Counts",
+                    name="New Counts",
                     value="**Queue Count:** 0\n**Player Count:** 0",
                     inline=False
                 )
 
                 await ctx.respond(embed=embed, ephemeral=True)
             else:
-                await ctx.respond("❌ Connection parser not available for reset", ephemeral=True)
+                await ctx.respond("Connection parser not available for reset", ephemeral=True)
 
         except Exception as e:
             logger.error(f"Error in reset_player_count command: {e}")
-            await ctx.respond(f"❌ Error resetting player count: {e}", ephemeral=True)
+            await ctx.respond(f"Error resetting player count: {e}", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(AdminBatch(bot))

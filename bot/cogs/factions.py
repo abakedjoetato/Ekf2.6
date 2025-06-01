@@ -134,25 +134,25 @@ class Factions(commands.Cog):
             # Validate faction name
             name = name.strip()
             if not name:
-                await ctx.respond("❌ Faction name cannot be empty!", ephemeral=True)
+                await ctx.respond("Faction name cannot be empty!", ephemeral=True)
                 return
 
             if len(name) > 32:
-                await ctx.respond("❌ Faction name too long! Maximum 32 characters.", ephemeral=True)
+                await ctx.respond("Faction name too long! Maximum 32 characters.", ephemeral=True)
                 return
 
             # Validate tag
             if tag:
                 tag = tag.strip().upper()
                 if len(tag) > 6:
-                    await ctx.respond("❌ Faction tag too long! Maximum 6 characters.", ephemeral=True)
+                    await ctx.respond("Faction tag too long! Maximum 6 characters.", ephemeral=True)
                     return
 
             # Check if user is already in a faction
             existing_faction = await self.get_user_faction(guild_id, discord_id)
             if existing_faction:
                 await ctx.respond(
-                    f"❌ You are already a member of **{existing_faction['faction_name']}**!",
+                    f"You are already a member of **{existing_faction['faction_name']}**!",
                     ephemeral=True
                 )
                 return
@@ -164,7 +164,7 @@ class Factions(commands.Cog):
             })
 
             if existing_name:
-                await ctx.respond(f"❌ Faction name **{name}** is already taken!", ephemeral=True)
+                await ctx.respond(f"Faction name **{name}** is already taken!", ephemeral=True)
                 return
 
             # Check if tag already exists
@@ -175,7 +175,7 @@ class Factions(commands.Cog):
                 })
 
                 if existing_tag:
-                    await ctx.respond(f"❌ Faction tag **[{tag}]** is already taken!", ephemeral=True)
+                    await ctx.respond(f"Faction tag **[{tag}]** is already taken!", ephemeral=True)
                     return
 
             # Create faction with consistent timezone handling
@@ -225,7 +225,7 @@ class Factions(commands.Cog):
             )
 
             embed.add_field(
-                name="📋 Next Steps",
+                name="Next Steps",
                 value="• Use `/faction invite` to invite members\n• Use `/faction settings` to configure your faction",
                 inline=False
             )
@@ -238,7 +238,7 @@ class Factions(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to create faction: {e}")
-            await ctx.respond("❌ Failed to create faction.", ephemeral=True)
+            await ctx.respond("Failed to create faction.", ephemeral=True)
 
     @faction.command(name="invite", description="Invite a user to your faction")
     async def faction_invite(self, ctx: discord.ApplicationContext, user: discord.Member):
@@ -260,27 +260,27 @@ class Factions(commands.Cog):
             # Check if inviter is in a faction and has permission
             inviter_faction = await self.get_user_faction(guild_id, discord_id)
             if not inviter_faction:
-                await ctx.respond("❌ You are not a member of any faction!", ephemeral=True)
+                await ctx.respond("You are not a member of any faction!", ephemeral=True)
                 return
 
             # Check permissions (leader or officer)
             if (discord_id != inviter_faction['leader_id'] and 
                 discord_id not in inviter_faction.get('officers', [])):
-                await ctx.respond("❌ Only faction leaders and officers can invite members!", ephemeral=True)
+                await ctx.respond("Only faction leaders and officers can invite members!", ephemeral=True)
                 return
 
             # Check if target user is already in a faction
             target_faction = await self.get_user_faction(guild_id, user.id)
             if target_faction:
                 await ctx.respond(
-                    f"❌ {user.mention} is already a member of **{target_faction['faction_name']}**!",
+                    f"{user.mention} is already a member of **{target_faction['faction_name']}**!",
                     ephemeral=True
                 )
                 return
 
             # Check if faction is full
             if len(inviter_faction['members']) >= inviter_faction.get('max_members', 20):
-                await ctx.respond("❌ Your faction is at maximum capacity!", ephemeral=True)
+                await ctx.respond("Your faction is at maximum capacity!", ephemeral=True)
                 return
 
             # Send invitation embed
@@ -312,7 +312,7 @@ class Factions(commands.Cog):
 
             if inviter_faction.get('description'):
                 embed.add_field(
-                    name="📝 Description",
+                    name="Description",
                     value=inviter_faction['description'],
                     inline=False
                 )
@@ -331,7 +331,7 @@ class Factions(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to send faction invite: {e}")
-            await ctx.respond("❌ Failed to send faction invite.", ephemeral=True)
+            await ctx.respond("Failed to send faction invite.", ephemeral=True)
 
     @faction.command(name="join", description="Join a faction")
     @discord.option(
@@ -359,7 +359,7 @@ class Factions(commands.Cog):
             existing_faction = await self.get_user_faction(guild_id, discord_id)
             if existing_faction:
                 await ctx.respond(
-                    f"❌ You are already a member of **{existing_faction['faction_name']}**!",
+                    f"You are already a member of **{existing_faction['faction_name']}**!",
                     ephemeral=True
                 )
                 return
@@ -371,17 +371,17 @@ class Factions(commands.Cog):
             })
 
             if not faction:
-                await ctx.respond(f"❌ Faction **{faction_name}** not found!", ephemeral=True)
+                await ctx.respond(f"Faction **{faction_name}** not found!", ephemeral=True)
                 return
 
             # Check if faction is full
             if len(faction['members']) >= faction.get('max_members', 20):
-                await ctx.respond("❌ This faction is at maximum capacity!", ephemeral=True)
+                await ctx.respond("This faction is at maximum capacity!", ephemeral=True)
                 return
 
             # Check if faction is invite-only
             if faction.get('invite_only', False):
-                await ctx.respond("❌ This faction is invite-only! Ask a member to invite you.", ephemeral=True)
+                await ctx.respond("This faction is invite-only! Ask a member to invite you.", ephemeral=True)
                 return
 
             # Add user to faction
@@ -427,7 +427,7 @@ class Factions(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to join faction: {e}")
-            await ctx.respond("❌ Failed to join faction.", ephemeral=True)
+            await ctx.respond("Failed to join faction.", ephemeral=True)
 
     @faction.command(name="leave", description="Leave your current faction")
     async def faction_leave(self, ctx: discord.ApplicationContext):
@@ -449,14 +449,14 @@ class Factions(commands.Cog):
             # Check if user is in a faction
             faction = await self.get_user_faction(guild_id, discord_id)
             if not faction:
-                await ctx.respond("❌ You are not a member of any faction!", ephemeral=True)
+                await ctx.respond("You are not a member of any faction!", ephemeral=True)
                 return
 
             # Check if user is the leader
             if discord_id == faction['leader_id']:
                 if len(faction['members']) > 1:
                     await ctx.respond(
-                        "❌ As the leader, you must transfer leadership or disband the faction before leaving!",
+                        "As the leader, you must transfer leadership or disband the faction before leaving!",
                         ephemeral=True
                     )
                     return
@@ -496,7 +496,7 @@ class Factions(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to leave faction: {e}")
-            await ctx.respond("❌ Failed to leave faction.", ephemeral=True)
+            await ctx.respond("Failed to leave faction.", ephemeral=True)
 
     @faction.command(name="info", description="View faction information")
     @discord.option(
@@ -528,12 +528,12 @@ class Factions(commands.Cog):
                     'faction_name': faction_name.strip()
                 })
                 if not faction:
-                    await ctx.respond(f"❌ Faction **{faction_name}** not found!", ephemeral=True)
+                    await ctx.respond(f"Faction **{faction_name}** not found!", ephemeral=True)
                     return
             else:
                 faction = await self.get_user_faction(guild_id, discord_id)
                 if not faction:
-                    await ctx.respond("❌ You are not a member of any faction! Specify a faction name to view.", ephemeral=True)
+                    await ctx.respond("You are not a member of any faction! Specify a faction name to view.", ephemeral=True)
                     return
 
             await ctx.defer()
@@ -605,7 +605,7 @@ class Factions(commands.Cog):
             )
 
             embed.add_field(
-                name="🏆 Records",
+                name="Records",
                 value=f"**Best Streak:** {stats['best_streak']:,}\n"
                       f"**Total Distance:** {stats['total_distance']:,.1f}m",
                 inline=True
@@ -614,7 +614,7 @@ class Factions(commands.Cog):
             # Settings
             settings_text = []
             if faction.get('invite_only', False):
-                settings_text.append("🔒 Invite Only")
+                settings_text.append("Invite Only")
             else:
                 settings_text.append("🌐 Open Recruitment")
 
@@ -626,7 +626,7 @@ class Factions(commands.Cog):
 
             if faction.get('description'):
                 embed.add_field(
-                    name="📝 Description",
+                    name="Description",
                     value=faction['description'],
                     inline=False
                 )
@@ -639,7 +639,7 @@ class Factions(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to show faction info: {e}")
-            await ctx.respond("❌ Failed to retrieve faction information.", ephemeral=True)
+            await ctx.respond("Failed to retrieve faction information.", ephemeral=True)
 
     @faction.command(name="stats", description="View your faction's detailed statistics")
     @discord.option(
@@ -671,12 +671,12 @@ class Factions(commands.Cog):
                     'faction_name': faction_name.strip()
                 })
                 if not faction:
-                    await ctx.respond(f"❌ Faction **{faction_name}** not found!", ephemeral=True)
+                    await ctx.respond(f"Faction **{faction_name}** not found!", ephemeral=True)
                     return
             else:
                 faction = await self.get_user_faction(guild_id, discord_id)
                 if not faction:
-                    await ctx.respond("❌ You are not a member of any faction! Specify a faction name to view.", ephemeral=True)
+                    await ctx.respond("You are not a member of any faction! Specify a faction name to view.", ephemeral=True)
                     return
 
             await ctx.defer()
@@ -686,7 +686,7 @@ class Factions(commands.Cog):
 
             # Create stats embed
             embed = discord.Embed(
-                title=f"📊 {faction['faction_name']} Statistics",
+                title=f"{faction['faction_name']} Statistics",
                 color=0x3498DB,
                 timestamp=datetime.now(timezone.utc)
             )
@@ -706,7 +706,7 @@ class Factions(commands.Cog):
 
             # Performance Metrics
             embed.add_field(
-                name="🏆 Performance Metrics",
+                name="Performance Metrics",
                 value=f"**Best Kill Streak:** {stats['best_streak']:,}\n"
                       f"**Total Distance:** {stats['total_distance']:,.1f}m\n"
                       f"**Avg KDR per Member:** {stats['total_kdr'] / max(stats['member_count'], 1):.2f}\n"
@@ -720,7 +720,7 @@ class Factions(commands.Cog):
                 value=f"**Active Members:** {stats['member_count']}\n"
                       f"**Total Capacity:** {faction.get('max_members', 20)}\n"
                       f"**Officers:** {len(faction.get('officers', []))}\n"
-                      f"**Recruitment:** {'🔒 Invite Only' if faction.get('invite_only', False) else '🌐 Open'}",
+                      f"**Recruitment:** {'Invite Only' if faction.get('invite_only', False) else '🌐 Open'}",
                 inline=True
             )
 
@@ -732,7 +732,7 @@ class Factions(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to show faction stats: {e}")
-            await ctx.respond("❌ Failed to retrieve faction statistics.", ephemeral=True)
+            await ctx.respond("Failed to retrieve faction statistics.", ephemeral=True)
 
     @faction.command(name="list", description="List all factions in this server")
     async def faction_list(self, ctx: discord.ApplicationContext):
@@ -780,7 +780,7 @@ class Factions(commands.Cog):
                 member_count = len(faction['members'])
                 max_members = faction.get('max_members', 20)
 
-                status = "🔒" if faction.get('invite_only', False) else "🌐"
+                status = "" if faction.get('invite_only', False) else "🌐"
 
                 faction_list.append(
                     f"**{tag}{name}** {status}\n"
@@ -788,21 +788,21 @@ class Factions(commands.Cog):
                 )
 
             embed.add_field(
-                name="📋 Faction List",
+                name="Faction List",
                 value="\n".join(faction_list),
                 inline=False
             )
 
             if len(factions) > 15:
                 embed.add_field(
-                    name="📊 Note",
+                    name="Note",
                     value=f"Showing 15 of {len(factions)} factions",
                     inline=False
                 )
 
             embed.add_field(
                 name="🔑 Legend",
-                value="🌐 Open Recruitment • 🔒 Invite Only",
+                value="🌐 Open Recruitment • Invite Only",
                 inline=False
             )
 
@@ -814,7 +814,7 @@ class Factions(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to list factions: {e}")
-            await ctx.respond("❌ Failed to retrieve faction list.", ephemeral=True)
+            await ctx.respond("Failed to retrieve faction list.", ephemeral=True)
 
     faction = discord.SlashCommandGroup("faction", "Faction management commands")
 
@@ -838,7 +838,7 @@ class Factions(commands.Cog):
             # Check if user is already in a faction
             existing_faction = await self.get_user_faction(guild_id, discord_id)
             if existing_faction:
-                await ctx.respond(f"❌ You're already in faction **{existing_faction['name']}**!", ephemeral=True)
+                await ctx.respond(f"You're already in faction **{existing_faction['name']}**!", ephemeral=True)
                 return
                 
             # Check if faction name exists
@@ -848,7 +848,7 @@ class Factions(commands.Cog):
             })
             
             if name_exists:
-                await ctx.respond("❌ Faction name already exists!", ephemeral=True)
+                await ctx.respond("Faction name already exists!", ephemeral=True)
                 return
                 
             # Create faction
@@ -877,7 +877,7 @@ class Factions(commands.Cog):
             
         except Exception as e:
             logger.error(f"Failed to create faction: {e}")
-            await ctx.respond("❌ Failed to create faction", ephemeral=True)
+            await ctx.respond("Failed to create faction", ephemeral=True)
 
     @faction.command(name="info", description="View faction information")
     async def faction_info_cmd(self, ctx: discord.ApplicationContext,
@@ -898,7 +898,7 @@ class Factions(commands.Cog):
                 
             if not faction:
                 msg = "Faction not found!" if faction_name else "You're not in a faction!"
-                await ctx.respond(f"❌ {msg}", ephemeral=True)
+                await ctx.respond(f"{msg}", ephemeral=True)
                 return
                 
             # Generate faction stats
@@ -917,7 +917,7 @@ class Factions(commands.Cog):
             )
             
             embed.add_field(
-                name="📊 Stats",
+                name="Stats",
                 value=f"**Kills:** {stats.get('total_kills', 0):,}\n**Deaths:** {stats.get('total_deaths', 0):,}\n**K/D:** {stats.get('kdr', 0.0):.2f}",
                 inline=True
             )
@@ -929,7 +929,7 @@ class Factions(commands.Cog):
             
         except Exception as e:
             logger.error(f"Failed to show faction info: {e}")
-            await ctx.respond("❌ Failed to get faction info", ephemeral=True)
+            await ctx.respond("Failed to get faction info", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(Factions(bot))

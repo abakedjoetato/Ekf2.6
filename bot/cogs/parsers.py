@@ -40,13 +40,13 @@ class Parsers(commands.Cog):
             )
 
             # Killfeed parser status
-            killfeed_status = "🟢 Active" if hasattr(self.bot, 'killfeed_parser') and self.bot.killfeed_parser else "🔴 Inactive"
+            killfeed_status = " Active" if hasattr(self.bot, 'killfeed_parser') and self.bot.killfeed_parser else " Inactive"
 
             # Log parser status
-            log_status = "🟢 Active" if hasattr(self.bot, 'log_parser') and self.bot.log_parser else "🔴 Inactive"
+            log_status = " Active" if hasattr(self.bot, 'log_parser') and self.bot.log_parser else " Inactive"
 
             # Historical parser status
-            historical_status = "🟢 Active" if hasattr(self.bot, 'historical_parser') and self.bot.historical_parser else "🔴 Inactive"
+            historical_status = " Active" if hasattr(self.bot, 'historical_parser') and self.bot.historical_parser else " Inactive"
 
             embed.add_field(
                 name="📡 Killfeed Parser",
@@ -67,9 +67,9 @@ class Parsers(commands.Cog):
             )
 
             # Scheduler status
-            scheduler_status = "🟢 Running" if self.bot.scheduler.running else "🔴 Stopped"
+            scheduler_status = " Running" if self.bot.scheduler.running else " Stopped"
             embed.add_field(
-                name="⏰ Background Scheduler",
+                name="Background Scheduler",
                 value=f"Status: **{scheduler_status}**\nManages automated tasks",
                 inline=False
             )
@@ -84,7 +84,7 @@ class Parsers(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to check parser status: {e}")
-            await ctx.respond("❌ Failed to retrieve parser status.", ephemeral=True)
+            await ctx.respond("Failed to retrieve parser status.", ephemeral=True)
 
     @parser.command(name="refresh", description="Manually refresh data for a server")
     @commands.has_permissions(administrator=True)
@@ -101,7 +101,7 @@ class Parsers(commands.Cog):
             # Check if server exists in guild config - fixed database call
             guild_config = await self.bot.db_manager.get_guild(guild_id)
             if not guild_config:
-                await ctx.respond("❌ This guild is not configured!", ephemeral=True)
+                await ctx.respond("This guild is not configured!", ephemeral=True)
                 return
 
             # Find the server - now using server ID from autocomplete
@@ -115,7 +115,7 @@ class Parsers(commands.Cog):
                     break
 
             if not server_found:
-                await ctx.respond(f"❌ Server not found in this guild!", ephemeral=True)
+                await ctx.respond(f"Server not found in this guild!", ephemeral=True)
                 return
 
             # Defer response for potentially long operation
@@ -134,13 +134,13 @@ class Parsers(commands.Cog):
                     )
 
                     embed.add_field(
-                        name="⏰ Duration",
+                        name="Duration",
                         value="This process may take several minutes",
                         inline=True
                     )
 
                     embed.add_field(
-                        name="📊 Data Updated",
+                        name="Data Updated",
                         value="• Player statistics\n• Kill/death records\n• Historical trends",
                         inline=True
                     )
@@ -151,13 +151,13 @@ class Parsers(commands.Cog):
 
                 except Exception as e:
                     logger.error(f"Failed to refresh data: {e}")
-                    await ctx.followup.send("❌ Failed to start data refresh. Please try again later.")
+                    await ctx.followup.send("Failed to start data refresh. Please try again later.")
             else:
-                await ctx.followup.send("❌ Historical parser is not available!")
+                await ctx.followup.send("Historical parser is not available!")
 
         except Exception as e:
             logger.error(f"Failed to refresh parser data: {e}")
-            await ctx.respond("❌ Failed to initiate data refresh.", ephemeral=True)
+            await ctx.respond("Failed to initiate data refresh.", ephemeral=True)
 
     @parser.command(name="stats", description="Show parser statistics")
     async def parser_stats(self, ctx: discord.ApplicationContext):
@@ -166,7 +166,7 @@ class Parsers(commands.Cog):
             guild_id = ctx.guild.id
 
             embed = discord.Embed(
-                title="📊 Parser Statistics",
+                title="Parser Statistics",
                 description="Performance metrics for data parsers",
                 color=0x9B59B6,
                 timestamp=datetime.now(timezone.utc)
@@ -191,23 +191,23 @@ class Parsers(commands.Cog):
                 })
 
                 embed.add_field(
-                    name="📈 Today's Activity",
+                    name="Today's Activity",
                     value=f"• Kills Parsed: **{recent_kills}**\n• Players Tracked: **{total_players}**\n• Linked Users: **{linked_players}**",
                     inline=True
                 )
 
                 # Parser uptime
-                uptime_status = "🟢 Operational" if self.bot.scheduler.running else "🔴 Down"
+                uptime_status = " Operational" if self.bot.scheduler.running else " Down"
                 embed.add_field(
-                    name="⚡ System Health",
-                    value=f"• Parser Status: **{uptime_status}**\n• Database: **🟢 Connected**\n• Scheduler: **🟢 Active**",
+                    name="System Health",
+                    value=f"• Parser Status: **{uptime_status}**\n• Database: ** Connected**\n• Scheduler: ** Active**",
                     inline=True
                 )
 
             except Exception as e:
                 logger.error(f"Failed to get parser stats from database: {e}")
                 embed.add_field(
-                    name="⚠️ Statistics",
+                    name="Statistics",
                     value="Unable to retrieve detailed statistics",
                     inline=False
                 )
@@ -222,7 +222,7 @@ class Parsers(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to show parser stats: {e}")
-            await ctx.respond("❌ Failed to retrieve parser statistics.", ephemeral=True)
+            await ctx.respond("Failed to retrieve parser statistics.", ephemeral=True)
 
     @discord.slash_command(name="parse_historical", description="Parse historical data from CSV files")
     @commands.has_permissions(administrator=True)
@@ -230,7 +230,7 @@ class Parsers(commands.Cog):
         """Parse historical data from CSV files"""
         try:
             if not self.bot.historical_parser:
-                await ctx.respond("❌ Historical parser not initialized", ephemeral=True)
+                await ctx.respond("Historical parser not initialized", ephemeral=True)
                 return
 
             await ctx.defer()
@@ -239,7 +239,7 @@ class Parsers(commands.Cog):
             await self.bot.historical_parser.run_historical_parser()
 
             embed = discord.Embed(
-                title="📊 Historical Parser",
+                title="Historical Parser",
                 description="Historical data parsing completed successfully",
                 color=0x00FF00,
                 timestamp=datetime.now(timezone.utc)
@@ -249,7 +249,7 @@ class Parsers(commands.Cog):
 
         except Exception as e:
             logger.error(f"Historical parsing failed: {e}")
-            await ctx.followup.send("❌ Historical parsing failed", ephemeral=True)
+            await ctx.followup.send("Historical parsing failed", ephemeral=True)
 
     @discord.slash_command(name="resetlogparser", description="Reset log parser state and player counts")
     @commands.has_permissions(administrator=True)
@@ -260,7 +260,7 @@ class Parsers(commands.Cog):
 
         try:
             if not hasattr(self.bot, 'log_parser'):
-                await ctx.followup.send("❌ Log parser not initialized")
+                await ctx.followup.send("Log parser not initialized")
                 return
 
             guild_id = ctx.guild.id
@@ -324,7 +324,7 @@ class Parsers(commands.Cog):
 
         except Exception as e:
             logger.error(f"Failed to reset log parser: {e}")
-            await ctx.followup.send(f"❌ Failed to reset: {str(e)}")
+            await ctx.followup.send(f"Failed to reset: {str(e)}")
 
     @discord.slash_command(name="investigate_playercount", description="Deep investigation of player count issues")
     async def investigate_playercount(self, ctx: discord.ApplicationContext, 
@@ -335,13 +335,13 @@ class Parsers(commands.Cog):
         guild_id = ctx.guild.id
 
         if not hasattr(self.bot, 'log_parser') or not self.bot.log_parser:
-            await ctx.followup.send("❌ Log parser not initialized")
+            await ctx.followup.send("Log parser not initialized")
             return
 
         # Get guild config
         guild_config = await self.bot.db_manager.get_guild(guild_id)
         if not guild_config or not guild_config.get('servers'):
-            await ctx.followup.send("❌ No servers configured for this guild")
+            await ctx.followup.send("No servers configured for this guild")
             return
 
         servers = guild_config.get('servers', [])
@@ -410,7 +410,7 @@ class Parsers(commands.Cog):
             # Get parser instance
             if not hasattr(self.bot, 'unified_parser'):
                 embed = discord.Embed(
-                    title="❌ Parser Not Available",
+                    title="Parser Not Available",
                     description="The unified log parser is not initialized.",
                     color=0xFF0000
                 )
@@ -451,7 +451,7 @@ class Parsers(commands.Cog):
 
             embed.add_field(
                 name="Results",
-                value=f"**Events Parsed:** {len(embeds)}\n**Parser Status:** ✅ Working",
+                value=f"**Events Parsed:** {len(embeds)}\n**Parser Status:** Working",
                 inline=False
             )
 
@@ -474,7 +474,7 @@ class Parsers(commands.Cog):
         except Exception as e:
             logger.error(f"Test log parser error: {e}")
             embed = discord.Embed(
-                title="❌ Test Failed",
+                title="Test Failed",
                 description=f"Error testing parser: {str(e)}",
                 color=0xFF0000
             )
@@ -488,7 +488,7 @@ class Parsers(commands.Cog):
             await ctx.defer()
 
             embed = discord.Embed(
-                title="📊 Parser Status Report",
+                title="Parser Status Report",
                 color=0x0099FF
             )
 
@@ -499,7 +499,7 @@ class Parsers(commands.Cog):
 
                 embed.add_field(
                     name="🔄 Unified Log Parser",
-                    value=f"**Status:** ✅ Active\n**Active Sessions:** {status['active_sessions']}\n**Tracked Servers:** {status['total_tracked_servers']}\n**SFTP Connections:** {status['sftp_connections']}\n**Connection Status:** {status['connection_status']}",
+                    value=f"**Status:** Active\n**Active Sessions:** {status['active_sessions']}\n**Tracked Servers:** {status['total_tracked_servers']}\n**SFTP Connections:** {status['sftp_connections']}\n**Connection Status:** {status['connection_status']}",
                     inline=False
                 )
 
@@ -513,7 +513,7 @@ class Parsers(commands.Cog):
             else:
                 embed.add_field(
                     name="🔄 Unified Log Parser",
-                    value="❌ Not initialized",
+                    value="Not initialized",
                     inline=False
                 )
 
@@ -521,13 +521,13 @@ class Parsers(commands.Cog):
             if hasattr(self.bot, 'killfeed_parser'):
                 embed.add_field(
                     name="💀 Killfeed Parser",
-                    value="✅ Active",
+                    value="Active",
                     inline=True
                 )
             else:
                 embed.add_field(
                     name="💀 Killfeed Parser",
-                    value="❌ Not initialized",
+                    value="Not initialized",
                     inline=True
                 )
 
@@ -536,7 +536,7 @@ class Parsers(commands.Cog):
         except Exception as e:
             logger.error(f"Parser status error: {e}")
             embed = discord.Embed(
-                title="❌ Status Check Failed",
+                title="Status Check Failed",
                 description=f"Error checking parser status: {str(e)}",
                 color=0xFF0000
             )
@@ -551,7 +551,7 @@ class Parsers(commands.Cog):
 
             if not hasattr(self.bot, 'unified_log_parser') or not self.bot.unified_log_parser:
                 embed = discord.Embed(
-                    title="❌ Parser Not Available",
+                    title="Parser Not Available",
                     description="The unified log parser is not initialized.",
                     color=0xFF0000
                 )
@@ -603,7 +603,7 @@ class Parsers(commands.Cog):
             except Exception as parse_error:
                 logger.error(f"Cold start parsing failed: {parse_error}")
                 embed = discord.Embed(
-                    title="⚠️ Partial Success",
+                    title="Partial Success",
                     description="States were reset but cold start parsing failed.",
                     color=0xFFAA00
                 )
@@ -625,7 +625,7 @@ class Parsers(commands.Cog):
         except Exception as e:
             logger.error(f"Refresh playercount error: {e}")
             embed = discord.Embed(
-                title="❌ Refresh Failed",
+                title="Refresh Failed",
                 description=f"Error refreshing player count: {str(e)}",
                 color=0xFF0000
             )

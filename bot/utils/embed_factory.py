@@ -521,24 +521,24 @@ class EmbedFactory:
 
             # Performance Classification System
             if kdr >= 3.0 and kills >= 100:
-                classification = "🔥 ELITE OPERATOR"
+                classification = "ELITE OPERATOR"
                 class_color = 0xFF0000  # Red
             elif kdr >= 2.0 and kills >= 50:
-                classification = "⚡ VETERAN COMBATANT"
+                classification = "VETERAN COMBATANT"
                 class_color = 0xFF8C00  # Dark Orange
             elif kdr >= 1.5 and kills >= 25:
-                classification = "🎯 EXPERIENCED SOLDIER"
+                classification = "EXPERIENCED SOLDIER"
                 class_color = 0xFFD700  # Gold
             elif kdr >= 1.0:
-                classification = "🛡️ TACTICAL OPERATIVE"
+                classification = "TACTICAL OPERATIVE"
                 class_color = 0x32CD32  # Lime Green
             else:
-                classification = "⚔️ FIELD RECRUIT"
+                classification = "FIELD RECRUIT"
                 class_color = 0x808080  # Gray
 
             # Create revolutionary embed structure
             embed = discord.Embed(
-                title=f"🎖️ MILITARY INTELLIGENCE PROFILE",
+                title=f"MILITARY INTELLIGENCE PROFILE",
                 description=f"**OPERATIVE:** `{player_name}`\n**THEATER:** `{server_name}`\n**CLASSIFICATION:** {classification}",
                 color=class_color,
                 timestamp=datetime.now(timezone.utc)
@@ -552,7 +552,7 @@ class EmbedFactory:
                 f"**Survival Rate:** `{survival_rate:.1f}%`"
             )
             embed.add_field(
-                name="📊 PRIMARY COMBAT METRICS",
+                name="PRIMARY COMBAT METRICS",
                 value=primary_metrics,
                 inline=True
             )
@@ -565,7 +565,7 @@ class EmbedFactory:
                 f"**Self-Eliminations:** `{suicides}`"
             )
             embed.add_field(
-                name="⚡ TACTICAL PERFORMANCE",
+                name="TACTICAL PERFORMANCE",
                 value=tactical_performance,
                 inline=True
             )
@@ -578,7 +578,7 @@ class EmbedFactory:
                 f"**Primary Weapon:** `{favorite_weapon or 'Unknown'}`"
             )
             embed.add_field(
-                name="🎯 ENGAGEMENT ANALYSIS",
+                name="ENGAGEMENT ANALYSIS",
                 value=engagement_analysis,
                 inline=True
             )
@@ -630,7 +630,7 @@ class EmbedFactory:
                 weapon_proficiency = "**No weapon data available**"
 
             embed.add_field(
-                name="🔫 WEAPON PROFICIENCY",
+                name="WEAPON PROFICIENCY",
                 value=weapon_proficiency,
                 inline=True
             )
@@ -1060,7 +1060,7 @@ class EmbedFactory:
             )
 
             mission_name = EmbedFactory.normalize_mission_name(mission_id)
-            embed.add_field(name="📍 Mission", value=mission_name, inline=False)
+            embed.add_field(name="Mission", value=mission_name, inline=False)
 
             threat_levels = ["Low", "Medium", "High", "Critical"]
             threat_level = threat_levels[min(level-1, 3)] if level > 0 else "Unknown"
@@ -1090,9 +1090,9 @@ class EmbedFactory:
                 timestamp=timestamp
             )
 
-            embed.add_field(name="📍 Drop Zone", value=location, inline=True)
-            embed.add_field(name="⏰ Status", value=state.title(), inline=True)
-            embed.add_field(name="💰 Contents", value="High-Value Loot", inline=True)
+            embed.add_field(name="Drop Zone", value=location, inline=True)
+            embed.add_field(name="Status", value=state.title(), inline=True)
+            embed.add_field(name="Contents", value="High-Value Loot", inline=True)
 
             embed.set_footer(text="Powered by Emerald")
             embed.set_thumbnail(url="attachment://Airdrop.png")
@@ -1114,9 +1114,9 @@ class EmbedFactory:
                 timestamp=timestamp
             )
 
-            embed.add_field(name="💥 Crash Site", value=location, inline=True)
-            embed.add_field(name="⚠️ Status", value="Active", inline=True)
-            embed.add_field(name="🎖️ Loot Type", value="Military Equipment", inline=True)
+            embed.add_field(name="Crash Site", value=location, inline=True)
+            embed.add_field(name="Status", value="Active", inline=True)
+            embed.add_field(name="Loot Type", value="Military Equipment", inline=True)
 
             embed.set_footer(text="Powered by Emerald")
             embed.set_thumbnail(url="attachment://Helicrash.png")
@@ -1132,15 +1132,15 @@ class EmbedFactory:
         """Create trader embed (legacy compatibility)"""
         try:
             embed = discord.Embed(
-                title="🏪 Trader Arrival",
+                title="Trader Arrival",
                 description="Traveling merchant has arrived with rare goods",
                 color=EmbedFactory.COLORS['trader'],
                 timestamp=timestamp
             )
 
-            embed.add_field(name="📍 Location", value=location, inline=True)
-            embed.add_field(name="⏰ Status", value="Open for Business", inline=True)
-            embed.add_field(name="💎 Inventory", value="Rare Items Available", inline=True)
+            embed.add_field(name="Location", value=location, inline=True)
+            embed.add_field(name="Status", value="Open for Business", inline=True)
+            embed.add_field(name="Inventory", value="Rare Items Available", inline=True)
 
             embed.set_footer(text="Powered by Emerald")
             embed.set_thumbnail(url="attachment://Trader.png")
