@@ -554,7 +554,7 @@ class Factions(discord.Cog):
         required=False,
         autocomplete=autocomplete_faction_name
     )
-    async def faction_info(self, ctx: discord.ApplicationContext, faction_name: str = None):
+    async def faction_info(self, ctx: discord.ApplicationContext, faction_name: str = ""):
         """View detailed information about a faction"""
         try:
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -697,7 +697,7 @@ class Factions(discord.Cog):
         required=False,
         autocomplete=autocomplete_faction_name
     )
-    async def faction_stats(self, ctx: discord.ApplicationContext, faction_name: str = None):
+    async def faction_stats(self, ctx: discord.ApplicationContext, faction_name: str = ""):
         """View detailed faction statistics"""
         try:
             guild_id = ctx.guild.id if ctx.guild else 0

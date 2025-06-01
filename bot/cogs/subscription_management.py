@@ -152,17 +152,7 @@ class SubscriptionManagement(discord.Cog):
                              guild_id: discord.Option(str, "Guild ID to add premium slot to"),
                              reason: discord.Option(str, "Reason for adding slot", required=False)):
         """Add 1 premium server slot to a guild"""
-        try:
-            guild_id_int = int(guild_id)
-            
-            # Verify guild exists
-            target_guild = self.bot.get_guild(guild_id_int)
-            guild_name = target_guild.name if target_guild else f"Guild {guild_id}"
-            
-            # Add premium limit
-            success = await self.premium_manager.add_premium_limit(
-                guild_id_int, ctx.author.id, reason or "Premium slot added"
-            )
+        await ctx.respond("❌ Premium subscription management is currently being updated. Please check back later.", ephemeral=True)
             
             if success:
                 # Get updated usage
