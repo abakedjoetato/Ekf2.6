@@ -243,6 +243,22 @@ class UnifiedLogParser:
                         }
                         final_embed, file_attachment = await EmbedFactory.build_mission_embed(embed_data)
                         embeds.append((final_embed, file_attachment, 'events'))
+                elif event['type'] == 'airdrop':
+                    if not cold_start:
+                        embed_data = {
+                            'location': event['location'],
+                            'server_name': server_name
+                        }
+                        final_embed, file_attachment = await EmbedFactory.build_airdrop_embed(embed_data)
+                        embeds.append((final_embed, file_attachment, 'events'))
+                elif event['type'] == 'helicrash':
+                    if not cold_start:
+                        embed_data = {
+                            'location': event['location'],
+                            'server_name': server_name
+                        }
+                        final_embed, file_attachment = await EmbedFactory.build_helicrash_embed(embed_data)
+                        embeds.append((final_embed, file_attachment, 'events'))
                         
         # Sort player events chronologically
         player_events.sort(key=lambda x: x['timestamp'])

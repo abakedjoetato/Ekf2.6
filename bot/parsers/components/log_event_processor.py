@@ -48,7 +48,7 @@ class LogEventProcessor:
             
             # Event patterns
             'airdrop_event': re.compile(r'Event_AirDrop.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', re.IGNORECASE),
-            'helicrash_event': re.compile(r'LogSFPS:.*(?:helicrash|helicopter.*crash)', re.IGNORECASE),
+            'helicrash_event': re.compile(r'LogSFPS:.*GameplayEvent.*HelicrashManager.*HelicrashEvent', re.IGNORECASE),
             'trader_spawn': re.compile(r'LogSFPS:.*trader.*(?:spawn|ready|arrived)', re.IGNORECASE),
             
             # Player activity patterns (for detecting active players)
@@ -167,6 +167,34 @@ class LogEventProcessor:
             }
         return None
         
+    def process_airdrop_event(self, line: str, timestamp: datetime) -> Optional[Dict]:
+        """Process airdrop event"""
+        airdrop_match = self.patterns['airdrop_event'].search(line)
+        if airdrop_match:
+            groups = airdrop_match.groups()
+            x_coord = groups[0] if len(groups) > 0 else "Unknown"
+            y_coord = groups[1] if len(groups) > 1 else "Unknown"
+            
+            return {
+                'type': 'airdrop',
+                'location': f"X: {x_coord}, Y: {y_coord}",
+                'timestamp': timestamp,
+                'line': line
+            }
+        return None
+        
+    def process_helicrash_event(self, line: str, timestamp: datetime) -> Optional[Dict]:
+        """Process helicrash event"""
+        helicrash_match = self.patterns['helicrash_event'].search(line)
+        if helicrash_match:
+            return {
+                'type': 'helicrash',
+                'location': "Crash Site Located",
+                'timestamp': timestamp,
+                'line': line
+            }
+        return None
+        
     def process_log_line(self, line: str) -> List[Dict]:
         """Process a single log line and extract all events"""
         events = []
@@ -194,6 +222,16 @@ class LogEventProcessor:
             events.append(event)
             
         event = self.process_server_config(line)
+        if event:
+            events.append(event)
+            
+        # Process airdrop events
+        event = self.process_airdrop_event(line, timestamp)
+        if event:
+            events.append(event)
+            
+        # Process helicrash events  
+        event = self.process_helicrash_event(line, timestamp)
         if event:
             events.append(event)
             
