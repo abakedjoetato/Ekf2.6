@@ -13,18 +13,23 @@
 - **Development scripts** in root directory: `test_connection_embeds.py`, `validate_embed_fixes.py`, etc.
 - **Debugging methods** still present in production cogs
 
-### **3. Guild/Server Isolation Problems**
+### **3. Framework Inconsistencies**
+- **Mixed Discord.py/Py-cord syntax**: Inconsistent use of framework-specific patterns
+- **Legacy command patterns**: Some commands still use Discord.py conventions
+- **Context object misuse**: Mixed usage of Context vs ApplicationContext
+
+### **4. Guild/Server Isolation Problems**
 - **Weak premium gating**: Multiple cogs check premium status inconsistently
 - **Cross-guild data leakage risk**: Server data not properly isolated by guild boundaries
 - **Mixed database access patterns**: Direct database calls alongside manager calls
 
-### **4. Performance & Scalability Issues**
+### **5. Performance & Scalability Issues**
 - **Synchronous sleep calls** in 7 files blocking event loop
 - **Inefficient database queries**: Multiple awaits without batching
 - **Resource-heavy file operations**: Discord.File creation scattered across cogs
 - **No caching strategy** for frequently accessed data
 
-### **5. Security Vulnerabilities**
+### **6. Security Vulnerabilities**
 - **Insufficient input validation** in user-facing commands
 - **Premium bypass potential** through inconsistent permission checks
 - **Guild data exposure** through autocomplete functions
@@ -45,7 +50,14 @@
   - Create `PlayerLifecycleManager` (300-400 lines)
   - Separate `VoiceChannelUpdater` (200-300 lines)
 
-#### **1.2 Remove Development Artifacts**
+#### **1.2 Framework Standardization**
+- Audit all files for Discord.py imports and replace with py-cord equivalents
+- Ensure `discord.ApplicationContext` is used consistently for slash commands
+- Replace legacy `@commands.command()` decorators with `@discord.slash_command()`
+- Standardize embed and file handling to py-cord 2.6.1 patterns
+- Update all interaction response methods to use py-cord syntax
+
+**1.3 Remove Development Artifacts**
 ```
 Files to delete:
 - comprehensive_thumbnail_*.py
@@ -193,7 +205,9 @@ bot/tests/
 - Implement input validation
 - Create testing framework
 
-### **Week 7-8: Monitoring & Polish**
+### **Week 7-8: Framework Compliance & Final Polish**
+- **Py-cord 2.6.1 syntax standardization** across entire codebase
+- Remove all Discord.py syntax remnants and legacy patterns
 - Add metrics collection
 - Implement health checks
 - Performance optimization
@@ -214,5 +228,34 @@ bot/tests/
 - Test coverage gaps
 - Monitoring limitations
 - Code style inconsistencies
+- Framework syntax inconsistencies (Discord.py vs py-cord)
 
-This plan addresses all identified issues while maintaining system stability and providing clear implementation priorities.
+## **PY-CORD 2.6.1 COMPLIANCE REQUIREMENTS**
+
+### **Critical Framework Standards**
+- **NEVER use Discord.py syntax** - All code must use py-cord 2.6.1 conventions
+- **Slash commands only** - Use `@discord.slash_command()` exclusively, never `@commands.command()`
+- **ApplicationContext required** - Use `discord.ApplicationContext` for all slash command contexts
+- **Proper embed handling** - Ensure `discord.Embed` and `discord.File` follow py-cord patterns
+- **Interaction responses** - Use `ctx.respond()`, `ctx.followup.send()` per py-cord standards
+
+### **Syntax Audit Checklist**
+```python
+# ✅ CORRECT (Py-cord 2.6.1)
+@discord.slash_command(name="command", description="Description")
+async def command(self, ctx: discord.ApplicationContext):
+    await ctx.respond("Response")
+
+# ❌ INCORRECT (Discord.py legacy)
+@commands.command()
+async def command(self, ctx: commands.Context):
+    await ctx.send("Response")
+```
+
+### **Framework Migration Priority**
+1. **Phase 1**: Audit all command decorators and context types
+2. **Phase 2**: Update interaction response patterns  
+3. **Phase 3**: Standardize embed and file attachment handling
+4. **Phase 4**: Validate event handlers use py-cord conventions
+
+This plan addresses all identified issues including framework compliance while maintaining system stability and providing clear implementation priorities.
