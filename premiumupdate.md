@@ -122,19 +122,28 @@
    # Core Premium Methods
    async def is_server_premium(guild_id: int, server_id: str) -> bool
    async def get_guild_premium_slots(guild_id: int) -> dict
-   async def assign_premium_slot(guild_id: int, server_id: str, assigned_by: int) -> bool
-   async def revoke_premium_slot(guild_id: int, server_id: str, revoked_by: int) -> bool
+   async def activate_premium_server(guild_id: int, server_id: str, activated_by: int) -> bool
+   async def deactivate_premium_server(guild_id: int, server_id: str, deactivated_by: int) -> bool
    async def get_premium_subscription(guild_id: int, server_id: str) -> dict
    
-   # Incremental Slot Management
-   async def add_premium_slots(guild_id: int, slots: int, added_by: int, reason: str = None) -> bool
-   async def remove_premium_slots(guild_id: int, slots: int, removed_by: int, reason: str = None) -> bool
-   async def set_premium_slots(guild_id: int, slots: int, set_by: int, reason: str = None) -> bool
+   # Slot Management (Restricted to Bot Owner + Home Guild Admins)
+   async def assign_premium_slots(guild_id: int, slots: int, assigned_by: int, reason: str = None) -> bool
+   async def revoke_premium_slots(guild_id: int, slots: int, revoked_by: int, reason: str = None) -> bool
+   
+   # Home Guild Configuration (Bot Owner Only)
+   async def set_home_guild(guild_id: int, set_by: int) -> bool
+   async def get_home_guild() -> int
+   async def add_home_guild_admin(user_id: int, role_id: int = None) -> bool
+   async def remove_home_guild_admin(user_id: int, role_id: int = None) -> bool
+   
+   # Permission Validation
+   async def is_bot_owner(user_id: int) -> bool
+   async def is_home_guild_admin(user_id: int, guild_id: int = None) -> bool
+   async def can_manage_premium_slots(user_id: int, guild_id: int = None) -> bool
    
    # Administrative Methods
    async def list_all_premium_subscriptions() -> list
    async def get_premium_statistics() -> dict
-   async def is_home_guild_admin(user_id: int) -> bool
    async def get_slot_history(guild_id: int) -> list
    ```
 
@@ -163,28 +172,32 @@
    ```
 
 ### Phase 3: Administrative Commands (Day 2)
-1. **Bot Owner Commands**
-   ```python
-   /premium add <guild_id> <slots> [reason]     # Add premium slots to guild (incremental)
-   /premium remove <guild_id> <slots> [reason]  # Remove premium slots from guild (incremental)
-   /premium set <guild_id> <slots> [reason]     # Set exact number of slots (override)
-   /premium list [guild_id]                     # List premium subscriptions
-   /premium stats                               # Global premium statistics
-   ```
 
-2. **Home Guild Admin Commands** (Special elevated permissions)
-   ```python
-   /premium add <guild_id> <slots> [reason]     # Add slots (same as bot owner)
-   /premium remove <guild_id> <slots> [reason]  # Remove slots (same as bot owner)
-   /premium audit [guild_id]                    # View detailed slot history
-   ```
+#### Home Guild Configuration
+```python
+/sethome <guild_id>  # Bot owner only - Set the Home Guild for premium management
+/gethome             # Show current Home Guild configuration
+```
 
-3. **Guild Admin Commands** (Target guild admins)
-   ```python
-   /premium assign <server_id>    # Assign available slot to server
-   /premium unassign <server_id>  # Free up premium slot from server
-   /premium status                # Show guild's premium status and available slots
-   ```
+#### Slot Management Commands (Bot Owner + Home Guild Admins Only)
+```python
+/premium assign <guild_id> <slots> [reason]  # Add premium slots to guild (incremental)
+/premium revoke <guild_id> <slots> [reason]  # Remove premium slots from guild (incremental)
+/premium audit [guild_id]                    # View detailed slot allocation history
+/premium stats                               # Global premium statistics
+```
+
+#### Server Assignment Commands (Guild Admins Only)
+```python
+/premium activate <server_id>    # Assign available slot to server (within own guild)
+/premium deactivate <server_id>  # Free up premium slot from server (within own guild)
+/premium status                  # Show guild's premium status and available slots
+```
+
+#### Security Model
+- **Bot Owner**: Can set Home Guild and has full premium management access
+- **Home Guild Admins**: Can assign/revoke slots for any guild via `/premium assign/revoke`
+- **Guild Admins**: Can only activate/deactivate servers within their own guild's available slots
 
 ### Phase 4: Cog Updates (Day 3-4)
 1. **Update All Premium Checks**
@@ -250,22 +263,30 @@ The "Home Guild" is a special designated Discord server that acts as the adminis
 
 #### Home Guild Configuration
 ```javascript
-// New environment variable or config
-HOME_GUILD_ID = 1234567890123456789  // The designated home guild
-
-// Home guild admin roles/users in database
+// Bot configuration collection
 {
   _id: ObjectId(),
-  type: "home_guild_config",
-  guild_id: 1234567890123456789,
-  admin_roles: [987654321098765432],  // Role IDs with premium admin access
-  admin_users: [123456789012345678],  // User IDs with premium admin access
+  type: "bot_config",
+  home_guild_id: 1234567890123456789,  // The designated home guild
+  bot_owners: [123456789012345678],     // Bot owner Discord IDs
+  created_at: ISODate(),
+  updated_at: ISODate(),
+  updated_by: 123456789012345678
+}
+
+// Home guild permissions (stored separately for flexibility)
+{
+  _id: ObjectId(),
+  type: "home_guild_permissions",
+  guild_id: 1234567890123456789,        // The home guild ID
+  admin_roles: [987654321098765432],    // Role IDs with premium management access
+  admin_users: [123456789012345678],    // Additional user IDs with access
   created_at: ISODate(),
   permissions: {
-    can_add_slots: true,
-    can_remove_slots: true,
-    can_view_all_guilds: true,
-    can_audit: true
+    can_assign_slots: true,             // Can add premium slots to guilds
+    can_revoke_slots: true,             // Can remove premium slots from guilds
+    can_view_all_audits: true,          // Can view audit logs for all guilds
+    can_manage_subscriptions: true      // Can activate/deactivate specific subscriptions
   }
 }
 ```
@@ -286,38 +307,73 @@ HOME_GUILD_ID = 1234567890123456789  // The designated home guild
    - Can only view their own guild's premium status
    - Cannot add or remove total slot allocations
 
+### Command Permission Implementation
+
+```python
+# Permission decorators for secure access control
+def bot_owner_only():
+    """Decorator: Only bot owners can execute this command"""
+    async def predicate(ctx):
+        return await ctx.bot.db_manager.is_bot_owner(ctx.author.id)
+    return commands.check(predicate)
+
+def home_guild_admin_only():
+    """Decorator: Only bot owners or home guild admins can execute"""
+    async def predicate(ctx):
+        if await ctx.bot.db_manager.is_bot_owner(ctx.author.id):
+            return True
+        return await ctx.bot.db_manager.is_home_guild_admin(ctx.author.id, ctx.guild.id if ctx.guild else None)
+    return commands.check(predicate)
+
+def guild_admin_only():
+    """Decorator: Only guild administrators can execute"""
+    async def predicate(ctx):
+        return ctx.author.guild_permissions.administrator
+    return commands.check(predicate)
+```
+
 ### Incremental Slot Management Examples
 
 #### Adding Slots (Purchase Scenario)
 ```bash
-# Customer purchases 2 additional premium slots
-/premium add 1234567890123456789 2 "Customer purchased 2 additional slots - Order #12345"
+# Home Guild Admin executes from designated home guild:
+/premium assign 1234567890123456789 2 "Customer purchased 2 additional slots - Order #12345"
 
-# Result: Guild's available slots increased by 2
+# Result: Target guild's available slots increased by 2
 # Before: 3 total, 2 used, 1 available
 # After:  5 total, 2 used, 3 available
 ```
 
 #### Removing Slots (Expiration Scenario)  
 ```bash
-# Customer's subscription expired for 1 slot
-/premium remove 1234567890123456789 1 "Subscription expired - Order #12340"
+# Home Guild Admin executes:
+/premium revoke 1234567890123456789 1 "Subscription expired - Order #12340"
 
-# Result: Guild's total slots decreased by 1
+# Result: Target guild's total slots decreased by 1
 # Before: 5 total, 2 used, 3 available
 # After:  4 total, 2 used, 2 available
 ```
 
+#### Server Activation (Guild Admin)
+```bash
+# Guild admin in their own server:
+/premium activate 7020
+
+# Result: Uses one available slot to activate server 7020
+# Before: 5 total, 2 used, 3 available
+# After:  5 total, 3 used, 2 available
+```
+
 #### Handling Slot Conflicts
-If removing slots would result in negative available slots:
+If revoking slots would result in negative available slots:
 ```bash
 # Guild has: 3 total, 3 used, 0 available
-# Admin tries: /premium remove guild_id 2
+# Home Guild Admin tries: /premium revoke guild_id 2
 
 # System response: 
-# "⚠️ Cannot remove 2 slots. Guild currently uses 3/3 slots.
-#  Please unassign 2 servers first, or use force removal.
-#  Use: /premium remove guild_id 2 --force"
+# "⚠️ Cannot revoke 2 slots. Guild currently uses 3/3 slots.
+#  Please have guild admin deactivate 2 servers first.
+#  Available servers: Server1 (7020), Server2 (7021), Server3 (7022)"
 ```
 
 ## Security Considerations
