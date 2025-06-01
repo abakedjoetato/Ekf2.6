@@ -29,6 +29,9 @@ class UnifiedLogParser:
     def __init__(self, bot):
         self.bot = bot
 
+        # FORCE IMMEDIATE RESET - Start with completely clean state
+        logger.info("🔄 IMMEDIATE FORCE RESET: Initializing unified parser with fresh state")
+
         # Bulletproof state dictionaries with proper isolation
         self.file_states: Dict[str, Dict[str, Any]] = {}
         self.player_sessions: Dict[str, Dict[str, Any]] = {}
@@ -51,11 +54,13 @@ class UnifiedLogParser:
         self.max_session_entries = 2000  # Max entries in player_sessions (reduced)
         self.cleanup_interval = 300  # Cleanup every 5 minutes
 
-        # Load state on startup
-        asyncio.create_task(self._load_persistent_state())
+        # SKIP persistent state loading to force fresh start
+        # asyncio.create_task(self._load_persistent_state())  # DISABLED for force reset
 
         # Start periodic cleanup task
         asyncio.create_task(self._schedule_periodic_cleanup())
+        
+        logger.info("✅ FORCE RESET COMPLETE: Unified parser initialized with clean state")
 
     def _compile_patterns(self) -> Dict[str, re.Pattern]:
         """Compile regex patterns for log parsing"""
@@ -244,6 +249,16 @@ class UnifiedLogParser:
         Returns: (reset_detected, reset_reason)
         """
         try:
+            # PRIMARY DETECTION: First line hash comparison (bulletproof)
+            current_first_line_hash = current_stats.get('first_line_hash')
+            stored_first_line_hash = stored_stats.get('first_line_hash')
+            
+            if stored_first_line_hash and current_first_line_hash:
+                if current_first_line_hash != stored_first_line_hash:
+                    return (True, "first_line_hash_changed")
+            
+            # FALLBACK METHODS: Keep existing detection for edge cases
+            
             # Line count regression (most reliable indicator)
             if (stored_stats.get('line_count', 0) > 0 and 
                 current_stats['line_count'] < stored_stats['line_count']):
@@ -286,11 +301,19 @@ class UnifiedLogParser:
             # Calculate content hash of first 1000 characters for validation
             content_hash = hashlib.md5(content[:1000].encode('utf-8')).hexdigest()
             
+            # BULLETPROOF: Hash the first line (timestamp line) for reset detection
+            first_line_hash = ''
+            if lines:
+                first_line = lines[0].strip()
+                if first_line:
+                    first_line_hash = hashlib.md5(first_line.encode('utf-8')).hexdigest()
+            
             return {
                 'line_count': line_count,
                 'file_size': file_size,
                 'file_mtime': file_mtime,
-                'content_hash': content_hash
+                'content_hash': content_hash,
+                'first_line_hash': first_line_hash
             }
             
         except Exception as e:
@@ -299,7 +322,8 @@ class UnifiedLogParser:
                 'line_count': 0,
                 'file_size': 0,
                 'file_mtime': 0,
-                'content_hash': ''
+                'content_hash': '',
+                'first_line_hash': ''
             }
 
     async def reset_server_state(self, guild_id: str, server_id: str, reason: str):
@@ -331,6 +355,7 @@ class UnifiedLogParser:
                     'file_size': 0,
                     'file_mtime': 0,
                     'content_hash': '',
+                    'first_line_hash': '',
                     'last_updated': datetime.now(timezone.utc).isoformat(),
                     'cold_start_complete': False,
                     'reset_detection_enabled': True
@@ -487,6 +512,7 @@ class UnifiedLogParser:
             'file_size': current_stats.get('file_size', 0),
             'file_mtime': current_stats.get('file_mtime', 0),
             'content_hash': current_stats.get('content_hash', ''),
+            'first_line_hash': current_stats.get('first_line_hash', ''),
             'last_updated': datetime.now(timezone.utc).isoformat(),
             'cold_start_complete': True,
             'reset_detection_enabled': True
@@ -1666,6 +1692,9 @@ class UnifiedLogParser:
     def reset_parser_state(self):
         """Reset all parser state with proper cleanup"""
         try:
+            # IMMEDIATE FORCE RESET - Clear all unified parser state
+            logger.info("🔄 FORCE RESET: Clearing all unified parser state immediately")
+            
             # Clear dictionaries safely
             self.file_states.clear()
             self.player_sessions.clear()
@@ -1691,7 +1720,7 @@ class UnifiedLogParser:
             import gc
             gc.collect()
 
-            logger.info("✅ Parser state reset with cleanup")
+            logger.info("✅ FORCE RESET COMPLETE: All unified parser state cleared - fresh start guaranteed")
         except Exception as e:
             logger.error(f"Error resetting parser state: {e}")
             import traceback
