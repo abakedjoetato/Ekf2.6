@@ -1181,7 +1181,7 @@ class DatabaseManager:
             logger.error(f"Failed to get parser state: {e}")
             return {}
 
-    async def save_parser_state(self, guild_id: int, server_id: str, state_data: Dict[str, Any], parser_type: str = "log_parser"):
+    async def save_parser_state(self, guild_id: int, server_id: str, parser_type: str, state_data: Dict[str, Any]):
         """Save parser state with bulletproof duplicate handling using replace strategy"""
         try:
             # Ensure types are consistent

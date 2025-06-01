@@ -129,7 +129,7 @@ class UnifiedLogParser:
                 host, port=port, username=username, password=password,
                 known_hosts=None, 
                 client_keys=[],
-                server_host_key_algs=[],
+                server_host_key_algs=['ssh-rsa', 'ssh-dss'],
                 kex_algs=['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1'],
                 encryption_algs=['aes128-cbc', 'aes192-cbc', 'aes256-cbc'],
                 mac_algs=['hmac-sha1'],
