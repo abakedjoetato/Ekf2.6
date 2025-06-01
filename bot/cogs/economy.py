@@ -156,7 +156,7 @@ class Economy(commands.Cog):
                 return
 
             # Check admin permissions
-            if not getattr(ctx.author, "guild_permissions", None) and ctx.author.guild_permissions.administrator if hasattr(ctx.user, "guild_permissions") else False:
+            if not ctx.author.guild_permissions or not ctx.author.guild_permissions.administrator:
                 await ctx.respond("❌ You need administrator permissions", ephemeral=True)
                 return
                 

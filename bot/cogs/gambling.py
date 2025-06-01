@@ -260,7 +260,8 @@ class Gambling(commands.Cog):
         """Main gambling command with interactive UX"""
         try:
             # Check premium access
-            has_access = await self.check_premium_access(ctx.guild_id)
+            guild_id = ctx.guild.id if ctx.guild else 0
+            has_access = await self.check_premium_access(guild_id)
             if not has_access:
                 embed = discord.Embed(
                     title="🔒 Premium Required",
@@ -271,7 +272,8 @@ class Gambling(commands.Cog):
                 return
                 
             # Get user balance
-            balance = await self.get_user_balance(ctx.guild_id, ctx.user.id if ctx.user else 0)
+            user_id = ctx.user.id if ctx.user else 0
+            balance = await self.get_user_balance(guild_id, user_id)
             if balance < 10:
                 embed = discord.Embed(
                     title="💸 Insufficient Funds",
