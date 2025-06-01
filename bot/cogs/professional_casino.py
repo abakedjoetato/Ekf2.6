@@ -1076,19 +1076,23 @@ class ProfessionalCasino(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access"""
         try:
+            # Check guild premium status using the same method as working premium checks
             guild_config = await self.bot.db_manager.guild_configs.find_one({'guild_id': guild_id})
-            if guild_config:
-                if guild_config.get('premium_enabled', False):
-                    return True
+            if not guild_config:
+                return False
                 
-                servers = guild_config.get('servers', [])
-                for server in servers:
-                    if server.get('premium', False):
-                        return True
+            # Check if guild has premium_enabled flag
+            if guild_config.get('premium_enabled', False):
+                return True
+            
+            # Check if any servers have premium status
+            servers = guild_config.get('servers', [])
+            for server in servers:
+                if server.get('premium', False):
+                    return True
             
             return False
         except Exception as e:
-            logger.error(f"Premium access check error: {e}")
             return False
     
     @discord.slash_command(name="casino", description="Enter the Emerald Elite Casino - Professional Gaming Experience")
