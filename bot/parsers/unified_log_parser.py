@@ -271,6 +271,9 @@ class UnifiedLogParser:
         player_events.sort(key=lambda x: x['timestamp'])
         logger.debug(f"Processing {len(player_events)} player events in chronological order")
         
+        # Mark existing active players as online first
+        await self._mark_active_players_online(guild_id, server_id)
+        
         # Process player events
         for event in player_events:
             if event['type'] == 'queue':
@@ -283,10 +286,14 @@ class UnifiedLogParser:
                 session_data = self.lifecycle_manager.update_player_join(
                     guild_id, event['player_id'], server_id, event['timestamp']
                 )
-                logger.debug(f"Player joined: {session_data.get('player_name')} (ID: {event['player_id'][:8]}) on server {server_id}")
+                logger.info(f"🎮 Player joined: {session_data.get('player_name')} (ID: {event['player_id'][:8]}) on server {server_id}")
                 
-                # Save to database
+                # Save to database with online status
                 if hasattr(self.bot, 'db_manager'):
+                    # Ensure player is marked as online
+                    session_data['status'] = 'online'
+                    session_data['last_seen'] = datetime.now(timezone.utc)
+                    
                     await self.bot.db_manager.save_player_session(
                         int(guild_id), server_id, event['player_id'], session_data
                     )
