@@ -515,24 +515,70 @@ class Stats(discord.Cog):
 
             await ctx.defer()
 
-            # Get active players from the lifecycle manager
-            if hasattr(self.bot, 'unified_log_parser') and hasattr(self.bot.unified_log_parser, 'lifecycle_manager'):
-                active_players = self.bot.unified_log_parser.lifecycle_manager.get_active_players(guild_id)
+            # Get active players from the database
+            try:
+                # Query player sessions from database for current server
+                query = {
+                    'guild_id': guild_id,
+                    'server_id': server_id,
+                    'status': 'online'
+                }
                 
-                # Filter players for the specific server
                 server_players = []
-                for player_id, session_data in active_players.items():
-                    if session_data and session_data.get('server_id') == server_id:
-                        player_name = session_data.get('player_name', f"Player{player_id[:8].upper()}")
-                        join_time = session_data.get('join_time')
-                        platform = session_data.get('platform', 'Unknown')
-                        
-                        server_players.append({
-                            'name': player_name,
-                            'join_time': join_time,
-                            'platform': platform,
-                            'player_id': player_id
-                        })
+                cursor = self.bot.db_manager.player_sessions.find(query)
+                
+                async for session in cursor:
+                    player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
+                    joined_at = session.get('joined_at')
+                    platform = session.get('platform', 'Unknown')
+                    player_id = session.get('player_id', session.get('steam_id', ''))
+                    
+                    # Parse join time
+                    join_time = None
+                    if joined_at:
+                        if isinstance(joined_at, str):
+                            try:
+                                join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
+                            except:
+                                pass
+                        elif hasattr(joined_at, 'replace'):
+                            join_time = joined_at
+                    
+                    server_players.append({
+                        'name': player_name,
+                        'join_time': join_time,
+                        'platform': platform,
+                        'player_id': player_id
+                    })
+                
+                # If no database results, try the lifecycle manager as backup
+                if not server_players and hasattr(self.bot, 'unified_log_parser') and hasattr(self.bot.unified_log_parser, 'lifecycle_manager'):
+                    active_players = self.bot.unified_log_parser.lifecycle_manager.get_active_players(guild_id)
+                    
+                    for player_key, session_data in active_players.items():
+                        if session_data and session_data.get('server_id') == server_id:
+                            player_name = session_data.get('player_name', f"Player{player_key[-8:].upper()}")
+                            joined_at = session_data.get('joined_at')
+                            platform = session_data.get('platform', 'Unknown')
+                            
+                            # Parse join time
+                            join_time = None
+                            if joined_at:
+                                try:
+                                    join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
+                                except:
+                                    pass
+                            
+                            server_players.append({
+                                'name': player_name,
+                                'join_time': join_time,
+                                'platform': platform,
+                                'player_id': player_key
+                            })
+                            
+            except Exception as e:
+                logger.error(f"Error fetching online players: {e}")
+                server_players = []
                 
                 # Sort by join time (most recent first)
                 server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
