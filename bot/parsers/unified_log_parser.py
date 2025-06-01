@@ -876,18 +876,21 @@ class UnifiedLogParser:
         return embeds
 
     async def create_mission_embed(self, mission_id: str, state: str, respawn_time: Optional[int] = None) -> Optional[discord.Embed]:
-        """Create mission embed"""
+        """Create mission embed using legacy method with proper thumbnail"""
         try:
             mission_level = self.get_mission_level(mission_id)
-
-            embed_data = {
-                'mission_id': mission_id,
-                'state': state,
-                'level': mission_level,
-                'respawn_time': respawn_time
-            }
-
-            embed, file = await EmbedFactory.build('mission', embed_data)
+            mission_name = self.normalize_mission_name(mission_id)
+            
+            # Use the legacy create_mission_embed method that properly handles thumbnails
+            embed = EmbedFactory.create_mission_embed(
+                title="**MISSION STATUS UPDATE**",
+                description="**TACTICAL SITUATION EVOLVING**",
+                mission_id=mission_id,
+                level=mission_level,
+                state=state,
+                respawn_time=respawn_time
+            )
+            
             return embed
 
         except Exception as e:
@@ -1211,18 +1214,14 @@ class UnifiedLogParser:
                     try:
                         # Send embeds directly without rebuilding to preserve data
                         if embed_type == 'connection':
-                            # The embed already has the correct data, just send it with proper file
-                            connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
-                            embed.set_thumbnail(url="attachment://Connections.png")
+                            # Connection embed already has correct thumbnail from build_connection_embed
                             final_embed = embed
-                            file_attachment = connections_file
+                            file_attachment = discord.File("./assets/Connections.png", filename="Connections.png")
 
                         elif embed_type == 'mission':
-                            # The mission embed already has correct data, just add thumbnail
-                            mission_file = discord.File("./assets/Mission.png", filename="Mission.png")
-                            embed.set_thumbnail(url="attachment://Mission.png")
+                            # Mission embed created with legacy method already has proper thumbnail reference
                             final_embed = embed
-                            file_attachment = mission_file
+                            file_attachment = discord.File("./assets/Mission.png", filename="Mission.png")
 
                         else:
                             # For other embed types, send directly with appropriate thumbnail
