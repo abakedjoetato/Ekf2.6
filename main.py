@@ -426,7 +426,7 @@ class EmeraldKillfeedBot(commands.Bot):
             self.database = self.db_manager  # Legacy compatibility
 
             # Test connection
-            await self.bot.db_manager.admin.command('ping')
+            await self.db_manager.admin.command('ping')
             logger.info("Successfully connected to MongoDB")
 
             # Initialize database indexes

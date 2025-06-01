@@ -496,187 +496,239 @@ class Stats(discord.Cog):
             # Get servers for autocomplete resolution
             servers = await ServerAutocomplete.get_servers_for_guild(guild_id or 0, self.bot.db_manager)
             
-            # Resolve server_id from server_name
-            if server_name:
-                server_id = ServerAutocomplete.get_server_id_from_name(server_name, servers)
-                if not server_id:
-                    await ctx.respond(f"Server '{server_name}' not found.", ephemeral=True)
-                    return
-                display_name = server_name
-            else:
-                # Use default server
-                server_id = "default"
-                display_name = "Default Server"
-                # Try to find actual default server name
-                for server in servers:
-                    if server and server.get('id') == 'default' or server.get('is_default'):
-                        display_name = server.get('name', 'Default Server')
-                        break
-
             await ctx.defer()
 
             # Get active players from the database
             try:
-                # Query player sessions from database for current server
-                query = {
-                    'guild_id': guild_id,
-                    'server_id': server_id,
-                    'status': 'online'
-                }
-                
-                server_players = []
-                cursor = self.bot.db_manager.player_sessions.find(query)
-                
-                async for session in cursor:
-                    player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
-                    joined_at = session.get('joined_at')
-                    platform = session.get('platform', 'Unknown')
-                    player_id = session.get('player_id', session.get('steam_id', ''))
+                if server_name:
+                    # Show players for specific server
+                    server_id = ServerAutocomplete.get_server_id_from_name(server_name, servers)
+                    if not server_id:
+                        await ctx.followup.send(f"Server '{server_name}' not found.", ephemeral=True)
+                        return
                     
-                    # Parse join time
-                    join_time = None
-                    if joined_at:
-                        if isinstance(joined_at, str):
-                            try:
-                                join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
-                            except:
-                                pass
-                        elif hasattr(joined_at, 'replace'):
-                            join_time = joined_at
+                    # Query player sessions for specific server
+                    query = {
+                        'guild_id': guild_id,
+                        'server_id': server_id,
+                        'status': 'online'
+                    }
                     
-                    server_players.append({
-                        'name': player_name,
-                        'join_time': join_time,
-                        'platform': platform,
-                        'player_id': player_id
-                    })
-                
-                # If no database results, try the lifecycle manager as backup
-                if not server_players and hasattr(self.bot, 'unified_log_parser') and hasattr(self.bot.unified_log_parser, 'lifecycle_manager'):
-                    active_players = self.bot.unified_log_parser.lifecycle_manager.get_active_players(guild_id)
+                    server_players = []
+                    cursor = self.bot.db_manager.player_sessions.find(query)
                     
-                    for player_key, session_data in active_players.items():
-                        if session_data and session_data.get('server_id') == server_id:
-                            player_name = session_data.get('player_name', f"Player{player_key[-8:].upper()}")
-                            joined_at = session_data.get('joined_at')
-                            platform = session_data.get('platform', 'Unknown')
-                            
-                            # Parse join time
-                            join_time = None
-                            if joined_at:
+                    async for session in cursor:
+                        player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
+                        joined_at = session.get('joined_at')
+                        platform = session.get('platform', 'Unknown')
+                        player_id = session.get('player_id', session.get('steam_id', ''))
+                        
+                        # Parse join time
+                        join_time = None
+                        if joined_at:
+                            if isinstance(joined_at, str):
                                 try:
                                     join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
                                 except:
                                     pass
-                            
-                            server_players.append({
-                                'name': player_name,
-                                'join_time': join_time,
-                                'platform': platform,
-                                'player_id': player_key
-                            })
+                            elif hasattr(joined_at, 'replace'):
+                                join_time = joined_at
+                        
+                        server_players.append({
+                            'name': player_name,
+                            'join_time': join_time,
+                            'platform': platform,
+                            'player_id': player_id,
+                            'server_id': server_id
+                        })
+                    
+                    # Create single server display
+                    await self._display_single_server_players(ctx, server_name, server_players)
+                    return
+                    
+                else:
+                    # Show players for ALL servers in the guild
+                    query = {
+                        'guild_id': guild_id,
+                        'status': 'online'
+                    }
+                    
+                    # Group players by server
+                    servers_with_players = {}
+                    cursor = self.bot.db_manager.player_sessions.find(query)
+                    
+                    async for session in cursor:
+                        server_id = session.get('server_id', 'Unknown')
+                        player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
+                        joined_at = session.get('joined_at')
+                        platform = session.get('platform', 'Unknown')
+                        player_id = session.get('player_id', session.get('steam_id', ''))
+                        
+                        # Parse join time
+                        join_time = None
+                        if joined_at:
+                            if isinstance(joined_at, str):
+                                try:
+                                    join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
+                                except:
+                                    pass
+                            elif hasattr(joined_at, 'replace'):
+                                join_time = joined_at
+                        
+                        if server_id not in servers_with_players:
+                            servers_with_players[server_id] = []
+                        
+                        servers_with_players[server_id].append({
+                            'name': player_name,
+                            'join_time': join_time,
+                            'platform': platform,
+                            'player_id': player_id
+                        })
+                    
+                    # Create multi-server display
+                    await self._display_all_servers_players(ctx, servers_with_players, servers)
+                    return
                             
             except Exception as e:
                 logger.error(f"Error fetching online players: {e}")
-                server_players = []
-                
-                # Sort by join time (most recent first)
-                server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
-                
-                # Create embed using bot's theme
-                if server_players:
-                    embed = discord.Embed(
-                        title=f"**ACTIVE OPERATIVES** - {display_name}",
-                        description=f"**{len(server_players)} combatant{'s' if len(server_players) != 1 else ''} currently deployed in the field**",
-                        color=0x32CD32,  # Lime green matching connection theme
-                        timestamp=datetime.now(timezone.utc)
-                    )
-                    
-                    # Add thumbnail matching connection theme
-                    connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
-                    embed.set_thumbnail(url="attachment://Connections.png")
-                    
-                    # Add tactical status header
-                    server_status = "HIGH ACTIVITY" if len(server_players) >= 10 else "MODERATE ACTIVITY" if len(server_players) >= 5 else "LOW ACTIVITY"
-                    embed.add_field(
-                        name="**TACTICAL STATUS**",
-                        value=f"**{server_status}** • Real-time battlefield intelligence",
-                        inline=False
-                    )
-                    
-                    # Add player list with military formatting
-                    player_list = []
-                    for i, player in enumerate(server_players, 1):
-                        time_online = ""
-                        if player['join_time']:
-                            delta = datetime.now(timezone.utc) - player['join_time']
-                            hours = delta.total_seconds() // 3600
-                            minutes = (delta.total_seconds() % 3600) // 60
-                            if hours >= 1:
-                                time_online = f" • `{int(hours)}h {int(minutes)}m`"
-                            else:
-                                time_online = f" • `{int(minutes)}m`"
-                        
-                        # Military-style platform indicators
-                        platform_indicator = "**[PC]**" if player['platform'] == "PC" else "**[CNS]**" if player['platform'] == "Console" else "**[UNK]**"
-                        rank_prefix = "▸" if i <= 3 else "▫"  # Different indicators for first 3 players
-                        
-                        player_list.append(f"{rank_prefix} {platform_indicator} **{player['name']}**{time_online}")
-                    
-                    # Split into tactical units if too many players
-                    chunk_size = 8
-                    for i in range(0, len(player_list), chunk_size):
-                        chunk = player_list[i:i + chunk_size]
-                        unit_number = (i // chunk_size) + 1
-                        field_name = f"**COMBAT UNIT {unit_number}**" if len(player_list) > chunk_size else "**DEPLOYED FORCES**"
-                        embed.add_field(
-                            name=field_name,
-                            value="\n".join(chunk),
-                            inline=False
-                        )
-                    
-                    # Add tactical footer
-                    embed.set_footer(
-                        text=f"Live Intelligence • Discord.gg/EmeraldServers",
-                        icon_url="https://cdn.discordapp.com/icons/1359926538649440309/a_2bb2ad93aeb4a3b7b1aebc47b7fa0e6c.gif"
-                    )
-                else:
-                    embed = discord.Embed(
-                        title=f"**BATTLEFIELD STATUS** - {display_name}",
-                        description="**No active operatives detected**\n*Awaiting deployment orders...*",
-                        color=0xDC143C,  # Crimson red matching error theme
-                        timestamp=datetime.now(timezone.utc)
-                    )
-                    embed.add_field(
-                        name="**MISSION STATUS**",
-                        value="**STANDBY** • Server ready for combat deployment",
-                        inline=False
-                    )
-                    embed.set_footer(
-                        text="Live Intelligence • Discord.gg/EmeraldServers",
-                        icon_url="https://cdn.discordapp.com/icons/1359926538649440309/a_2bb2ad93aeb4a3b7b1aebc47b7fa0e6c.gif"
-                    )
-                    
-                    # Add thumbnail for empty server
-                    connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
-                    embed.set_thumbnail(url="attachment://Connections.png")
-                
-                # Send embed with file attachment
-                if server_players:
-                    await ctx.followup.send(embed=embed, file=connections_file)
-                else:
-                    await ctx.followup.send(embed=embed, file=connections_file)
-            else:
-                await ctx.followup.send("Player tracking system not available.", ephemeral=True)
+                await ctx.followup.send("Error retrieving player data.", ephemeral=True)
+                return
 
         except Exception as e:
             logger.error(f"Failed to show online players: {e}")
-            import traceback
-            logger.error(f"Stack trace: {traceback.format_exc()}")
             if ctx.response.is_done():
                 await ctx.followup.send("Failed to retrieve online players.", ephemeral=True)
             else:
                 await ctx.respond("Failed to retrieve online players.", ephemeral=True)
+                
+
+    async def _display_single_server_players(self, ctx, server_name: str, server_players: list):
+        """Display players for a single specific server"""
+        # Sort by join time (most recent first)
+        server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
+        
+        # Create embed
+        embed = EmbedFactory.create_info_embed(
+            title=f"🌐 Online Players - {server_name}",
+            description=f"**{len(server_players)}** players currently online",
+            guild_name=ctx.guild.name if ctx.guild else "Unknown Guild"
+        )
+        
+        if server_players:
+            # Add players to embed with time played
+            player_lines = []
+            for i, player in enumerate(server_players[:20], 1):  # Limit to 20 players
+                name = player['name']
+                time_played = ""
+                
+                if player['join_time']:
+                    time_diff = datetime.now(timezone.utc) - player['join_time']
+                    hours = int(time_diff.total_seconds() // 3600)
+                    minutes = int((time_diff.total_seconds() % 3600) // 60)
+                    
+                    if hours > 0:
+                        time_played = f" (Online {hours}h {minutes}m)"
+                    else:
+                        time_played = f" (Online {minutes}m)"
+                
+                player_lines.append(f"`{i:2d}.` **{name}**{time_played}")
+            
+            embed.add_field(
+                name="📋 Players Online",
+                value="\n".join(player_lines),
+                inline=False
+            )
+            
+            if len(server_players) > 20:
+                embed.add_field(
+                    name="📊 Note",
+                    value=f"Showing first 20 of {len(server_players)} players",
+                    inline=False
+                )
+        else:
+            embed.add_field(
+                name="📭 No Players Online",
+                value="No players are currently online on this server.",
+                inline=False
+            )
+        
+        # Add server info footer
+        embed.set_footer(
+            text=f"Updated every 3 minutes • Data from {server_name}",
+            icon_url=ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None
+        )
+        
+        await ctx.followup.send(embed=embed)
+
+    async def _display_all_servers_players(self, ctx, servers_with_players: dict, servers: list):
+        """Display players across all servers in the guild"""
+        total_players = sum(len(players) for players in servers_with_players.values())
+        
+        # Create embed
+        embed = EmbedFactory.create_info_embed(
+            title="🌐 Online Players - All Servers",
+            description=f"**{total_players}** players currently online across all servers",
+            guild_name=ctx.guild.name if ctx.guild else "Unknown Guild"
+        )
+        
+        if total_players == 0:
+            embed.add_field(
+                name="📭 No Players Online",
+                value="No players are currently online on any server.",
+                inline=False
+            )
+        else:
+            # Get server names for display
+            server_names = {}
+            for server in servers:
+                if server:
+                    server_names[server.get('id')] = server.get('name', f"Server {server.get('id')}")
+            
+            # Display each server with players
+            for server_id, players in servers_with_players.items():
+                if not players:
+                    continue
+                    
+                server_display_name = server_names.get(server_id, f"Server {server_id}")
+                
+                # Sort players by join time
+                players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
+                
+                # Format player list
+                player_lines = []
+                for i, player in enumerate(players[:10], 1):  # Limit to 10 per server
+                    name = player['name']
+                    time_played = ""
+                    
+                    if player['join_time']:
+                        time_diff = datetime.now(timezone.utc) - player['join_time']
+                        hours = int(time_diff.total_seconds() // 3600)
+                        minutes = int((time_diff.total_seconds() % 3600) // 60)
+                        
+                        if hours > 0:
+                            time_played = f" ({hours}h {minutes}m)"
+                        else:
+                            time_played = f" ({minutes}m)"
+                    
+                    player_lines.append(f"`{i}.` **{name}**{time_played}")
+                
+                field_value = "\n".join(player_lines)
+                if len(players) > 10:
+                    field_value += f"\n*... and {len(players) - 10} more*"
+                
+                embed.add_field(
+                    name=f"🎮 {server_display_name} ({len(players)} online)",
+                    value=field_value,
+                    inline=True
+                )
+        
+        # Add footer
+        embed.set_footer(
+            text="Updated every 3 minutes • Use /online <server> for detailed view",
+            icon_url=ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None
+        )
+        
+        await ctx.followup.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(Stats(bot))
