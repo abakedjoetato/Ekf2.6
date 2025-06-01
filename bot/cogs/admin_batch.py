@@ -16,7 +16,12 @@ class AdminBatch(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    
+    @discord.slash_command(name="batch_stats", description="Show current batch sender statistics")
+    @commands.has_permissions(administrator=True)
+    async def batch_stats(self, ctx: discord.ApplicationContext):
+        """Show current batch sender statistics"""
+        try:
+            await ctx.defer()
             guild_id = ctx.guild_id
 
             # Get all servers for this guild

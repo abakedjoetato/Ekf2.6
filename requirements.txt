@@ -106,3 +106,12 @@ asyncssh
 motor
 py-cord
 pymongo
+aiofiles
+apscheduler
+asyncssh
+flask
+motor
+paramiko
+py-cord
+pymongo
+python-dotenv
