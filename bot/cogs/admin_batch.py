@@ -38,7 +38,7 @@ class AdminBatch(commands.Cog):
             embed = discord.Embed(
                 title="🐛 Player Count Debug Information",
                 color=0xff9900,
-                timestamp=discord.utils.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
 
             # Check intelligent connection parser
@@ -109,7 +109,7 @@ class AdminBatch(commands.Cog):
                     title="🔄 Player Count Reset",
                     description=f"Player count tracking has been reset for server `{server_id}`",
                     color=0x00ff88,
-                    timestamp=discord.utils.utcnow()
+                    timestamp=datetime.now(timezone.utc)
                 )
 
                 embed.add_field(
