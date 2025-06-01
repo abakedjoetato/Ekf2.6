@@ -1585,3 +1585,21 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to list premium servers: {e}")
             return []
+
+    # Missing methods required by cogs
+    async def check_premium_server(self, guild_id: int, server_id: str = "default") -> bool:
+        """Check if a server has premium access - required by economy and other cogs"""
+        return await self.is_server_premium(guild_id, server_id)
+
+    async def get_user_wallet(self, guild_id: int, user_id: int) -> Dict[str, Any]:
+        """Get user wallet data - required by gambling cogs"""
+        return await self.get_wallet(guild_id, user_id)
+
+    async def get_user_balance(self, guild_id: int, user_id: int) -> int:
+        """Get user balance - required by gambling cogs"""
+        try:
+            wallet = await self.get_wallet(guild_id, user_id)
+            return wallet.get('balance', 0) if wallet else 0
+        except Exception as e:
+            logger.error(f"Error getting user balance: {e}")
+            return 0

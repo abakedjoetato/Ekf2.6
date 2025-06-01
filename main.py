@@ -532,7 +532,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
             # STEP 6: Schedule parsers
             if self.killfeed_parser:
-                self.killfeed_parser.schedule_killfeed_parser() if hasattr(parser, "schedule_killfeed_parser") else None
+                self.killfeed_parser.schedule_killfeed_parser() if hasattr(self.killfeed_parser, "schedule_killfeed_parser") else None
                 logger.info("📡 Killfeed parser scheduled")
 
             if self.unified_log_parser:
