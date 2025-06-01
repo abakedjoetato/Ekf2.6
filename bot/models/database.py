@@ -1336,7 +1336,7 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to save player session for {player_id}: {e}")
 
-    async def get_active_player_sessions(self, guild_id: int, server_id: str = None) -> List[Dict[str, Any]]:
+    async def get_active_player_sessions(self, guild_id: int, server_id: str = "default") -> List[Dict[str, Any]]:
         """Get active player sessions for guild/server"""
         try:
             query = {"guild_id": guild_id, "status": "online"}

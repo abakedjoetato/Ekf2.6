@@ -20,6 +20,12 @@ class AdminBatch(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def batch_stats(self, ctx: discord.ApplicationContext):
         """Show current batch sender statistics"""
+        if not ctx.guild:
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        server_id = "default"  # Default server for batch stats
+        """Show current batch sender statistics"""
         try:
             await ctx.defer()
             guild_id = ctx.guild_id

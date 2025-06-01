@@ -96,6 +96,8 @@ class RouletteGame:
         """Play roulette game"""
         try:
             # Validate bet amount
+            if not ctx.guild:
+                return discord.Embed(title="❌ Error", description="This command must be used in a server", color=0xff0000)
             balance = await self.core.get_user_balance(ctx.guild.id, ctx.user.id)
             valid, error_msg = BetValidation.validate_bet_amount(bet_amount, balance)
             
@@ -142,7 +144,9 @@ class RouletteGame:
                 )
                 
             # Get updated balance
-            new_balance = await self.core.get_user_balance(ctx.guild.id, ctx.user.id)
+            new_if not ctx.guild:
+            return discord.Embed(title="❌ Error", description="This command must be used in a server", color=0xff0000)
+        balance = await self.core.get_user_balance(ctx.guild.id, ctx.user.id)
             net_change = payout - bet_amount
             
             # Create result embed

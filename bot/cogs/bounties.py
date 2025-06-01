@@ -68,15 +68,10 @@ class Bounties(commands.Cog):
         Returns (character_name, discord_id) or None if not found.
         """
         if not ctx.guild:
-                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
-                return
-            if not ctx.guild:
-
-                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
-
-                return
-
-            guild_id = ctx.guild.id
+            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            return
+            
+        guild_id = ctx.guild.id
 
         if isinstance(target, discord.Member):
             # Discord user - must be linked
