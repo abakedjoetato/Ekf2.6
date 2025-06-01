@@ -620,8 +620,8 @@ class Stats(discord.Cog):
             timestamp=datetime.now(timezone.utc)
         )
         
-        # Add thumbnail logo
-        embed.set_thumbnail(url="https://i.imgur.com/7X8zQpL.png")
+        # Add thumbnail logo from assets
+        embed.set_thumbnail(url="attachment://Connections.png")
         
         if server_players:
             # Add players to embed with time played
@@ -667,7 +667,9 @@ class Stats(discord.Cog):
             icon_url=ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None
         )
         
-        await ctx.followup.send(embed=embed)
+        # Create and attach the logo file
+        connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
+        await ctx.followup.send(embed=embed, file=connections_file)
 
     async def _display_all_servers_players(self, ctx, servers_with_players: dict, servers: list):
         """Display players across all servers in the guild"""
@@ -681,8 +683,8 @@ class Stats(discord.Cog):
             timestamp=datetime.now(timezone.utc)
         )
         
-        # Add thumbnail logo
-        embed.set_thumbnail(url="https://i.imgur.com/7X8zQpL.png")
+        # Add thumbnail logo from assets
+        embed.set_thumbnail(url="attachment://Connections.png")
         
         if total_players == 0:
             embed.add_field(
@@ -733,7 +735,7 @@ class Stats(discord.Cog):
                 embed.add_field(
                     name=f"🎮 {server_display_name} ({len(players)} online)",
                     value=field_value,
-                    inline=True
+                    inline=should_use_inline(field_value)
                 )
         
         # Add footer
@@ -742,7 +744,9 @@ class Stats(discord.Cog):
             icon_url=ctx.guild.icon.url if ctx.guild and ctx.guild.icon else None
         )
         
-        await ctx.followup.send(embed=embed)
+        # Create and attach the logo file
+        connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
+        await ctx.followup.send(embed=embed, file=connections_file)
 
 def setup(bot):
     bot.add_cog(Stats(bot))

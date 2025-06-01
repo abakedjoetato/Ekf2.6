@@ -4,17 +4,23 @@ Properly themed leaderboards using EmbedFactory
 """
 
 import discord
-import discord
 from discord.ext import commands
 import asyncio
 import logging
 import random
+import re
 from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Any, List
 from bot.utils.embed_factory import EmbedFactory
 from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
+
+def should_use_inline(field_value: str, max_inline_chars: int = 20) -> bool:
+    """Determine if field should be inline based on content length to prevent wrapping"""
+    # Remove Discord formatting for accurate length calculation
+    clean_text = re.sub(r'[*`_~<>:]', '', str(field_value))
+    return len(clean_text) <= max_inline_chars
 
 class LeaderboardsFixed(discord.Cog):
     """Fixed leaderboard commands that actually use the themed factory"""
