@@ -865,40 +865,8 @@ class Factions(discord.Cog):
             logger.error(f"Failed to list factions: {e}")
             await ctx.respond("Failed to retrieve faction list.", ephemeral=True)
 
-    # Remove duplicate faction command group - keeping the first implementation
-        """Create a new faction"""
-        try:
-            guild_id = ctx.guild.id if ctx.guild else 0
-            discord_id = ctx.user.id
-            
-            if not await self.check_premium_server(guild_id):
-                embed = discord.Embed(
-                    title="🚫 Premium Required",
-                    description="Faction system requires premium server access.",
-                    color=0xff5e5e
-                )
-                await ctx.respond(embed=embed, ephemeral=True)
-                return
-                
-            # Validate and format tag
-            tag = tag.strip().upper()
-            if len(tag) < 2:
-                await ctx.respond("Faction tag must be at least 2 characters!", ephemeral=True)
-                return
-                
-            # Check if user is already in a faction
-            existing_faction = await self.get_user_faction(guild_id or 0, discord_id)
-            if existing_faction:
-                await ctx.respond(f"You're already in faction **{existing_faction.get('faction_name', existing_faction.get('name', 'Unknown'))}**!", ephemeral=True)
-                return
-                
-            # Check if faction name exists (using faction_name field)
-            name_exists = await self.bot.db_manager.factions.find_one({
-                "guild_id": guild_id,
-                "faction_name": {"$regex": f"^{name}$", "$options": "i"}
-            })
-            
-            if name_exists:
+def setup(bot):
+    bot.add_cog(Factions(bot))
                 await ctx.respond("Faction name already exists!", ephemeral=True)
                 return
                 
