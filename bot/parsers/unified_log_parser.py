@@ -1064,29 +1064,50 @@ class UnifiedLogParser:
                 logger.warning(f"Channel {voice_channel_id} is not a voice channel")
                 return
 
-            # Determine status emoji based on player count
-            status_emoji = "🟢"  # Green for healthy
+            # Professional status indicators with visual hierarchy
             if active_players == 0:
-                status_emoji = "🔴"  # Red for empty
-            elif active_players >= max_players * 0.8:
-                status_emoji = "🟡"  # Yellow for near full
+                status_indicator = "⚫"  # Offline
+                status_text = "OFFLINE"
             elif active_players >= max_players:
-                status_emoji = "🔴"  # Red for full
+                status_indicator = "🔴"  # Full
+                status_text = "FULL"
+            elif active_players >= max_players * 0.9:
+                status_indicator = "🟠"  # Nearly full
+                status_text = "HIGH"
+            elif active_players >= max_players * 0.7:
+                status_indicator = "🟡"  # Busy
+                status_text = "BUSY"
+            elif active_players >= max_players * 0.3:
+                status_indicator = "🟢"  # Active
+                status_text = "LIVE"
+            else:
+                status_indicator = "🔵"  # Low population
+                status_text = "LOW"
 
-            # Build voice channel name with specified format
-            queue_text = f" | {queued_players} in Queue" if queued_players > 0 else ""
-            new_name = f"{status_emoji} {server_name} | {active_players}/{max_players}{queue_text}"
-
-            # Ensure name fits Discord's 100 character limit
-            if len(new_name) > 100:
-                # Truncate server name if needed
-                max_server_name_length = 100 - len(f"{status_emoji}  | {active_players}/{max_players}{queue_text}")
-                if max_server_name_length > 0:
-                    truncated_server_name = server_name[:max_server_name_length]
-                    new_name = f"{status_emoji} {truncated_server_name} | {active_players}/{max_players}{queue_text}"
+            # Build professional voice channel name with Unicode formatting
+            # Format: [STATUS] Server Name • 25/60 • Queue: 3
+            queue_section = f" • Queue: {queued_players}" if queued_players > 0 else ""
+            
+            # Use bullet separators for clean visual hierarchy
+            base_format = f"{status_indicator} {server_name} • {active_players}/{max_players}{queue_section}"
+            
+            # Advanced format with status text for premium feel
+            premium_format = f"{status_indicator} {server_name} [{status_text}] • {active_players}/{max_players}{queue_section}"
+            
+            # Choose format based on length constraints (Discord limit: 100 chars)
+            if len(premium_format) <= 100:
+                new_name = premium_format
+            elif len(base_format) <= 100:
+                new_name = base_format
+            else:
+                # Smart truncation while preserving essential info
+                available_chars = 100 - len(f"{status_indicator}  • {active_players}/{max_players}{queue_section}")
+                if available_chars > 10:  # Minimum meaningful server name length
+                    truncated_name = server_name[:available_chars - 3] + "..."
+                    new_name = f"{status_indicator} {truncated_name} • {active_players}/{max_players}{queue_section}"
                 else:
-                    # Fallback to simple format
-                    new_name = f"{status_emoji} Players: {active_players}/{max_players}"
+                    # Ultra-compact fallback
+                    new_name = f"{status_indicator} {active_players}/{max_players}{queue_section}"
 
             if voice_channel.name != new_name:
                 try:
