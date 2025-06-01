@@ -34,7 +34,11 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot.models.database import DatabaseManager
-from bot.parsers.killfeed_parser import KillfeedParser
+try:
+    from bot.parsers.killfeed_parser import KillfeedParser
+except Exception as e:
+    logger.error(f"Failed to import KillfeedParser: {e}")
+    raise
 from bot.parsers.historical_parser import HistoricalParser
 from bot.parsers.unified_log_parser import UnifiedLogParser
 
