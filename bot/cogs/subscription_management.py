@@ -44,6 +44,9 @@ class SubscriptionManagement(commands.Cog):
     async def set_home_guild(self, ctx: discord.ApplicationContext, 
                            guild_id: discord.Option(str, "Guild ID to set as Home Guild")):
         """Set the Home Guild for premium management (Bot Owner only)"""
+        if not await self._ensure_premium_manager(ctx):
+            return
+            
         try:
             guild_id_int = int(guild_id)
             
