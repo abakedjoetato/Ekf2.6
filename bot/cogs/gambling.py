@@ -761,9 +761,9 @@ class Gambling(commands.Cog):
                 'description': f"**Welcome to the Supreme Casino Experience**\n\n💰 **Current Balance:** ${balance:,}\n🎲 **Available Games:** Elite Slots, Interactive Blackjack, Physics Roulette\n🤖 **AI Features:** Behavioral Analysis, Personalized Recommendations\n\n*Select a game below to begin your journey to riches...*",
 
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             embed.add_field(
                 name="🎮 Game Features",
@@ -822,9 +822,9 @@ class Gambling(commands.Cog):
             elif game_type == 'roulette':
                 embed_data['description'] += "\n\n🎯 **Roulette Options:**\n```Numbers (0-36), Red/Black, Even/Odd, Low/High```"
 
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             if game_type == 'slots':
                 embed.add_field(
@@ -934,9 +934,9 @@ class Gambling(commands.Cog):
                 'title': "🎰 ULTIMATE SLOTS - AI ENHANCED",
                 'description': f"**Bet:** ${bet:,}\n**AI Mode:** Active\n**Reel Physics:** Enabled\n\n🤖 **AI analyzing your play style...**"
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             embed.add_field(
                 name="💎 Payout Multipliers",
@@ -1194,9 +1194,9 @@ class Gambling(commands.Cog):
                 'title': "🎰 ULTIMATE SLOTS - AI ENHANCED",
                 'description': f"**Bet:** ${new_bet:,}\n**AI Mode:** Active\n**Reel Physics:** Enabled\n\n🤖 **AI analyzing your play style...**"
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             embed.add_field(
                 name="💎 Payout Multipliers",
@@ -1230,9 +1230,9 @@ class Gambling(commands.Cog):
                 'title': "🎰 ULTIMATE SLOTS - AI ENHANCED",
                 'description': f"**Bet:** ${balance:,}\n**AI Mode:** Active\n**Reel Physics:** Enabled\n\n🤖 **AI analyzing your play style...**"
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             embed.add_field(
                 name="💎 Payout Multipliers",
@@ -1306,9 +1306,9 @@ class Gambling(commands.Cog):
                 'title': "🃏 INTERACTIVE BLACKJACK - AI ENHANCED",
                 'description': f"**Bet:** ${bet:,}\n**AI Mode:** Active\n**Strategy Hints:** Enabled\n\n🤖 **AI analyzing optimal play...**"
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             # Add hands display
             player_display = self._format_hand_display(player_hand, player_score)
@@ -1607,9 +1607,9 @@ class Gambling(commands.Cog):
                 'title': "🃏 INTERACTIVE BLACKJACK - AI ENHANCED",
                 'description': f"**Bet:** ${game_state['bet']:,}\n**AI Mode:** Active\n**Strategy Hints:** Enabled\n\n{message}"
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             # Add hands display
             player_display = self._format_hand_display(game_state['player_hand'], player_score)
@@ -1818,9 +1818,9 @@ class Gambling(commands.Cog):
                 'title': "🎰 GAME SESSION ENDED",
                 'description': "Thanks for playing! Use `/gamble` to start a new session."
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
             
             view = discord.ui.View()  # Empty view
             
@@ -1863,9 +1863,9 @@ class Gambling(commands.Cog):
                 'title': "🎯 PHYSICS ROULETTE - AI ENHANCED",
                 'description': f"**Bet:** ${bet:,}\n**Choice:** {choice.title()}\n**Physics Engine:** Active\n**Momentum Simulation:** Enabled\n\n🤖 **AI calculating optimal spin trajectory...**"
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             # Add betting info
             payout_info = self._get_roulette_payout_info(choice)
@@ -2345,9 +2345,9 @@ class Gambling(commands.Cog):
                 'title': "📊 AI GAMBLING ANALYTICS DASHBOARD",
                 'description': f"🤖 **AI-Powered Insights for Strategic Play**\n\n💎 **Basic Stats:**\n```Total Games: {total_games}\nWagered: ${total_wagered:,}\nWinnings: ${total_winnings:,}\nNet Profit: ${net_profit:,}```\n",
             }
+            embed_data['embed_type'] = 'gambling'
             embed, gamble_file = await EmbedFactory.build('generic', embed_data)
             embed.color = 0x7f5af0
-            embed.set_thumbnail(url="attachment://Gamble.png")
 
             embed.add_field(
                 name="🛡️ Risk Profile",

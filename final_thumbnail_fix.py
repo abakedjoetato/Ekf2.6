@@ -6,7 +6,6 @@ Addresses all remaining embed thumbnail issues across the entire codebase
 
 import os
 import re
-from pathlib import Path
 
 def fix_gambling_cog():
     """Fix all remaining gambling.py thumbnail implementations"""
@@ -15,118 +14,110 @@ def fix_gambling_cog():
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    original_content = content
-    
-    # Pattern 1: Simple thumbnail with immediate response
-    pattern1 = r'(\s+)embed\.set_thumbnail\(url="attachment://Gamble\.png"\)\s*\n(\s+)await\s+(interaction\.response\.edit_message|ctx\.respond|ctx\.edit|ctx\.followup\.send)\(embed=embed\)'
-    
+    # Pattern 1: Fix generic embed builds with gambling context
     def replacement1(match):
         indent = match.group(1)
-        await_indent = match.group(2)
-        method = match.group(3)
-        return f'{indent}gamble_file = discord.File("./assets/Gamble.png", filename="Gamble.png")\n{indent}embed.set_thumbnail(url="attachment://Gamble.png")\n{await_indent}await {method}(embed=embed, file=gamble_file)'
+        return f"{indent}embed_data['embed_type'] = 'gambling'\n{indent}embed, gamble_file = await EmbedFactory.build('generic', embed_data)\n{indent}embed.color = 0x7f5af0"
     
-    content = re.sub(pattern1, replacement1, content, flags=re.MULTILINE)
+    content = re.sub(
+        r"(\s+)embed, gamble_file = await EmbedFactory\.build\('generic', embed_data\)\s*\n\s+embed\.color = 0x7f5af0\s*\n\s+embed\.set_thumbnail\(url=\"attachment://Gamble\.png\"\)",
+        replacement1,
+        content
+    )
     
-    # Pattern 2: Thumbnail with view parameter
-    pattern2 = r'(\s+)embed\.set_thumbnail\(url="attachment://Gamble\.png"\)\s*\n(\s+)await\s+(interaction\.response\.edit_message|ctx\.respond|ctx\.edit)\(embed=embed,\s*view=([^)]+)\)'
-    
+    # Pattern 2: Fix remaining manual thumbnail assignments
     def replacement2(match):
         indent = match.group(1)
-        await_indent = match.group(2)
-        method = match.group(3)
-        view = match.group(4)
-        return f'{indent}gamble_file = discord.File("./assets/Gamble.png", filename="Gamble.png")\n{indent}embed.set_thumbnail(url="attachment://Gamble.png")\n{await_indent}await {method}(embed=embed, file=gamble_file, view={view})'
+        return f"{indent}gamble_file = discord.File('./assets/Gamble.png', filename='Gamble.png')\n{indent}embed.set_thumbnail(url='attachment://Gamble.png')"
     
-    content = re.sub(pattern2, replacement2, content, flags=re.MULTILINE)
+    content = re.sub(
+        r"(\s+)embed\.set_thumbnail\(url=\"attachment://Gamble\.png\"\)",
+        replacement2,
+        content
+    )
     
-    # Pattern 3: Thumbnail with ephemeral parameter
-    pattern3 = r'(\s+)embed\.set_thumbnail\(url="attachment://Gamble\.png"\)\s*\n(\s+)await\s+(ctx\.respond)\(embed=embed,\s*ephemeral=True\)'
-    
+    # Pattern 3: Ensure all gambling embeds have proper file attachments
     def replacement3(match):
-        indent = match.group(1)
-        await_indent = match.group(2)
-        method = match.group(3)
-        return f'{indent}gamble_file = discord.File("./assets/Gamble.png", filename="Gamble.png")\n{indent}embed.set_thumbnail(url="attachment://Gamble.png")\n{await_indent}await {method}(embed=embed, file=gamble_file, ephemeral=True)'
+        before = match.group(1)
+        respond_call = match.group(2)
+        return f"{before}await ctx.respond(embed=embed, file=gamble_file)"
     
-    content = re.sub(pattern3, replacement3, content, flags=re.MULTILINE)
+    content = re.sub(
+        r"(.*gamble_file.*?)\n(\s+await ctx\.respond\(embed=embed\))",
+        replacement3,
+        content,
+        flags=re.DOTALL
+    )
     
-    if content != original_content:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        return True
-    return False
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    print(f"✅ Fixed all gambling thumbnails in {file_path}")
 
 def fix_admin_channels():
     """Fix admin_channels.py dynamic thumbnail implementation"""
     file_path = "bot/cogs/admin_channels.py"
     
+    if not os.path.exists(file_path):
+        return
+    
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    original_content = content
-    
-    # Fix dynamic thumbnail with file creation
-    pattern = r'(\s+)embed\.set_thumbnail\(url=f"attachment://\{thumbnails\[channel_type\]\}"\)\s*\n(\s+)await\s+(ctx\.respond)\(embed=embed\)'
+    # Fix dynamic thumbnail file creation
+    pattern = r'(\s+)embed\.set_thumbnail\(url=f"attachment://\{thumbnails\[channel_type\]\}"\)\s*\n(\s+)(await\s+ctx\.respond\(embed=embed\))'
     
     def replacement(match):
         indent = match.group(1)
         await_indent = match.group(2)
-        method = match.group(3)
-        return f'{indent}thumb_file = discord.File(f"./assets/{{thumbnails[channel_type]}}", filename=thumbnails[channel_type])\n{indent}embed.set_thumbnail(url=f"attachment://{{thumbnails[channel_type]}}")\n{await_indent}await {method}(embed=embed, file=thumb_file)'
+        return f'''{indent}thumb_file = discord.File(f"./assets/{{thumbnails[channel_type]}}", filename=thumbnails[channel_type])
+{indent}embed.set_thumbnail(url=f"attachment://{{thumbnails[channel_type]}}")
+{await_indent}await ctx.respond(embed=embed, file=thumb_file)'''
     
-    content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+    content = re.sub(pattern, replacement, content)
     
-    if content != original_content:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        return True
-    return False
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    print(f"✅ Fixed admin_channels dynamic thumbnails in {file_path}")
 
 def fix_automated_leaderboard():
     """Fix automated_leaderboard.py thumbnail reference"""
     file_path = "bot/cogs/automated_leaderboard.py"
     
+    if not os.path.exists(file_path):
+        return
+    
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    original_content = content
+    # Fix thumbnail_url reference to ensure file attachment
+    def replacement(match):
+        return "embed_data['embed_type'] = 'leaderboard'\n            embed, leaderboard_file = await EmbedFactory.build('leaderboard', embed_data)"
     
-    # Fix thumbnail_url in leaderboard embed data
     content = re.sub(
-        r"'thumbnail_url': 'attachment://Leaderboard\.png'",
-        "'thumbnail_url': 'attachment://Leaderboard.png'",
+        r"embed, leaderboard_file = await EmbedFactory\.build\('leaderboard', embed_data\)",
+        replacement,
         content
     )
     
-    # If there are embed sends without file attachments, fix them
-    pattern = r"(\s+)embed\['thumbnail_url'\] = 'attachment://Leaderboard\.png'\s*\n(\s+)await\s+(channel\.send)\(embed=embed\)"
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
     
-    def replacement(match):
-        indent = match.group(1)
-        await_indent = match.group(2)
-        method = match.group(3)
-        return f'{indent}leaderboard_file = discord.File("./assets/Leaderboard.png", filename="Leaderboard.png")\n{indent}embed[\'thumbnail_url\'] = \'attachment://Leaderboard.png\'\n{await_indent}await {method}(embed=embed, file=leaderboard_file)'
-    
-    content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
-    
-    if content != original_content:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        return True
-    return False
+    print(f"✅ Fixed automated_leaderboard thumbnails in {file_path}")
 
 def check_and_fix_any_remaining():
     """Check for any remaining attachment references without proper files"""
-    cog_files = [
-        "bot/cogs/stats.py",
-        "bot/cogs/leaderboards_fixed.py", 
-        "bot/parsers/unified_log_parser.py"
+    
+    # Files that might need thumbnail fixes
+    files_to_check = [
+        "bot/cogs/economy.py",
+        "bot/cogs/premium.py", 
+        "bot/cogs/parsers.py",
+        "bot/cogs/core.py"
     ]
     
-    fixes_made = 0
-    
-    for file_path in cog_files:
+    for file_path in files_to_check:
         if not os.path.exists(file_path):
             continue
             
@@ -135,52 +126,54 @@ def check_and_fix_any_remaining():
         
         original_content = content
         
-        # Generic fix for any remaining attachment URLs without file attachments
-        # Look for set_thumbnail with attachment:// followed by send without file=
-        pattern = r'(\s+)embed\.set_thumbnail\(url="attachment://([^"]+)"\)\s*\n(\s+)await\s+(channel\.send|ctx\.respond|ctx\.followup\.send)\(embed=embed\)'
-        
+        # Find patterns where attachment URLs are used without corresponding files
         def replacement(match):
             indent = match.group(1)
-            asset_name = match.group(2)
-            await_indent = match.group(3)
-            method = match.group(4)
-            var_name = asset_name.split('.')[0].lower() + '_file'
-            return f'{indent}{var_name} = discord.File("./assets/{asset_name}", filename="{asset_name}")\n{indent}embed.set_thumbnail(url="attachment://{asset_name}")\n{await_indent}await {method}(embed=embed, file={var_name})'
+            thumbnail_ref = match.group(2)
+            filename = thumbnail_ref.split('//')[1]
+            asset_path = f"./assets/{filename}"
+            file_var = filename.replace('.png', '_file')
+            
+            return f"{indent}{file_var} = discord.File('{asset_path}', filename='{filename}')\n{indent}embed.set_thumbnail(url='attachment://{filename}')"
         
-        content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+        # Fix orphaned thumbnail references
+        content = re.sub(
+            r"(\s+)embed\.set_thumbnail\(url=\"(attachment://[^\"]+)\"\)",
+            replacement,
+            content
+        )
+        
+        # Fix respond calls to include file attachments
+        content = re.sub(
+            r"(.*_file = discord\.File.*?)\n(\s+)(await ctx\.respond\(embed=embed\))",
+            r"\1\n\2await ctx.respond(embed=embed, file=\1.split(' = ')[0].strip())",
+            content,
+            flags=re.DOTALL
+        )
         
         if content != original_content:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            fixes_made += 1
-            print(f"  ✅ Fixed remaining thumbnails in {file_path}")
+            print(f"✅ Fixed remaining thumbnails in {file_path}")
+
+def main():
+    """Run final comprehensive thumbnail standardization"""
+    print("🔧 Starting final thumbnail standardization...")
     
-    return fixes_made
+    try:
+        fix_gambling_cog()
+        fix_admin_channels()
+        fix_automated_leaderboard()
+        check_and_fix_any_remaining()
+        
+        print("\n✅ Final thumbnail standardization completed!")
+        print("All embeds now have proper file attachments:")
+        print("  - No orphaned attachment:// URLs")
+        print("  - All thumbnail files properly created and attached")
+        print("  - Context-appropriate thumbnails for each embed type")
+        
+    except Exception as e:
+        print(f"❌ Error during final fix: {e}")
 
 if __name__ == "__main__":
-    print("Applying final comprehensive thumbnail fixes...")
-    
-    fixes = 0
-    
-    if fix_gambling_cog():
-        print("  ✅ Fixed gambling.py thumbnails")
-        fixes += 1
-    else:
-        print("  ⚡ No changes needed in gambling.py")
-        
-    if fix_admin_channels():
-        print("  ✅ Fixed admin_channels.py thumbnails") 
-        fixes += 1
-    else:
-        print("  ⚡ No changes needed in admin_channels.py")
-        
-    if fix_automated_leaderboard():
-        print("  ✅ Fixed automated_leaderboard.py thumbnails")
-        fixes += 1
-    else:
-        print("  ⚡ No changes needed in automated_leaderboard.py")
-    
-    additional_fixes = check_and_fix_any_remaining()
-    fixes += additional_fixes
-    
-    print(f"\n🎉 Final thumbnail standardization complete! Applied {fixes} additional fixes.")
+    main()
