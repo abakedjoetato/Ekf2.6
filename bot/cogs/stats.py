@@ -613,6 +613,9 @@ class Stats(discord.Cog):
             timestamp=datetime.now(timezone.utc)
         )
         
+        # Add thumbnail logo
+        embed.set_thumbnail(url="https://i.imgur.com/7X8zQpL.png")
+        
         if server_players:
             # Add players to embed with time played
             player_lines = []
@@ -671,6 +674,9 @@ class Stats(discord.Cog):
             timestamp=datetime.now(timezone.utc)
         )
         
+        # Add thumbnail logo
+        embed.set_thumbnail(url="https://i.imgur.com/7X8zQpL.png")
+        
         if total_players == 0:
             embed.add_field(
                 name="📭 No Players Online",
@@ -682,7 +688,8 @@ class Stats(discord.Cog):
             server_names = {}
             for server in servers:
                 if server:
-                    server_names[server.get('id')] = server.get('name', f"Server {server.get('id')}")
+                    server_id = str(server.get('_id', server.get('id', 'unknown')))
+                    server_names[server_id] = server.get('name', f"Server {server_id}")
             
             # Display each server with players
             for server_id, players in servers_with_players.items():
