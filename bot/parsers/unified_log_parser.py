@@ -124,9 +124,16 @@ class UnifiedLogParser:
         try:
             logger.info(f"📡 Reading SFTP: ./{host}_{server_id}/Logs/Deadside.log")
             
+            # P3R server connection with compatible SSH settings
             async with asyncssh.connect(
                 host, port=port, username=username, password=password,
-                known_hosts=None, client_keys=None
+                known_hosts=None, 
+                client_keys=[],
+                server_host_key_algs=[],
+                kex_algs=['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1'],
+                encryption_algs=['aes128-cbc', 'aes192-cbc', 'aes256-cbc'],
+                mac_algs=['hmac-sha1'],
+                compression_algs=['none']
             ) as conn:
                 logger.info(f"✅ SFTP connected to {host}:{port}")
                 
