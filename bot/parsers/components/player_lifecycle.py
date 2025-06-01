@@ -110,11 +110,16 @@ class PlayerLifecycleManager:
         """Get all active players for a guild"""
         active_players = {}
         
+        logger.debug(f"🔍 Checking {len(self.player_sessions)} total sessions for guild {guild_id}")
+        
         for key, session in self.player_sessions.items():
+            logger.debug(f"🔍 Session {key}: guild={session.get('guild_id')}, status={session.get('status')}")
             if (session.get('guild_id') == str(guild_id) and 
                 session.get('status') == 'online'):
                 active_players[key] = session
+                logger.debug(f"🔍 Added active player: {session.get('player_name')} on server {session.get('server_id')}")
                 
+        logger.debug(f"🔍 Found {len(active_players)} active players for guild {guild_id}")
         return active_players
         
     def clear_guild_sessions(self, guild_id: int):

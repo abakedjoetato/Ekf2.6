@@ -183,6 +183,10 @@ class UnifiedLogParser:
         player_events.sort(key=lambda x: x['timestamp'])
         logger.info(f"🔄 Processing {len(player_events)} player events in chronological order")
         
+        # Debug: Show all detected player events
+        for event in player_events:
+            logger.info(f"🔍 Player event: {event['type']} - Player {event['player_id'][:8]} at {event['timestamp']}")
+        
         # Process player events
         for event in player_events:
             if event['type'] == 'queue':
@@ -273,9 +277,17 @@ class UnifiedLogParser:
         """Update voice channel with current player count"""
         try:
             active_players = self.lifecycle_manager.get_active_players(guild_id)
-            player_count = len([p for p in active_players.values() if p.get('server_id') == server_id])
+            server_players = [p for p in active_players.values() if p.get('server_id') == server_id]
+            player_count = len(server_players)
             
             logger.info(f"🎯 Voice channel update: {server_name} has {player_count} players")
+            logger.info(f"🔍 Total active players for guild: {len(active_players)}")
+            logger.info(f"🔍 Players on server {server_id}: {[p.get('player_name', 'Unknown') for p in server_players]}")
+            
+            # Debug: Show all active sessions
+            if len(active_players) > 0:
+                for key, player in active_players.items():
+                    logger.info(f"🔍 Active player: {player.get('player_name')} on server {player.get('server_id')} (status: {player.get('status')})")
             
             # Get max players from config
             max_players = 50  # Default
