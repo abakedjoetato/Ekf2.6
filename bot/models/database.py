@@ -1627,3 +1627,29 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting servers with killfeed: {e}")
             return []
+
+    async def get_servers_for_guild(self, guild_id: int) -> List[Dict[str, Any]]:
+        """Get all servers for a specific guild - required by /online and other commands"""
+        try:
+            guild_doc = await self.guilds.find_one({'guild_id': guild_id})
+            if not guild_doc:
+                return []
+            
+            servers = []
+            guild_servers = guild_doc.get('servers', [])
+            for server in guild_servers:
+                servers.append({
+                    'guild_id': guild_id,
+                    'server_id': server.get('server_id', server.get('_id', 'default')),
+                    'name': server.get('name', f"Server {server.get('server_id', 'Unknown')}"),
+                    'host': server.get('host', ''),
+                    'port': server.get('port', 8822),
+                    'username': server.get('username', ''),
+                    'password': server.get('password', ''),
+                    'channels': server.get('channels', {}),
+                    'is_premium': server.get('is_premium', False)
+                })
+            return servers
+        except Exception as e:
+            logger.error(f"Error getting servers for guild {guild_id}: {e}")
+            return []
