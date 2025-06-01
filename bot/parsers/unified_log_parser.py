@@ -358,7 +358,13 @@ class UnifiedLogParser:
             guild_config = await self.bot.db_manager.get_guild(guild_id)
             if guild_config:
                 servers = guild_config.get('servers', {})
-                server_config = servers.get(server_id, {})
+                # Handle both dictionary and list formats for servers
+                if isinstance(servers, dict):
+                    server_config = servers.get(server_id, {})
+                elif isinstance(servers, list):
+                    server_config = next((s for s in servers if s.get('id') == server_id), {})
+                else:
+                    server_config = {}
                 host = server_config.get('host')
                 
                 if host:
