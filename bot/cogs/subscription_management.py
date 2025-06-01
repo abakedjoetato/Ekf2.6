@@ -363,7 +363,7 @@ class SubscriptionManagement(commands.Cog):
             guild_id = ctx.guild.id
             
             # Resolve server_id from name if needed
-            guild_config = await self.bot.database.guild_configs.find_one({"guild_id": guild_id})
+            guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
             if guild_config and "servers" in guild_config:
                 servers = guild_config["servers"]
                 actual_server_id = ServerAutocomplete.get_server_id_from_name(server_id, servers)
@@ -417,7 +417,7 @@ class SubscriptionManagement(commands.Cog):
             guild_id = ctx.guild.id
             
             # Resolve server_id from name if needed
-            guild_config = await self.bot.database.guild_configs.find_one({"guild_id": guild_id})
+            guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
             if guild_config and "servers" in guild_config:
                 servers = guild_config["servers"]
                 actual_server_id = ServerAutocomplete.get_server_id_from_name(server_id, servers)
@@ -470,7 +470,7 @@ class SubscriptionManagement(commands.Cog):
             guild_id = ctx.guild.id
             
             # Get guild config for server names
-            guild_config = await self.bot.database.guild_configs.find_one({"guild_id": guild_id})
+            guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
             
             if not guild_config or "servers" not in guild_config:
                 await ctx.respond("❌ No servers configured for this guild", ephemeral=True)
