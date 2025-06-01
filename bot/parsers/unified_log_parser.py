@@ -238,11 +238,129 @@ class UnifiedLogParser:
             logger.error(f"SFTP connection error: {e}")
             return None
 
+    def detect_log_file_reset(self, server_key: str, current_stats: Dict[str, Any], stored_stats: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """
+        Detect when Deadside.log has been reset (server restart)
+        Returns: (reset_detected, reset_reason)
+        """
+        try:
+            # Line count regression (most reliable indicator)
+            if (stored_stats.get('line_count', 0) > 0 and 
+                current_stats['line_count'] < stored_stats['line_count']):
+                return (True, "line_count_regression")
+            
+            # File size regression
+            if (stored_stats.get('file_size', 0) > 0 and 
+                current_stats['file_size'] < stored_stats['file_size']):
+                return (True, "file_size_regression")
+            
+            # File modification time with content mismatch
+            if (current_stats['file_mtime'] > stored_stats.get('file_mtime', 0) and
+                current_stats['line_count'] < 100):  # New file typically starts small
+                return (True, "file_recreated")
+            
+            # Content hash validation (if stored hash exists)
+            if stored_stats.get('content_hash') and current_stats.get('content_hash'):
+                if (stored_stats['line_count'] <= current_stats['line_count'] and
+                    not current_stats['content_hash'].startswith(stored_stats['content_hash'])):
+                    return (True, "content_hash_mismatch")
+            
+            return (False, None)
+            
+        except Exception as e:
+            logger.error(f"Error detecting file reset: {e}")
+            return (False, None)
+
+    def calculate_file_stats(self, content: str, file_path: str) -> Dict[str, Any]:
+        """Calculate file statistics for reset detection"""
+        try:
+            lines = content.splitlines()
+            line_count = len(lines)
+            file_size = len(content.encode('utf-8'))
+            
+            # Get file modification time
+            file_mtime = 0
+            if os.path.exists(file_path):
+                file_mtime = os.path.getmtime(file_path)
+            
+            # Calculate content hash of first 1000 characters for validation
+            content_hash = hashlib.md5(content[:1000].encode('utf-8')).hexdigest()
+            
+            return {
+                'line_count': line_count,
+                'file_size': file_size,
+                'file_mtime': file_mtime,
+                'content_hash': content_hash
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating file stats: {e}")
+            return {
+                'line_count': 0,
+                'file_size': 0,
+                'file_mtime': 0,
+                'content_hash': ''
+            }
+
+    async def reset_server_state(self, guild_id: str, server_id: str, reason: str):
+        """Reset all server state when file reset is detected"""
+        try:
+            server_key = f"{guild_id}_{server_id}"
+            
+            logger.info(f"🔄 Server restart detected for {server_id}: {reason}")
+            
+            # Clear active player states for this server
+            guild_prefix = f"{guild_id}_"
+            server_session_keys = [k for k in self.player_sessions.keys() if k.startswith(guild_prefix)]
+            for session_key in server_session_keys:
+                session_data = self.player_sessions.get(session_key, {})
+                if session_data.get('server_id') == server_id:
+                    del self.player_sessions[session_key]
+            
+            # Clear lifecycle data for this server
+            server_lifecycle_keys = [k for k in self.player_lifecycle.keys() if k.startswith(guild_prefix)]
+            for lifecycle_key in server_lifecycle_keys:
+                lifecycle_data = self.player_lifecycle.get(lifecycle_key, {})
+                # Check if this lifecycle entry belongs to this server (approximate check)
+                del self.player_lifecycle[lifecycle_key]
+            
+            # Reset file tracking state
+            if server_key in self.file_states:
+                self.file_states[server_key] = {
+                    'line_count': 0,
+                    'file_size': 0,
+                    'file_mtime': 0,
+                    'content_hash': '',
+                    'last_updated': datetime.now(timezone.utc).isoformat(),
+                    'cold_start_complete': False,
+                    'reset_detection_enabled': True
+                }
+            
+            # Clear database player sessions for this server
+            if hasattr(self.bot, 'db_manager'):
+                try:
+                    await self.bot.db_manager.player_sessions.delete_many({
+                        'guild_id': int(guild_id),
+                        'server_id': server_id
+                    })
+                    logger.info(f"Cleared database sessions for server {server_id}")
+                except Exception as e:
+                    logger.error(f"Failed to clear database sessions: {e}")
+            
+            # Force voice channel update
+            await self.update_voice_channel(guild_id)
+            
+            logger.info(f"✅ Server state reset completed for {server_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to reset server state: {e}")
+
     async def get_log_content(self, server_config: Dict[str, Any]) -> Optional[str]:
-        """Get log content with SFTP priority and local fallback"""
+        """Get log content with SFTP priority, local fallback, and reset detection"""
         try:
             server_id = str(server_config.get('_id', 'unknown'))
             host = server_config.get('host', 'unknown')
+            server_key = f"{server_config.get('guild_id', 'unknown')}_{server_id}"
 
             # Try SFTP first
             conn = await self.get_sftp_connection(server_config)
@@ -257,6 +375,17 @@ class UnifiedLogParser:
                             async with sftp.open(remote_path, 'r') as f:
                                 content = await f.read()
                                 logger.info(f"✅ SFTP read {len(content)} bytes")
+                                
+                                # Calculate current file statistics
+                                current_stats = self.calculate_file_stats(content, remote_path)
+                                
+                                # Check for file reset
+                                stored_stats = self.file_states.get(server_key, {})
+                                reset_detected, reset_reason = self.detect_log_file_reset(server_key, current_stats, stored_stats)
+                                
+                                if reset_detected:
+                                    await self.reset_server_state(str(server_config.get('guild_id', 'unknown')), server_id, reset_reason)
+                                
                                 return content
                         except FileNotFoundError:
                             logger.warning(f"Remote file not found: {remote_path}")
@@ -273,6 +402,17 @@ class UnifiedLogParser:
                     with open(local_path, 'r', encoding='utf-8') as f:
                         content = f.read()
                         logger.info(f"✅ Local read {len(content)} bytes")
+                        
+                        # Calculate current file statistics
+                        current_stats = self.calculate_file_stats(content, local_path)
+                        
+                        # Check for file reset
+                        stored_stats = self.file_states.get(server_key, {})
+                        reset_detected, reset_reason = self.detect_log_file_reset(server_key, current_stats, stored_stats)
+                        
+                        if reset_detected:
+                            await self.reset_server_state(str(server_config.get('guild_id', 'unknown')), server_id, reset_reason)
+                        
                         return content
                 except Exception as e:
                     logger.error(f"Local read failed: {e}")
@@ -340,11 +480,16 @@ class UnifiedLogParser:
                 logger.info("📊 No new lines to process")
                 return embeds
 
-        # Update state immediately
+        # Calculate and update enhanced file state
+        current_stats = self.calculate_file_stats(content, f"./{server_name}_{server_id}/Logs/Deadside.log")
         self.file_states[server_key] = {
             'line_count': len(lines),
+            'file_size': current_stats.get('file_size', 0),
+            'file_mtime': current_stats.get('file_mtime', 0),
+            'content_hash': current_stats.get('content_hash', ''),
             'last_updated': datetime.now(timezone.utc).isoformat(),
-            'cold_start_complete': True
+            'cold_start_complete': True,
+            'reset_detection_enabled': True
         }
         await self._save_persistent_state()
 

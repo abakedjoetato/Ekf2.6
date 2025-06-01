@@ -38,6 +38,7 @@ class KillfeedParser:
         self.sftp_pool: Dict[str, Dict[str, Any]] = {}  # SFTP connection pool with metadata
         self.pool_cleanup_timeout = 300  # 5 minutes idle timeout
         self.connection_health_checks: Dict[str, float] = {}  # Last health check times
+        self.csv_file_states: Dict[str, Dict[str, Any]] = {}  # Track CSV file transitions
 
     async def parse_csv_line(self, line: str) -> Optional[Dict[str, Any]]:
         """Parse a single CSV line into kill event data"""
@@ -204,28 +205,93 @@ class KillfeedParser:
             logger.error(f"Failed to get SFTP connection: {e}")
             return None
 
+    def detect_csv_file_change(self, server_key: str, current_file_info: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[str]]:
+        """
+        Detect when a newer CSV file has been created
+        Returns: (transition_needed, new_file_path, old_file_path)
+        """
+        try:
+            stored_info = self.csv_file_states.get(server_key, {})
+            
+            # Check if we're tracking a different file than before
+            current_file = current_file_info['newest_csv_file']
+            stored_file = stored_info.get('current_csv_file')
+            
+            if current_file != stored_file:
+                # Verify the new file is actually newer
+                current_mtime = current_file_info['newest_csv_mtime']
+                stored_mtime = stored_info.get('current_csv_mtime', 0)
+                
+                if current_mtime > stored_mtime:
+                    return (True, current_file, stored_file)
+            
+            return (False, None, None)
+            
+        except Exception as e:
+            logger.error(f"Error detecting CSV file change: {e}")
+            return (False, None, None)
+
+    async def complete_old_csv_processing(self, server_key: str, old_file_path: str, server_config: Dict[str, Any]) -> int:
+        """Complete processing of the old CSV file before switching to new one"""
+        try:
+            if not old_file_path:
+                return 0
+                
+            # Get remaining lines from old file
+            conn = await self.get_sftp_connection(server_config)
+            if not conn:
+                return 0
+                
+            async with conn.start_sftp_client() as sftp:
+                try:
+                    async with sftp.open(old_file_path, 'r') as f:
+                        old_content = await f.read()
+                        old_lines = [line.strip() for line in old_content.splitlines() if line.strip()]
+                        
+                    # Process any remaining unprocessed lines
+                    processed_count = 0
+                    if server_key not in self.parsed_lines:
+                        self.parsed_lines[server_key] = set()
+                        
+                    for line in old_lines:
+                        if line not in self.parsed_lines[server_key]:
+                            # Process this line
+                            processed_count += 1
+                            self.parsed_lines[server_key].add(line)
+                    
+                    logger.info(f"📊 Completed old CSV processing: {processed_count} remaining lines from {old_file_path}")
+                    return processed_count
+                    
+                except Exception as e:
+                    logger.error(f"Failed to complete old CSV processing: {e}")
+                    return 0
+                    
+        except Exception as e:
+            logger.error(f"Error completing old CSV processing: {e}")
+            return 0
+
     async def get_sftp_csv_files(self, server_config: Dict[str, Any]) -> List[str]:
-        """Get CSV files from SFTP server using AsyncSSH with connection pooling"""
+        """Get CSV files from SFTP server with transition detection"""
         try:
             conn = await self.get_sftp_connection(server_config)
             if not conn:
                 return []
 
             server_id = str(server_config.get('_id', 'unknown'))
+            guild_id = server_config.get('guild_id', 'unknown')
             sftp_host = server_config.get('host')
-            # Fix directory resolution logic to correctly combine host and _id into path
+            server_key = f"{guild_id}_{server_id}"
+            
             remote_path = f"./{sftp_host}_{server_id}/actual1/deathlogs/"
             logger.info(f"Using SFTP CSV path: {remote_path} for server {server_id} on host {sftp_host}")
 
             async with conn.start_sftp_client() as sftp:
                 csv_files = []
-                # Use consistent path pattern
                 pattern = f"./{sftp_host}_{server_id}/actual1/deathlogs/**/*.csv"
                 logger.info(f"Searching for CSV files with pattern: {pattern}")
 
                 try:
                     paths = await sftp.glob(pattern)
-                    # Track unique paths to prevent duplicates
                     seen_paths = set()
 
                     for path in paths:
@@ -248,8 +314,50 @@ class KillfeedParser:
                 # Sort by modification time, get most recent
                 csv_files.sort(key=lambda x: x[1], reverse=True)
                 most_recent_file = csv_files[0][0]
+                most_recent_mtime = csv_files[0][1]
 
-                # Read file content
+                # Prepare current file info for transition detection
+                current_file_info = {
+                    'newest_csv_file': most_recent_file,
+                    'newest_csv_mtime': most_recent_mtime
+                }
+
+                # Check for CSV file transition
+                transition_needed, new_file, old_file = self.detect_csv_file_change(server_key, current_file_info)
+                
+                if transition_needed and old_file:
+                    logger.info(f"📊 CSV transition detected for {server_id}: {old_file} → {new_file}")
+                    
+                    # Complete processing of old file first
+                    await self.complete_old_csv_processing(server_key, old_file, server_config)
+                    
+                    # Update tracking to new file
+                    self.csv_file_states[server_key] = {
+                        'current_csv_file': new_file,
+                        'current_csv_mtime': most_recent_mtime,
+                        'processed_line_count': 0,
+                        'newest_csv_discovered': new_file,
+                        'newest_csv_mtime': most_recent_mtime,
+                        'transition_pending': False
+                    }
+                    
+                    # Clear parsed lines for this server to reprocess new file
+                    if server_key in self.parsed_lines:
+                        old_count = len(self.parsed_lines[server_key])
+                        self.parsed_lines[server_key].clear()
+                        logger.info(f"🔄 Reset parsed lines tracking for CSV transition: {old_count} entries cleared")
+                elif server_key not in self.csv_file_states:
+                    # Initialize tracking for first time
+                    self.csv_file_states[server_key] = {
+                        'current_csv_file': most_recent_file,
+                        'current_csv_mtime': most_recent_mtime,
+                        'processed_line_count': 0,
+                        'newest_csv_discovered': most_recent_file,
+                        'newest_csv_mtime': most_recent_mtime,
+                        'transition_pending': False
+                    }
+
+                # Read current/newest file content
                 try:
                     async with sftp.open(most_recent_file, 'r') as f:
                         file_content = await f.read()
@@ -420,12 +528,16 @@ class KillfeedParser:
             logger.error(f"Failed to send killfeed embed: {e}")
 
     async def parse_server_killfeed(self, guild_id: int, server_config: Dict[str, Any]):
-        """Parse killfeed for a single server"""
+        """Parse killfeed for a single server with transition detection"""
         try:
             server_id = str(server_config.get('_id', 'unknown'))
             server_name = server_config.get('name', f'Server {server_id}')
+            server_key = f"{guild_id}_{server_id}"
 
-            # Get CSV lines with source indication
+            # Add guild_id to server_config for transition detection
+            server_config['guild_id'] = guild_id
+
+            # Get CSV lines with source indication and transition detection
             if self.bot.dev_mode:
                 logger.debug(f"🛠️ DEV MODE: Reading local CSV files for {server_name}")
                 lines = await self.get_dev_csv_files()
@@ -441,7 +553,6 @@ class KillfeedParser:
                 return
 
             # Track processed lines for this server
-            server_key = f"{guild_id}_{server_id}"
             if server_key not in self.parsed_lines:
                 self.parsed_lines[server_key] = set()
 
@@ -451,7 +562,12 @@ class KillfeedParser:
             suicides = 0
             skipped_duplicates = 0
 
+            # Check if we're in transition state
+            csv_state = self.csv_file_states.get(server_key, {})
+            current_csv_file = csv_state.get('current_csv_file', 'unknown')
+            
             logger.debug(f"📊 Processing {len(lines)} total lines from {source_info} for {server_name}")
+            logger.debug(f"📄 Current CSV file: {current_csv_file}")
 
             for line in lines:
                 if not line.strip():
@@ -473,13 +589,21 @@ class KillfeedParser:
                     else:
                         pvp_kills += 1
 
-            # Detailed logging with event breakdown
+            # Update processed line count in CSV state
+            if server_key in self.csv_file_states:
+                self.csv_file_states[server_key]['processed_line_count'] = len(self.parsed_lines[server_key])
+
+            # Enhanced logging with transition info
+            transition_info = ""
+            if csv_state.get('transition_pending'):
+                transition_info = " [CSV Transition]"
+            
             if new_events > 0:
-                logger.info(f"✅ {server_name}: {new_events} new events ({pvp_kills} kills, {suicides} suicides)")
+                logger.info(f"✅ {server_name}: {new_events} new events ({pvp_kills} kills, {suicides} suicides){transition_info}")
                 if skipped_duplicates > 0:
                     logger.debug(f"📊 {server_name}: Skipped {skipped_duplicates} duplicate entries")
             else:
-                logger.info(f"📊 {server_name}: No new events ({len(lines)} total lines, {skipped_duplicates} already processed)")
+                logger.info(f"📊 {server_name}: No new events ({len(lines)} total lines, {skipped_duplicates} already processed){transition_info}")
 
         except Exception as e:
             server_name = server_config.get('name', f'Server {server_config.get("_id", "unknown")}')
