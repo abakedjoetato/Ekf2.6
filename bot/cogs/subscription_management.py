@@ -32,8 +32,14 @@ class SubscriptionManagement(commands.Cog):
     async def _ensure_premium_manager(self, ctx: discord.ApplicationContext) -> bool:
         """Ensure premium manager is available, respond with error if not"""
         if not self.premium_manager:
-            await ctx.respond("❌ Premium system not available", ephemeral=True)
-            return False
+            # Try to get premium manager from bot
+            if hasattr(self.bot, 'premium_manager_v2'):
+                self.premium_manager = self.bot.premium_manager_v2
+            elif hasattr(self.bot, 'premium_manager'):
+                self.premium_manager = self.bot.premium_manager
+            else:
+                await ctx.respond("❌ Premium system not available", ephemeral=True)
+                return False
         return True
     
     # Home Guild Management Commands

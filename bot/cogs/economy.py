@@ -83,6 +83,10 @@ class Economy(commands.Cog):
     async def balance(self, ctx: discord.ApplicationContext):
         """Check user's wallet balance"""
         try:
+            if not ctx.guild:
+                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+                return
+                
             guild_id = ctx.guild.id
             discord_id = ctx.user.id
 

@@ -206,8 +206,8 @@ class PremiumManagerV2:
         try:
             limit_doc = await self.db.premium_limits.find_one({"guild_id": guild_id})
             if limit_doc:
-                # Check both field names for compatibility
-                return limit_doc.get("limit", limit_doc.get("max_premium_servers", 0))
+                # Use max_premium_servers as the primary field name
+                return limit_doc.get("max_premium_servers", 0)
             return 0
         except Exception:
             return 0
