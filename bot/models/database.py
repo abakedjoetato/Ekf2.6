@@ -1051,31 +1051,10 @@ class DatabaseManager:
             return False
 
     async def is_premium_server(self, guild_id: int, server_id: str) -> bool:
-        """Check if server has active premium"""
+        """Check if server has active premium - Updated to use new premium system"""
         try:
-            # Ensure types are consistent
-            guild_id = int(guild_id)
-            server_id = str(server_id)
-
-            premium_doc = await self.premium.find_one({"guild_id": guild_id, "server_id": server_id})
-
-            if not premium_doc or not premium_doc.get("active"):
-                return False
-
-            expires_at =premium_doc.get("expires_at")
-            if expires_at:
-                # Ensure both datetimes are timezone-aware for comparison
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-
-                current_time = datetime.now(timezone.utc)
-
-                if expires_at < current_time:
-                    # Premium expired, update status
-                    await self.set_premium_status(guild_id, server_id, None)
-                    return False
-
-            return True
+            # Use the new premium checking method
+            return await self.is_server_premium(guild_id, server_id)
         except Exception as e:
             logger.error(f"Failed to check premium status: {e}")
             return False

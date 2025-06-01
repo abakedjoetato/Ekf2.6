@@ -76,7 +76,7 @@ class PremiumCompatibility:
                 return await self.is_server_premium(guild_id, server_id)
             else:
                 # Guild-wide check - any premium server in guild
-                guild_doc = await self.db.guild_configs.find_one({"guild_id": guild_id})
+                guild_doc = await self.db.guilds.find_one({"guild_id": guild_id})
                 if not guild_doc:
                     return False
                 
@@ -92,7 +92,7 @@ class PremiumCompatibility:
     async def is_server_premium(self, guild_id: int, server_id: str) -> bool:
         """Check if a specific server is premium"""
         try:
-            guild_doc = await self.db.guild_configs.find_one({"guild_id": guild_id})
+            guild_doc = await self.db.guilds.find_one({"guild_id": guild_id})
             if not guild_doc:
                 return False
             
@@ -222,7 +222,7 @@ class PremiumCompatibility:
     async def count_premium_servers(self, guild_id: int) -> int:
         """Count active premium servers for guild"""
         try:
-            guild_doc = await self.db.guild_configs.find_one({"guild_id": guild_id})
+            guild_doc = await self.db.guilds.find_one({"guild_id": guild_id})
             if not guild_doc:
                 return 0
             
@@ -257,7 +257,7 @@ class PremiumCompatibility:
                     return False, f"Premium server limit reached ({usage['used']}/{usage['limit']})"
                 
                 # Update server to premium in guild_configs
-                await self.db.guild_configs.update_one(
+                await self.db.guilds.update_one(
                     {"guild_id": guild_id, "servers.server_id": server_id},
                     {
                         "$set": {
@@ -286,7 +286,7 @@ class PremiumCompatibility:
                     return False, "Server is not premium"
                 
                 # Update server to non-premium in guild_configs
-                await self.db.guild_configs.update_one(
+                await self.db.guilds.update_one(
                     {"guild_id": guild_id, "servers.server_id": server_id},
                     {
                         "$set": {
@@ -307,7 +307,7 @@ class PremiumCompatibility:
     async def list_premium_servers(self, guild_id: int) -> List[Dict[str, str]]:
         """List all premium servers for guild with names"""
         try:
-            guild_doc = await self.db.guild_configs.find_one({"guild_id": guild_id})
+            guild_doc = await self.db.guilds.find_one({"guild_id": guild_id})
             if not guild_doc:
                 return []
             
@@ -327,7 +327,7 @@ class PremiumCompatibility:
     async def _auto_deactivate_servers(self, guild_id: int, count: int, deactivated_by: int, reason: str) -> List[str]:
         """Auto-deactivate oldest premium servers"""
         try:
-            guild_doc = await self.db.guild_configs.find_one({"guild_id": guild_id})
+            guild_doc = await self.db.guilds.find_one({"guild_id": guild_id})
             if not guild_doc:
                 return []
             

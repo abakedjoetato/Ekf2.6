@@ -365,7 +365,7 @@ class PremiumManagerV2:
             }).to_list(length=None)
             
             # Get server names from guild config
-            guild_config = await self.db.guild_configs.find_one({"guild_id": guild_id})
+            guild_config = await self.db.guilds.find_one({"guild_id": guild_id})
             server_names = {}
             
             if guild_config and "servers" in guild_config:
