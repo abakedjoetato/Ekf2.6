@@ -908,7 +908,8 @@ class DatabaseManager:
             }
 
             # Only update personal best if this distance is actually better
-            if distance > 0 and distance > current_stats.get('personal_best_distance', 0.0):
+            current_best = current_stats.get('personal_best_distance', 0.0) if current_stats else 0.0
+            if distance > 0 and distance > current_best:
                 update_data["personal_best_distance"] = distance
 
             # Update last kill timestamp for chronological tracking
