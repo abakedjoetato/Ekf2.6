@@ -25,7 +25,7 @@ class DatabaseManager:
     def __init__(self, mongo_client: AsyncIOMotorClient):
         self.client = mongo_client
         self.db: AsyncIOMotorDatabase = mongo_client.emerald_killfeed
-
+        
         # Collections
         self.guilds = self.db.guilds
         self.guild_configs = self.db.guild_configs  # Alias for compatibility
@@ -34,9 +34,16 @@ class DatabaseManager:
         self.economy = self.db.economy
         self.bounties = self.db.bounties
         self.factions = self.db.factions
+        self.premium = self.db.premium
+        self.server_premium_status = self.db.server_premium_status
         self.kill_events = self.db.kill_events
-        self.premium = self.db.premium_servers
         self.parser_states = self.db.parser_states
+        self.player_sessions = self.db.player_sessions
+    
+    @property
+    def admin(self):
+        """Access to admin database operations"""
+        return self.client.admin
         self.player_sessions = self.db.player_sessions
         
         # New premium management collections
