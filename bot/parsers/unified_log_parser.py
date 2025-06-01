@@ -909,13 +909,12 @@ class UnifiedLogParser:
             return None
 
     async def create_helicrash_embed(self, location: str = "Unknown") -> Optional[discord.Embed]:
-        """Create helicrash embed"""
+        """Create helicrash embed using legacy method with proper thumbnail"""
         try:
-            embed_data = {
-                'location': location,
-                'timestamp': datetime.now(timezone.utc)
-            }
-            embed, file = await EmbedFactory.build_helicrash_embed(embed_data)
+            embed = EmbedFactory.create_helicrash_embed(
+                location=location,
+                timestamp=datetime.now(timezone.utc)
+            )
             return embed
         except Exception as e:
             logger.error(f"Failed to create helicrash embed: {e}")
