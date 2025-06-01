@@ -167,25 +167,25 @@ class UnifiedLogParser:
         # Save currently active players to database with online status
         if hasattr(self.bot, 'db_manager') and active_players:
             for player_id in active_players:
-                # Get player data from lifecycle manager
-                player_data = self.lifecycle_manager.get_player_data(guild_id, player_id)
-                if player_data:
-                    # Mark as online in database
-                    session_data = {
-                        'player_name': player_data.get('player_name', f"Player{player_id[:8].upper()}"),
-                        'platform': player_data.get('platform', 'Unknown'),
-                        'status': 'online',
-                        'joined_at': player_data.get('joined_at'),
-                        'last_seen': datetime.now(timezone.utc)
-                    }
+                # Get player data from lifecycle manager sessions
+                session_key = self.lifecycle_manager.get_lifecycle_key(guild_id, player_id)
+                player_session = self.lifecycle_manager.player_sessions.get(session_key)
+                
+                if player_session:
+                    # Use existing session data and ensure it's marked as online
+                    session_data = player_session.copy()
+                    session_data['status'] = 'online'
+                    session_data['last_seen'] = datetime.now(timezone.utc)
                     
                     try:
                         await self.bot.db_manager.save_player_session(
                             int(guild_id), server_id, player_id, session_data
                         )
-                        logger.info(f"✅ Marked {session_data['player_name']} as online in database")
+                        logger.info(f"✅ Marked {session_data.get('player_name', player_id[:8])} as online in database")
                     except Exception as e:
                         logger.error(f"Failed to save session for {player_id}: {e}")
+                else:
+                    logger.warning(f"No session data found for active player {player_id}")
             
     async def read_server_logs(self, host: str, port: int, username: str, server_id: str, password: Optional[str] = None) -> Optional[str]:
         """Read logs from server via SFTP"""
