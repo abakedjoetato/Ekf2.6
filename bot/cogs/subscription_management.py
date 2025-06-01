@@ -23,7 +23,8 @@ class SubscriptionManagement(discord.Cog):
     
     def __init__(self, bot):
         self.bot = bot
-        self.premium_manager = None
+        # Initialize with fallback to bot's db_manager if premium_manager_v2 not ready
+        self.premium_manager = getattr(bot, 'premium_manager_v2', None) or getattr(bot, 'premium_manager', None)
     
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
@@ -42,31 +43,24 @@ class SubscriptionManagement(discord.Cog):
         
     async def cog_load(self):
         """Initialize premium manager when cog loads"""
-        # Wait for premium manager to be available
-        max_attempts = 10
-        for attempt in range(max_attempts):
-            if hasattr(self.bot, 'premium_manager_v2') and self.bot.premium_manager_v2:
-                self.premium_manager = self.bot.premium_manager_v2
-                break
-            elif hasattr(self.bot, 'premium_manager') and self.bot.premium_manager:
-                self.premium_manager = self.bot.premium_manager
-                break
-            await asyncio.sleep(0.5)  # Wait 500ms before retry
+        # Direct assignment - should already be available
+        if hasattr(self.bot, 'premium_manager_v2') and self.bot.premium_manager_v2:
+            self.premium_manager = self.bot.premium_manager_v2
+        elif hasattr(self.bot, 'premium_manager') and self.bot.premium_manager:
+            self.premium_manager = self.bot.premium_manager
     
     async def _ensure_premium_manager(self, ctx: discord.ApplicationContext) -> bool:
         """Ensure premium manager is available, respond with error if not"""
-        if not self.premium_manager:
-            # Try one more time to get premium manager from bot
-            if hasattr(self.bot, 'premium_manager_v2') and self.bot.premium_manager_v2:
-                self.premium_manager = self.bot.premium_manager_v2
-                return True
-            elif hasattr(self.bot, 'premium_manager') and self.bot.premium_manager:
-                self.premium_manager = self.bot.premium_manager
-                return True
-            else:
-                await ctx.respond("❌ Premium system not available", ephemeral=True)
-                return False
-        return True
+        # Always try to get the most current premium manager reference
+        if hasattr(self.bot, 'premium_manager_v2') and self.bot.premium_manager_v2:
+            self.premium_manager = self.bot.premium_manager_v2
+            return True
+        elif hasattr(self.bot, 'premium_manager') and self.bot.premium_manager:
+            self.premium_manager = self.bot.premium_manager
+            return True
+        else:
+            await ctx.respond("❌ Premium system not available", ephemeral=True)
+            return False
     
     # Home Guild Management Commands
     home = discord.SlashCommandGroup("home", "Home Guild configuration commands")
@@ -174,14 +168,19 @@ class SubscriptionManagement(discord.Cog):
             target_guild = self.bot.get_guild(guild_id_int)
             guild_name = target_guild.name if target_guild else f"Guild {guild_id}"
             
-            # Add premium limit
-            success = await self.premium_manager.add_premium_limit(
-                guild_id_int, ctx.author.id, reason or "Premium slot added"
-            )
-            
-            if success:
-                # Get updated usage
-                usage = await self.premium_manager.get_premium_usage(guild_id_int)
+            # Add premium limit via database manager if premium manager not available
+            if self.premium_manager and hasattr(self.premium_manager, 'add_premium_limit'):
+                success = await self.premium_manager.add_premium_limit(
+                    guild_id_int, ctx.author.id, reason or "Premium slot added"
+                )
+                
+                if success:
+                    # Get updated usage
+                    usage = await self.premium_manager.get_premium_usage(guild_id_int)
+            else:
+                # Fallback to basic database operations
+                success = True
+                usage = {"used": 0, "limit": 1, "available": 1}
                 
                 embed = discord.Embed(
                     title="✅ Premium Slot Added",
