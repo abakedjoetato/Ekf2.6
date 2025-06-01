@@ -14,25 +14,31 @@ logger = logging.getLogger(__name__)
 
 class EmbedFactory:
     """Elite embed factory with 10/10 visual quality and advanced analytics"""
+    
     @staticmethod
     def get_thumbnail_for_type(embed_type: str) -> Tuple[str, str]:
         """Get correct thumbnail file and filename for embed type"""
+        
         thumbnail_mappings = {
-            'stats': 'WeaponStats.png',
-            'profile': 'main.png', 
-            'leaderboard': 'Leaderboard.png',
             'killfeed': 'Killfeed.png',
-            'suicide': 'Suicide.png',
-            'falling': 'Falling.png',
+            'suicide': 'Killfeed.png', 
+            'falling': 'Killfeed.png',
+            'connection': 'Connections.png',
             'mission': 'Mission.png',
             'airdrop': 'Airdrop.png',
             'helicrash': 'Helicrash.png',
             'trader': 'Trader.png',
-            'vehicle': 'Vehicle.png',
+            'vehicle': 'Killfeed.png',
+            'leaderboard': 'Leaderboard.png',
+            'stats': 'WeaponStats.png',
             'bounty': 'Bounty.png',
             'faction': 'Faction.png',
-            'connection': 'Connections.png',
             'gambling': 'Gamble.png',
+            'economy': 'main.png',
+            'work': 'main.png',
+            'balance': 'main.png',
+            'premium': 'main.png',
+            'profile': 'main.png', 
             'admin': 'main.png',
             'error': 'main.png',
             'success': 'main.png',

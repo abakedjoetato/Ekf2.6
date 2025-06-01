@@ -574,6 +574,7 @@ class Premium(commands.Cog):
                 inline=False
             )
 
+            main_file = discord.File("./assets/main.png", filename="main.png")
             confirm_embed.set_thumbnail(url="attachment://main.png")
             confirm_embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
