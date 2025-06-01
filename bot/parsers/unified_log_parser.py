@@ -124,14 +124,14 @@ class UnifiedLogParser:
             # Update voice channel
             await self.update_voice_channel(guild_id, server_id, server_name)
             
-            logger.info(f"✅ {server_name}: {'Cold start' if cold_start else f'{len(embeds)} total events sent'}")
+            logger.debug(f"{server_name}: {'Cold start' if cold_start else f'{len(embeds)} total events sent'}")
             
         except Exception as e:
             logger.error(f"Error processing server {server_config.get('name', 'Unknown')}: {e}")
             
     async def rebuild_player_state(self, lines: List[str], guild_id: int, server_id: str):
         """Rebuild current player state from complete log history"""
-        logger.info(f"🔄 Rebuilding player state from {len(lines)} log lines")
+        logger.debug(f"Rebuilding player state from {len(lines)} log lines")
         
         # Track player state changes chronologically
         player_events = []
@@ -145,7 +145,7 @@ class UnifiedLogParser:
         
         # Sort events chronologically
         player_events.sort(key=lambda x: x['timestamp'])
-        logger.info(f"🔍 Found {len(player_events)} historical player events")
+        logger.debug(f"Found {len(player_events)} historical player events")
         
         # Replay events to determine current state
         active_players = set()
@@ -166,7 +166,7 @@ class UnifiedLogParser:
                     guild_id, player_id, server_id, event['timestamp']
                 )
                 active_players.add(player_id)
-                logger.info(f"🔍 State rebuild: {session_data.get('player_name')} joined (total: {len(active_players)})")
+                logger.debug(f"State rebuild: {session_data.get('player_name')} joined (total: {len(active_players)})")
                 
             elif event['type'] == 'disconnect':
                 # Player left - remove from active
@@ -176,14 +176,14 @@ class UnifiedLogParser:
                 if player_id in active_players:
                     active_players.remove(player_id)
                     if disconnect_data:
-                        logger.info(f"🔍 State rebuild: {disconnect_data.get('player_name')} left (total: {len(active_players)})")
+                        logger.debug(f"State rebuild: {disconnect_data.get('player_name')} left (total: {len(active_players)})")
         
-        logger.info(f"✅ Player state rebuilt: {len(active_players)} players currently online")
+        logger.debug(f"Player state rebuilt: {len(active_players)} players currently online")
             
     async def read_server_logs(self, host: str, port: int, username: str, server_id: str, password: Optional[str] = None) -> Optional[str]:
         """Read logs from server via SFTP"""
         try:
-            logger.info(f"📡 Reading SFTP: ./{host}_{server_id}/Logs/Deadside.log")
+            logger.debug(f"Reading SFTP: ./{host}_{server_id}/Logs/Deadside.log")
             
             # P3R server connection with compatible SSH settings
             async with asyncssh.connect(
@@ -196,7 +196,7 @@ class UnifiedLogParser:
                 mac_algs=['hmac-sha1'],
                 compression_algs=['none']
             ) as conn:
-                logger.info(f"✅ SFTP connected to {host}:{port}")
+                logger.debug(f"SFTP connected to {host}:{port}")
                 
                 async with conn.start_sftp_client() as sftp:
                     log_path = f"./{host}_{server_id}/Logs/Deadside.log"
@@ -262,11 +262,7 @@ class UnifiedLogParser:
                         
         # Sort player events chronologically
         player_events.sort(key=lambda x: x['timestamp'])
-        logger.info(f"🔄 Processing {len(player_events)} player events in chronological order")
-        
-        # Debug: Show all detected player events
-        for event in player_events:
-            logger.info(f"🔍 Player event: {event['type']} - Player {event['player_id'][:8]} at {event['timestamp']}")
+        logger.debug(f"Processing {len(player_events)} player events in chronological order")
         
         # Process player events
         for event in player_events:
@@ -280,7 +276,7 @@ class UnifiedLogParser:
                 session_data = self.lifecycle_manager.update_player_join(
                     guild_id, event['player_id'], server_id, event['timestamp']
                 )
-                logger.info(f"🔍 Player joined: {session_data.get('player_name')} (ID: {event['player_id'][:8]}) on server {server_id}")
+                logger.debug(f"Player joined: {session_data.get('player_name')} (ID: {event['player_id'][:8]}) on server {server_id}")
                 
                 # Save to database
                 if hasattr(self.bot, 'db_manager'):
