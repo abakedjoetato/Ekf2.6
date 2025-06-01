@@ -161,7 +161,11 @@ class UnifiedLogParser:
         server_config = {}
         
         # Extract events from all lines
-        for line in lines:
+        for i, line in enumerate(lines):
+            # Debug: Show sample log lines to understand format
+            if i < 5:  # Show first 5 lines for debugging
+                logger.info(f"🔍 Log line {i}: {line[:100]}...")
+            
             events = self.event_processor.process_log_line(line)
             
             for event in events:
@@ -199,6 +203,7 @@ class UnifiedLogParser:
                 session_data = self.lifecycle_manager.update_player_join(
                     guild_id, event['player_id'], server_id, event['timestamp']
                 )
+                logger.info(f"🔍 Player joined: {session_data.get('player_name')} (ID: {event['player_id'][:8]}) on server {server_id}")
                 
                 # Save to database
                 if hasattr(self.bot, 'db_manager'):
@@ -222,6 +227,8 @@ class UnifiedLogParser:
                 disconnect_data = self.lifecycle_manager.update_player_disconnect(
                     guild_id, event['player_id'], event['timestamp']
                 )
+                if disconnect_data:
+                    logger.info(f"🔍 Player disconnected: {disconnect_data.get('player_name')} (ID: {event['player_id'][:8]})")
                 
                 if disconnect_data:
                     # Remove from database

@@ -114,7 +114,7 @@ class PlayerLifecycleManager:
         
         for key, session in self.player_sessions.items():
             logger.debug(f"🔍 Session {key}: guild={session.get('guild_id')}, status={session.get('status')}")
-            if (session.get('guild_id') == str(guild_id) and 
+            if (session.get('guild_id') == guild_id and 
                 session.get('status') == 'online'):
                 active_players[key] = session
                 logger.debug(f"🔍 Added active player: {session.get('player_name')} on server {session.get('server_id')}")
