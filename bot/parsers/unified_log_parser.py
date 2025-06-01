@@ -86,17 +86,50 @@ class UnifiedLogParser:
             if not log_content:
                 return
                 
-            # Force cold start for accurate state rebuilding
-            logger.info(f"🔄 Force cold start: rebuilding current state from complete log for {server_name}")
-            self.lifecycle_manager.clear_guild_sessions(guild_id)
-            lines_to_process = log_content.splitlines()
-            
-            # Always rebuild current player state from complete log
-            await self.rebuild_player_state(lines_to_process, guild_id, server_id)
-            
-            # Don't send embeds during cold start
-            embeds = []
+            # Determine if cold start needed (first run only)
             current_size = len(log_content)
+            last_size = parser_state.get('last_log_size', 0)
+            cold_start = last_size == 0  # Only on first run
+            
+            if cold_start:
+                logger.info(f"🧊 Cold start: rebuilding current state from complete log for {server_name}")
+                self.lifecycle_manager.clear_guild_sessions(guild_id)
+                
+                # Reset ALL existing players for this guild to offline (cold start reset)
+                if hasattr(self.bot, 'db_manager'):
+                    try:
+                        reset_result = await self.bot.db_manager.player_sessions.update_many(
+                            {'guild_id': int(guild_id)},
+                            {
+                                '$set': {
+                                    'status': 'offline',
+                                    'last_seen': datetime.now(timezone.utc),
+                                    'cleanup_reason': 'Cold start reset',
+                                    'disconnected_at': datetime.now(timezone.utc)
+                                },
+                                '$unset': {
+                                    'updated_at': ''
+                                }
+                            }
+                        )
+                        logger.info(f"🔄 Cold start: Reset {reset_result.modified_count} existing players to offline for guild {guild_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to reset all players to offline: {e}")
+                
+                lines_to_process = log_content.splitlines()
+                await self.rebuild_player_state(lines_to_process, guild_id, server_id)
+                embeds = []  # No embeds during cold start
+            else:
+                logger.info(f"🔥 Hot start: processing {current_size - last_size} new bytes for {server_name}")
+                new_content = log_content[last_size:]
+                lines_to_process = new_content.splitlines()
+                
+                # Process only new lines and generate embeds
+                embeds = await self.process_log_lines(lines_to_process, guild_id, server_id, server_name, cold_start=False)
+            
+            # Send embeds (only for hot start)
+            if embeds:
+                await self.send_embeds(guild_id, server_id, embeds)
             
             # Update parser state
             await self.update_parser_state(guild_id, server_id, {
@@ -164,28 +197,7 @@ class UnifiedLogParser:
         
         logger.info(f"🎮 Player state rebuilt: {len(active_players)} players currently online")
         
-        # First, mark ALL existing players for this guild as offline (cold start reset)
-        if hasattr(self.bot, 'db_manager'):
-            try:
-                reset_result = await self.bot.db_manager.player_sessions.update_many(
-                    {'guild_id': int(guild_id)},
-                    {
-                        '$set': {
-                            'status': 'offline',
-                            'last_seen': datetime.now(timezone.utc),
-                            'cleanup_reason': 'Cold start reset',
-                            'disconnected_at': datetime.now(timezone.utc)
-                        },
-                        '$unset': {
-                            'updated_at': ''
-                        }
-                    }
-                )
-                logger.info(f"🔄 Cold start: Reset {reset_result.modified_count} existing players to offline for guild {guild_id}")
-            except Exception as e:
-                logger.error(f"Failed to reset all players to offline: {e}")
-        
-        # Then save only currently active players as online
+        # Save only currently active players as online
         if hasattr(self.bot, 'db_manager') and active_players:
             for player_id in active_players:
                 # Get player data from lifecycle manager sessions
