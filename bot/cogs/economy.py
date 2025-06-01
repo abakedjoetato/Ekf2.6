@@ -16,6 +16,7 @@ from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
 from bot.utils.input_validator import validate_input
 from bot.utils.premium_manager import premium_required
+from bot.utils.context_validator import guild_required
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class Economy(commands.Cog):
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
                 
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
 
             # Check premium access
@@ -143,7 +144,7 @@ class Economy(commands.Cog):
     async def work(self, ctx: discord.ApplicationContext):
         """Work command to earn money"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             user_key = f"{guild_id}_{discord_id}"
 
@@ -250,7 +251,7 @@ class Economy(commands.Cog):
                        user: discord.Member, amount: int):
         """Give money to a user (admin only)"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Check premium access
             if not await self.check_premium_server(guild_id):
@@ -299,7 +300,7 @@ class Economy(commands.Cog):
                        user: discord.Member, amount: int):
         """Take money from a user (admin only)"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Check premium access
             if not await self.check_premium_server(guild_id):
@@ -356,7 +357,7 @@ class Economy(commands.Cog):
     async def eco_reset(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Reset a user's wallet (admin only)"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Check premium access
             if not await self.check_premium_server(guild_id):

@@ -378,7 +378,7 @@ class SubscriptionManagement(commands.Cog):
                                                              autocomplete=ServerAutocomplete.autocomplete_server_name)):
         """Activate premium for a server (guild admins only)"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
             guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
@@ -432,7 +432,7 @@ class SubscriptionManagement(commands.Cog):
                                                                autocomplete=ServerAutocomplete.autocomplete_server_name)):
         """Deactivate premium for a server (guild admins only)"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
             guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})
@@ -485,7 +485,7 @@ class SubscriptionManagement(commands.Cog):
                                                            autocomplete=ServerAutocomplete.autocomplete_server_name, required=False)):
         """View premium status for servers"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Get guild config for server names
             guild_config = await self.bot.database.db.guilds.find_one({"guild_id": guild_id})

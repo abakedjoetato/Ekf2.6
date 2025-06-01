@@ -67,7 +67,7 @@ class AdminChannels(commands.Cog):
                          server_id: discord.Option(str, "Server to configure channels for", required=False, default="default")):
         """Configure a specific channel type for a specific server"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             channel_config = self.channel_types[channel_type]
             
             # Check if channel type requires premium
@@ -203,7 +203,7 @@ class AdminChannels(commands.Cog):
                           server_id: discord.Option(str, "Server to configure channels for", required=False, default="default")):
         """Configure multiple channel types for a specific server at once"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Map provided channels to types
             channel_updates = {}
@@ -315,7 +315,7 @@ class AdminChannels(commands.Cog):
                            server_id: discord.Option(str, "Server to clear channels for", required=False, default="default")):
         """Clear all channel configurations for a specific server"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Get current configuration
             guild_config = await self.bot.db_manager.get_guild(guild_id)
@@ -388,7 +388,7 @@ class AdminChannels(commands.Cog):
                           server_id: discord.Option(str, "Server to view channels for", required=False, default="default")):
         """View current channel configuration for a specific server"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             guild_config = await self.bot.db_manager.get_guild(guild_id)
             server_channels = guild_config.get('server_channels', {}).get(server_id, {}) if guild_config else {}
             

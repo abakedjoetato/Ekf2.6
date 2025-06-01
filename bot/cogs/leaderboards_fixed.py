@@ -34,6 +34,12 @@ class LeaderboardsFixed(commands.Cog):
         await ctx.defer()
 
         try:
+            if not ctx.guild:
+
+                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+
+                return
+
             guild_id = ctx.guild.id if ctx.guild else None
             if not guild_id:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)

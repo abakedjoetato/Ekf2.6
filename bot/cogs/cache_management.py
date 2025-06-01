@@ -110,7 +110,7 @@ class CacheManagement(commands.Cog):
             return
         
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Confirm action
             embed = discord.Embed(
@@ -186,7 +186,7 @@ class CacheManagement(commands.Cog):
             return
         
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Refresh premium cache
             if hasattr(self.bot.db_manager, 'invalidate_premium_cache'):

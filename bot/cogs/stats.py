@@ -32,7 +32,16 @@ class Stats(commands.Cog):
         Resolve a target (discord.Member or str) to player characters and display name.
         Returns (character_list, display_name) or None if not found.
         """
-        guild_id = ctx.guild.id
+        if not ctx.guild:
+                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+                return
+            if not ctx.guild:
+
+                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+
+                return
+
+            guild_id = ctx.guild.id
         
         if isinstance(target, discord.Member):
             # Discord user - must be linked
@@ -274,7 +283,7 @@ class Stats(commands.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             server_name = ctx.guild.name
 
             # Handle server filtering if provided
@@ -411,7 +420,7 @@ class Stats(commands.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             user1 = ctx.author
             user2 = user
 
@@ -473,7 +482,7 @@ class Stats(commands.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Get servers for autocomplete resolution
             servers = await ServerAutocomplete.get_servers_for_guild(guild_id, self.bot.db_manager)

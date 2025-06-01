@@ -67,7 +67,16 @@ class Bounties(commands.Cog):
         Resolve a target (discord.Member or str) to character name and discord_id.
         Returns (character_name, discord_id) or None if not found.
         """
-        guild_id = ctx.guild.id
+        if not ctx.guild:
+                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+                return
+            if not ctx.guild:
+
+                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+
+                return
+
+            guild_id = ctx.guild.id
 
         if isinstance(target, discord.Member):
             # Discord user - must be linked
@@ -124,7 +133,7 @@ class Bounties(commands.Cog):
     async def bounty_set(self, ctx: discord.ApplicationContext, target: str, amount: int):
         """Set a bounty on a target (Discord user or player name)"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
 
             # Check premium access
@@ -281,7 +290,7 @@ class Bounties(commands.Cog):
     async def bounty_list(self, ctx: discord.ApplicationContext):
         """List all active bounties"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Check premium access
             if not await self.check_premium_server(guild_id):
@@ -656,7 +665,7 @@ class Bounties(commands.Cog):
                             amount: discord.Option(int, "Bounty amount", min_value=100)):
         """Set a bounty on a player"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             if not await self.check_premium_server(guild_id):
@@ -714,7 +723,7 @@ class Bounties(commands.Cog):
     async def bounty_list_cmd(self, ctx: discord.ApplicationContext):
         """List active bounties"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             
             bounties = await self.bot.db_manager.db.bounties.find({
                 "guild_id": guild_id,

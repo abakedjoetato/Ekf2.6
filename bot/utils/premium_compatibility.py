@@ -63,7 +63,7 @@ class PremiumCompatibility:
     # PREMIUM ACCESS CHECKS
     # =====================
     
-    async def has_premium_access(self, guild_id: int, server_id: str = None) -> bool:
+    async def has_premium_access(self, guild_id: int, server_id: str = "default") -> bool:
         """
         Check if guild has premium access
         
@@ -400,6 +400,6 @@ class PremiumCompatibility:
             return False
     
     # Legacy compatibility method
-    async def check_premium_access(self, guild_id: int, server_id: str = None) -> bool:
+    async def check_premium_access(self, guild_id: int, server_id: str = "default") -> bool:
         """Legacy compatibility method - same as has_premium_access"""
         return await self.has_premium_access(guild_id, server_id)

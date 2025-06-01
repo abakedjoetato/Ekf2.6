@@ -44,7 +44,7 @@ class Premium(commands.Cog):
                 await ctx.respond("Only the bot owner can use this command!", ephemeral=True)
                 return
 
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Update or create guild as home server
             await self.bot.database.guilds.update_one(
@@ -114,7 +114,7 @@ class Premium(commands.Cog):
         """Assign premium status to a server"""
         try:
             # Use provided guild_id or default to current guild
-            target_guild_id = int(guild_id) if guild_id else ctx.guild.id
+            target_guild_id = int(guild_id) if guild_id else (ctx.guild.id if ctx.guild else None)
             server_id = server  # Use the server parameter which contains the server_id
 
             # Check if user is bot owner or in home server
@@ -122,7 +122,7 @@ class Premium(commands.Cog):
 
             # Check if current guild is home server
             home_guild = await self.bot.db_manager.guilds.find_one({
-                "guild_id": ctx.guild.id,
+                "guild_id": (ctx.guild.id if ctx.guild else None),
                 "is_home_server": True
             })
 
@@ -198,7 +198,7 @@ class Premium(commands.Cog):
         """Revoke premium status from a server"""
         try:
             # Use provided guild_id or default to current guild
-            target_guild_id = int(guild_id) if guild_id else ctx.guild.id
+            target_guild_id = int(guild_id) if guild_id else (ctx.guild.id if ctx.guild else None)
             server_id = server  # Use the server parameter which contains the server_id
 
             # Check if user is bot owner or in home server
@@ -206,7 +206,7 @@ class Premium(commands.Cog):
 
             # Check if current guild is home server
             home_guild = await self.bot.db_manager.guilds.find_one({
-                "guild_id": ctx.guild.id,
+                "guild_id": (ctx.guild.id if ctx.guild else None),
                 "is_home_server": True
             })
 
@@ -256,7 +256,7 @@ class Premium(commands.Cog):
     async def premium_status(self, ctx: discord.ApplicationContext):
         """Check premium status for all servers in the guild"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Get guild configuration
             guild_config = await self.bot.db_manager.get_guild(guild_id)
@@ -364,7 +364,7 @@ class Premium(commands.Cog):
                         name: str, host: str, port: int, username: str, password: str, serverid: str):
         """Add a game server with full SFTP credentials to the guild"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Validate inputs
             serverid = serverid.strip()
@@ -448,7 +448,7 @@ class Premium(commands.Cog):
     async def server_list(self, ctx: discord.ApplicationContext):
         """List all servers configured in this guild"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
 
             # Get guild configuration
             guild_config = await self.bot.db_manager.get_guild(guild_id)
@@ -534,7 +534,7 @@ class Premium(commands.Cog):
     async def server_remove(self, ctx: discord.ApplicationContext, server: str):
         """Remove a server from the guild"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             server_id = server  # Server ID from autocomplete
 
             # Get guild configuration
@@ -637,7 +637,7 @@ class Premium(commands.Cog):
     async def server_refresh(self, ctx: discord.ApplicationContext, server: str):
         """Refresh data for a server"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             server_id = server  # Server ID from autocomplete
 
             # Get guild configuration

@@ -30,7 +30,7 @@ class Linking(commands.Cog):
     async def link(self, ctx, character: str):
         """Link Discord account to a character name"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             # Validate character name
@@ -142,7 +142,7 @@ class Linking(commands.Cog):
     async def alt_add(self, ctx: discord.ApplicationContext, character: str):
         """Add an alternate character to your account"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             # Check if user has any linked characters
@@ -235,7 +235,7 @@ class Linking(commands.Cog):
     async def alt_remove(self, ctx: discord.ApplicationContext, character: str):
         """Remove an alternate character from your account"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             # Get player data
@@ -314,7 +314,7 @@ class Linking(commands.Cog):
     async def linked(self, ctx: discord.ApplicationContext, user: discord.Member = None):
         """View linked characters for yourself or another user"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             target_user = user or ctx.user
             
             # Get player data
@@ -374,7 +374,7 @@ class Linking(commands.Cog):
     async def unlink(self, ctx: discord.ApplicationContext):
         """Unlink all characters from your Discord account"""
         try:
-            guild_id = ctx.guild.id
+            guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             # Get player data
