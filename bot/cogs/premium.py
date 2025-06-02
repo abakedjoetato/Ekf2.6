@@ -200,6 +200,15 @@ class Premium(discord.Cog):
                 # Add server to guild config
                 await bot.db_manager.add_server_to_guild(guild_id, server_config)
 
+                # Trigger historical parser for the new server
+                parsers_cog = bot.get_cog('Parsers')
+                if parsers_cog and hasattr(parsers_cog, 'historical_parser'):
+                    try:
+                        # Trigger background historical parsing
+                        await parsers_cog.historical_parser.auto_refresh_after_server_add(guild_id, server_config)
+                    except Exception as e:
+                        logger.error(f"Failed to trigger historical parser: {e}")
+
                 # Respond with success
                 embed = discord.Embed(
                     title="Server Added",
@@ -215,8 +224,8 @@ class Premium(discord.Cog):
                 )
 
                 embed.add_field(
-                    name="Next Steps",
-                    value="The system will automatically attempt to connect to this server and verify the credentials.",
+                    name="Background Processing",
+                    value="The system is now connecting to verify credentials and parse historical data.",
                     inline=False
                 )
 
@@ -354,6 +363,9 @@ class Premium(discord.Cog):
     async def server_refresh(self, ctx: discord.ApplicationContext, 
                             server: discord.Option(str, "Select a server to refresh", autocomplete=ServerAutocomplete.autocomplete_server_name)):
         """Refresh data for a server"""
+        # Defer immediately to prevent timeout
+        await ctx.response.defer(ephemeral=True)
+        
         try:
             guild_id = (ctx.guild.id if ctx.guild else None)
             server_id = server
@@ -362,7 +374,7 @@ class Premium(discord.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.respond("This guild is not configured!", ephemeral=True)
+                await ctx.followup.send("This guild is not configured!", ephemeral=True)
                 return
 
             # Find server in the guild config
@@ -380,13 +392,14 @@ class Premium(discord.Cog):
                     break
 
             if not server_found:
-                await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+                await ctx.followup.send(f"Server **{server_id}** not found in this guild!", ephemeral=True)
                 return
 
-            # Trigger refresh
-            if hasattr(self.bot, 'historical_parser'):
+            # Trigger refresh using the parsers cog
+            parsers_cog = self.bot.get_cog('Parsers')
+            if parsers_cog and hasattr(parsers_cog, 'historical_parser'):
                 try:
-                    await self.bot.historical_parser.auto_refresh_after_server_add(guild_id, server_config)
+                    await parsers_cog.historical_parser.auto_refresh_after_server_add(guild_id, server_config)
                     
                     embed = discord.Embed(
                         title="Server Refresh Started",
@@ -396,7 +409,7 @@ class Premium(discord.Cog):
                     )
 
                     embed.add_field(
-                        name="⏳ Processing",
+                        name="Processing",
                         value="The system is now refreshing server data. This may take a few minutes.",
                         inline=False
                     )
@@ -405,17 +418,17 @@ class Premium(discord.Cog):
                     embed.set_thumbnail(url="attachment://main.png")
                     embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                    await ctx.respond(embed=embed, file=main_file)
+                    await ctx.followup.send(embed=embed, file=main_file, ephemeral=True)
 
                 except Exception as e:
                     logger.error(f"Failed to trigger refresh: {e}")
-                    await ctx.respond("Failed to trigger server refresh. Please try again.", ephemeral=True)
+                    await ctx.followup.send("Failed to trigger server refresh. Please try again.", ephemeral=True)
             else:
-                await ctx.respond("Parser system not available for refresh.", ephemeral=True)
+                await ctx.followup.send("Parser system not available for refresh.", ephemeral=True)
 
         except Exception as e:
             logger.error(f"Failed to refresh server: {e}")
-            await ctx.respond("Failed to refresh server. Please try again.", ephemeral=True)
+            await ctx.followup.send("Failed to refresh server. Please try again.", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(Premium(bot))
