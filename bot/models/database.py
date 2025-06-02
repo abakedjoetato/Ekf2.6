@@ -868,6 +868,24 @@ class DatabaseManager:
 
             await self.kill_events.insert_one(kill_event)
             logger.debug(f"Added kill event: {kill_data['killer']} -> {kill_data['victim']} (distance: {distance}m)")
+            
+            # Update player stats for killer (if not suicide)
+            if not kill_data.get('is_suicide', False):
+                await self.increment_player_kill(
+                    guild_id, 
+                    server_id, 
+                    kill_data.get('killer', ''), 
+                    distance, 
+                    kill_data.get('timestamp')
+                )
+            
+            # Update victim death count
+            await self.increment_player_death(
+                guild_id, 
+                server_id, 
+                kill_data.get('victim', ''), 
+                kill_data.get('timestamp')
+            )
 
         except Exception as e:
             logger.error(f"Failed to add kill event: {e}")
