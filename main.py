@@ -136,6 +136,7 @@ class EmeraldKillfeedBot(commands.Bot):
         from bot.cogs.bounties import Bounties
         from bot.cogs.factions import Factions
         from bot.cogs.subscription_management import SubscriptionManagement
+        from bot.cogs.premium import Premium
         from bot.cogs.parsers import Parsers
         from bot.cogs.cache_management import CacheManagement
 
@@ -152,6 +153,7 @@ class EmeraldKillfeedBot(commands.Bot):
             ('Bounties', Bounties),
             ('Factions', Factions),
             ('SubscriptionManagement', SubscriptionManagement),
+            ('Premium', Premium),
             ('Parsers', Parsers),
             ('CacheManagement', CacheManagement)
         ]
