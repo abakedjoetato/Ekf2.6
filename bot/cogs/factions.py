@@ -52,19 +52,33 @@ class Factions(discord.Cog):
         })
 
     async def generate_faction_stats(self, guild_id: int, member_ids: List[int]) -> Dict[str, Any]:
-        """Generate combined stats for faction members"""
+        """Generate combined stats for faction members using correct data structure"""
         try:
             total_kills = 0
             total_deaths = 0
             total_distance = 0.0
             
             for member_id in member_ids:
-                # Get player stats across all servers
-                stats = await self.bot.db_manager.get_player_combined_stats(guild_id or 0, member_id)
-                if stats:
-                    total_kills += stats.get('total_kills', 0)
-                    total_deaths += stats.get('total_deaths', 0)
-                    total_distance += stats.get('total_distance', 0.0)
+                # Get linked player names for this Discord user
+                user_link = await self.bot.db_manager.user_links.find_one({
+                    'guild_id': guild_id,
+                    'discord_id': member_id
+                })
+                
+                if user_link:
+                    player_names = user_link.get('player_names', [])
+                    
+                    # Get stats from pvp_data for each linked player name
+                    for player_name in player_names:
+                        cursor = self.bot.db_manager.pvp_data.find({
+                            'guild_id': guild_id,
+                            'player_name': player_name
+                        })
+                        
+                        async for player_stats in cursor:
+                            total_kills += player_stats.get('kills', 0)
+                            total_deaths += player_stats.get('deaths', 0)
+                            total_distance += player_stats.get('total_distance', 0.0)
             
             # Calculate K/D ratio
             kdr = total_kills / total_deaths if total_deaths > 0 else total_kills
