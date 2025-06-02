@@ -33,7 +33,10 @@ class AutomatedLeaderboard(discord.Cog):
     async def refresh_premium_cache(self, guild_id: int):
         """Refresh premium status from database and cache it"""
         try:
-            guild_config = has_premium = self.check_premium_access(guild_id)}")
+            has_premium = await self.bot.db_manager.check_premium_access(guild_id)
+            self.premium_cache[guild_id] = has_premium
+        except Exception as e:
+            logger.error(f"Failed to refresh premium cache for guild {guild_id}: {e}")
             self.premium_cache[guild_id] = False
 
     def check_premium_access(self, guild_id: int) -> bool:
@@ -355,7 +358,9 @@ class AutomatedLeaderboard(discord.Cog):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
                 # Fallback to old method
-                guild_doc = has_premium = self.check_premium_access(guild_id)}")
+                return await self.bot.db_manager.check_premium_access(guild_id)
+        except Exception as e:
+            logger.error(f"Error checking premium access: {e}")
             return False
 
     async def create_consolidated_leaderboard(self, guild_id: int, server_id: str, server_name: str):
