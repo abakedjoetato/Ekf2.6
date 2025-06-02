@@ -836,7 +836,9 @@ class EmbedFactory:
 
             rankings = embed_data.get('rankings', '')
             if rankings:
-                embed.add_field(name="**TOP WARRIORS**", value=rankings, inline=False)
+                # Apply dynamic inline formatting based on content length to prevent text wrapping
+                rankings_inline = should_use_inline(rankings, max_inline_chars=150)
+                embed.add_field(name="**TOP WARRIORS**", value=rankings, inline=rankings_inline)
 
             server_name = embed_data.get('server_name', 'All Servers')
             embed.add_field(name="**THEATER OF OPERATIONS**", value=f"**{server_name}**", inline=should_use_inline(f"**{server_name}**"))

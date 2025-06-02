@@ -207,13 +207,74 @@ class AutomatedLeaderboard(discord.Cog):
         except Exception as e:
             logger.error(f"Failed to update guild leaderboard: {e}")
 
-    async def find_existing_leaderboard_message(self, channel, server_name: str):
-        """Find existing leaderboard message for a specific server"""
+    async def get_stored_leaderboard_message_id(self, guild_id: int, channel_id: int) -> Optional[int]:
+        """Get stored leaderboard message ID from database for persistence across restarts"""
         try:
+            stored_data = await self.bot.db_manager.leaderboard_messages.find_one({
+                "guild_id": guild_id,
+                "channel_id": channel_id,
+                "message_type": "consolidated_leaderboard"
+            })
+            return stored_data.get('message_id') if stored_data else None
+        except Exception as e:
+            logger.error(f"Error getting stored leaderboard message ID: {e}")
+            return None
+
+    async def store_leaderboard_message_id(self, guild_id: int, channel_id: int, message_id: int):
+        """Store leaderboard message ID in database for persistence across restarts"""
+        try:
+            await self.bot.db_manager.leaderboard_messages.update_one(
+                {
+                    "guild_id": guild_id,
+                    "channel_id": channel_id,
+                    "message_type": "consolidated_leaderboard"
+                },
+                {
+                    "$set": {
+                        "guild_id": guild_id,
+                        "channel_id": channel_id,
+                        "message_id": message_id,
+                        "message_type": "consolidated_leaderboard",
+                        "last_updated": datetime.now(timezone.utc)
+                    }
+                },
+                upsert=True
+            )
+            logger.info(f"Stored leaderboard message ID {message_id} for persistence")
+        except Exception as e:
+            logger.error(f"Error storing leaderboard message ID: {e}")
+
+    async def find_existing_leaderboard_message(self, channel, server_name: str):
+        """Find existing leaderboard message using stored ID for persistence across restarts"""
+        try:
+            # First try to get stored message ID from database
+            stored_message_id = await self.get_stored_leaderboard_message_id(channel.guild.id, channel.id)
+            
+            if stored_message_id:
+                try:
+                    # Try to fetch the stored message
+                    stored_message = await channel.fetch_message(stored_message_id)
+                    # Verify it's still a valid leaderboard message
+                    if stored_message.author == self.bot.user and stored_message.embeds:
+                        embed = stored_message.embeds[0]
+                        if embed.title and any(keyword in embed.title.upper() for keyword in ['RANKING', 'LEADERBOARD', 'COMBAT', 'ELITE']):
+                            return stored_message
+                except discord.NotFound:
+                    # Message was deleted, remove from database
+                    await self.bot.db_manager.leaderboard_messages.delete_one({
+                        "guild_id": channel.guild.id,
+                        "channel_id": channel.id,
+                        "message_type": "consolidated_leaderboard"
+                    })
+                    logger.info("Stored message was deleted, removed from database")
+            
+            # Fallback: search recent messages
             async for message in channel.history(limit=50):
                 if (message.author == self.bot.user and 
                     message.embeds and 
                     any(server_name in embed.title for embed in message.embeds if embed.title)):
+                    # Store this message ID for future use
+                    await self.store_leaderboard_message_id(channel.guild.id, channel.id, message.id)
                     return message
             return None
         except Exception as e:
@@ -438,37 +499,37 @@ class AutomatedLeaderboard(discord.Cog):
             return []
 
     async def get_top_weapons(self, guild_id: int, limit: int, server_id: str = None) -> List[Dict[str, Any]]:
-        """Get top weapons by kill count"""
+        """Get top weapons by kill count - using same method as working /leaderboard weapons"""
         try:
-            query = {
+            # Use exact same query as working leaderboard command
+            cursor = self.bot.db_manager.kill_events.find({
                 "guild_id": guild_id,
-                "kills": {"$gt": 0}
-            }
+                "is_suicide": False,
+                "weapon": {"$nin": ["Menu Suicide", "Suicide", "Falling", "suicide_by_relocation"]}
+            })
 
-            # Add server filter if specified
-            if server_id:
-                query["server_id"] = server_id
+            weapon_events = await cursor.to_list(length=None)
 
-            # Aggregate weapons from kill events
-            pipeline = [
-                {"$match": query},
-                {"$group": {
-                    "_id": "$weapon",
-                    "kills": {"$sum": 1},
-                    "top_user": {"$first": "$killer"}
-                }},
-                {"$sort": {"kills": -1}},
-                {"$limit": limit},
-                {"$project": {
-                    "weapon_name": "$_id",
-                    "kills": 1,
-                    "top_user": 1,
-                    "_id": 0
-                }}
-            ]
+            # Group weapons in Python (same as working command)
+            weapon_stats = {}
+            for event in weapon_events:
+                weapon = event.get('weapon', 'Unknown')
+                killer = event.get('killer', 'Unknown')
 
-            cursor = self.bot.db_manager.kill_events.aggregate(pipeline)
-            return await cursor.to_list(length=None)
+                if weapon not in weapon_stats:
+                    weapon_stats[weapon] = {'kills': 0, 'top_killer': killer}
+                weapon_stats[weapon]['kills'] += 1
+
+            # Sort and limit
+            weapons_data = []
+            for weapon, stats in sorted(weapon_stats.items(), key=lambda x: x[1]['kills'], reverse=True)[:limit]:
+                weapons_data.append({
+                    'weapon_name': weapon,
+                    'kills': stats['kills'],
+                    'top_user': stats['top_killer']
+                })
+
+            return weapons_data
         except Exception as e:
             logger.error(f"Failed to get top weapons: {e}")
             return []
