@@ -42,6 +42,8 @@ class Economy(discord.Cog):
         try:
             has_premium = await self.bot.db_manager.check_premium_access(guild_id)
             self.premium_cache[guild_id] = has_premium
+        except Exception as e:
+            logger.error(f"Failed to refresh premium cache for guild {guild_id}: {e}")
             self.premium_cache[guild_id] = False
 
     def check_premium_access(self, guild_id: int) -> bool:
