@@ -197,6 +197,11 @@ class AdvancedEmeraldBot(discord.Bot):
             logger.info(f"📊 Serving {len(self.guilds)} guilds")
             logger.info(f"⏱️ Startup time: {(datetime.now(timezone.utc) - self.start_time).total_seconds():.2f}s")
             
+            # Force database initialization if it wasn't done in setup_hook
+            if not self.db_manager:
+                logger.info("🔄 Database not initialized, attempting initialization now...")
+                await self._initialize_advanced_database()
+            
             # Initialize guilds in database
             if self.db_manager:
                 for guild in self.guilds:
