@@ -7,8 +7,8 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any, Tuple, NamedTuple
 from datetime import datetime, timezone
+from dataclasses import dataclass, field
 import re
-from dataclasses import dataclass
 from bot.utils.connection_pool import connection_manager
 
 logger = logging.getLogger(__name__)
