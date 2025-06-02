@@ -201,43 +201,39 @@ class AutomatedLeaderboard(discord.Cog):
                 logger.warning(f"No servers configured for guild {guild_id}")
                 return
 
-            # Process each server
-            for server_config in servers:
-                server_id = str(server_config.get('_id', ''))
-                server_name = server_config.get('name', 'Unknown Server')
+            # Create one consolidated leaderboard for all servers in the guild
+            try:
+                # Create consolidated leaderboard for the entire guild (all servers combined)
+                embed, file_attachment = await self.create_consolidated_leaderboard(
+                    guild_id, None, "All Servers"
+                )
 
-                try:
-                    # Create consolidated leaderboard
-                    embed, file_attachment = await self.create_consolidated_leaderboard(
-                        guild_id, server_id, server_name
-                    )
-
-                    if embed:
-                        # Try to find and update existing leaderboard message
-                        existing_message = None
-                        if not force_create:
-                            existing_message = await self.find_existing_leaderboard_message(channel, server_name)
-                        
-                        if existing_message:
-                            # Edit existing message
-                            try:
-                                if file_attachment:
-                                    await existing_message.edit(embed=embed, attachments=[file_attachment])
-                                else:
-                                    await existing_message.edit(embed=embed)
-                                logger.info(f"Updated existing leaderboard for {server_name}")
-                            except Exception as edit_error:
-                                logger.warning(f"Failed to edit existing message, posting new one: {edit_error}")
-                                # Fall back to posting new message
-                                await self.post_new_leaderboard_message(channel, embed, file_attachment)
-                                logger.info(f"Posted new leaderboard for {server_name}")
-                        else:
-                            # Post new message
+                if embed:
+                    # Try to find and update existing leaderboard message
+                    existing_message = None
+                    if not force_create:
+                        existing_message = await self.find_existing_leaderboard_message(channel, "Consolidated Leaderboard")
+                    
+                    if existing_message:
+                        # Edit existing message
+                        try:
+                            if file_attachment:
+                                await existing_message.edit(embed=embed, attachments=[file_attachment])
+                            else:
+                                await existing_message.edit(embed=embed)
+                            logger.info(f"Updated existing consolidated leaderboard")
+                        except Exception as edit_error:
+                            logger.warning(f"Failed to edit existing message, posting new one: {edit_error}")
+                            # Fall back to posting new message
                             await self.post_new_leaderboard_message(channel, embed, file_attachment)
-                            logger.info(f"Posted new leaderboard for {server_name}")
+                            logger.info(f"Posted new consolidated leaderboard")
+                    else:
+                        # Post new message
+                        await self.post_new_leaderboard_message(channel, embed, file_attachment)
+                        logger.info(f"Posted new consolidated leaderboard")
 
-                except Exception as e:
-                    logger.error(f"Failed to post leaderboard for {server_name}: {e}")
+            except Exception as e:
+                logger.error(f"Failed to post consolidated leaderboard: {e}")
 
         except Exception as e:
             logger.error(f"Failed to update guild leaderboard: {e}")
