@@ -123,7 +123,7 @@ class ScalableKillfeedProcessor:
                     if attr.filename.endswith('.csv'):
                         # Extract timestamp from filename
                         timestamp = self._extract_timestamp_from_filename(attr.filename)
-                        if timestamp:
+                        if timestamp and timestamp.strip():
                             csv_files.append((attr.filename, timestamp))
                 
                 if csv_files:

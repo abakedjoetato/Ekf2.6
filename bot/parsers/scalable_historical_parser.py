@@ -6,7 +6,7 @@ Enterprise-grade historical data processing with connection pooling and chronolo
 import asyncio
 import discord
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Optional, Dict, List, Optional, Any
 from datetime import datetime, timezone
 from bot.utils.connection_pool import connection_manager
 from bot.utils.chronological_processor import MultiServerProcessor, ProcessingPhase

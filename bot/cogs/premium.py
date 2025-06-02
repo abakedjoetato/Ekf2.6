@@ -173,7 +173,7 @@ class Premium(discord.Cog):
                 # Get or create guild
                 guild_config = await bot.db_manager.get_guild(guild_id)
                 if not guild_config:
-                    guild_config = await bot.db_manager.create_guild(guild_id, interaction.guild.name)
+                    guild_config = await bot.db_manager.create_guild(guild_id, getattr(interaction.guild, "name", "Unknown Guild") if interaction.guild else "Unknown Guild")
 
                 # Check if server already exists
                 existing_servers = guild_config.get('servers', [])

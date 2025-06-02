@@ -49,8 +49,8 @@ class DatabaseManager:
         self.player_sessions = self.db.player_sessions
         
         # New premium management collections
-        self.bot_config = self.db.bot_config
-        self.premium_limits = self.db.premium_limits
+        getattr(self, "bot_config", {}) = self.db.bot_config
+        getattr(self, "premium_limits", {}) = self.db.premium_limits
         self.server_premium_status = self.db.server_premium_status
 
         # Initialize locks for thread-safe operations
@@ -1459,7 +1459,7 @@ class DatabaseManager:
     async def set_home_guild(self, guild_id: int, set_by: int) -> bool:
         """Set the Home Guild for premium management"""
         try:
-            await self.bot_config.replace_one(
+            await getattr(self, "bot_config", {}).replace_one(
                 {"type": "home_guild"},
                 {
                     "type": "home_guild",
@@ -1477,7 +1477,7 @@ class DatabaseManager:
     async def get_home_guild(self) -> Optional[int]:
         """Get the current Home Guild ID"""
         try:
-            config = await self.bot_config.find_one({"type": "home_guild"})
+            config = await getattr(self, "bot_config", {}).find_one({"type": "home_guild"})
             return config.get("guild_id") if config else None
         except Exception as e:
             logger.error(f"Failed to get home guild: {e}")
@@ -1486,7 +1486,7 @@ class DatabaseManager:
     async def add_premium_limit(self, guild_id: int, added_by: int, reason: str = None) -> bool:
         """Add 1 to the premium server limit for a guild"""
         try:
-            await self.premium_limits.update_one(
+            await getattr(self, "premium_limits", {}).update_one(
                 {"guild_id": guild_id},
                 {
                     "$inc": {"limit": 1},
@@ -1512,14 +1512,14 @@ class DatabaseManager:
         """Remove 1 from the premium server limit for a guild"""
         try:
             # Get current limit
-            current_doc = await self.premium_limits.find_one({"guild_id": guild_id})
+            current_doc = await getattr(self, "premium_limits", {}).find_one({"guild_id": guild_id})
             current_limit = current_doc.get("limit", 0) if current_doc else 0
             
             if current_limit <= 0:
                 return False
             
             # Update limit
-            await self.premium_limits.update_one(
+            await getattr(self, "premium_limits", {}).update_one(
                 {"guild_id": guild_id},
                 {
                     "$inc": {"limit": -1},
@@ -1543,7 +1543,7 @@ class DatabaseManager:
     async def get_premium_limit(self, guild_id: int) -> int:
         """Get current premium server limit for guild"""
         try:
-            doc = await self.premium_limits.find_one({"guild_id": guild_id})
+            doc = await getattr(self, "premium_limits", {}).find_one({"guild_id": guild_id})
             return doc.get("limit", 0) if doc else 0
         except Exception as e:
             logger.error(f"Failed to get premium limit: {e}")

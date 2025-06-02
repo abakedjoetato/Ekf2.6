@@ -45,7 +45,7 @@ class ProcessingStats:
     processed_kills: int = 0
     start_time: Optional[datetime] = None
     current_file: str = ""
-    errors: List[str] = None
+    errors: List[str] = field(default_factory=list)
     
     def __post_init__(self):
         if self.errors is None:
@@ -132,7 +132,7 @@ class ChronologicalProcessor:
                     logger.error(f"Failed to discover files: {e}")
                     self.stats.errors.append(f"File discovery failed: {str(e)}")
                 
-                await sftp.exit()
+                sftp.exit()
                 
         except Exception as e:
             logger.error(f"Connection failed during discovery: {e}")
@@ -182,7 +182,7 @@ class ChronologicalProcessor:
                 async with sftp.open(file_path, 'r') as file:
                     content = await file.read()
                 
-                await sftp.exit()
+                sftp.exit()
                 
                 # Parse lines into kill records
                 lines = content.strip().split('\n')
