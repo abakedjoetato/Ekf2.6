@@ -277,10 +277,9 @@ class KillfeedParser:
                 return
 
             # Create killfeed embed
-            embed_factory = EmbedFactory()
-            embed = await embed_factory.create_killfeed_embed(kill_data, server_id)
+            embed, file = await EmbedFactory.build_killfeed_embed(kill_data)
             
-            await channel.send(embed=embed)
+            await channel.send(embed=embed, file=file)
 
         except Exception as e:
             logger.error(f"Error sending killfeed embed: {e}")
@@ -295,7 +294,7 @@ class KillfeedParser:
             async with conn.start_sftp_client() as sftp:
                 async with sftp.open(file_path, 'r') as f:
                     content = await f.read()
-                    lines = content.decode('utf-8').strip().split('\n')
+                    lines = content.strip().split('\n')
                     
                     last_line_count = self.last_processed_lines.get(server_key, 0)
                     remaining_lines = lines[max(1, last_line_count):]
@@ -350,7 +349,7 @@ class KillfeedParser:
                 try:
                     async with sftp.open(newest_file, 'r') as f:
                         content = await f.read()
-                        lines = content.decode('utf-8').strip().split('\n')
+                        lines = content.strip().split('\n')
                         
                         # Skip header and previously processed lines
                         new_lines = lines[max(1, last_line_count):]
