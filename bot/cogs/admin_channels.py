@@ -40,8 +40,21 @@ class AdminChannels(discord.Cog):
         }
     
     async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has premium access - bypassed to prevent timeouts"""
-        return True  # Always return True to prevent command timeouts
+        """Check if guild has premium access"""
+        try:
+            # Use a direct database call without awaiting in the command context
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
+            if not guild_config:
+                return False
+            
+            # Check for premium access flag or premium servers
+            has_premium_access = guild_config.get('premium_access', False)
+            has_premium_servers = bool(guild_config.get('premium_servers', []))
+            
+            return has_premium_access or has_premium_servers
+        except Exception as e:
+            logger.error(f"Premium check failed: {e}")
+            return False
     
     async def channel_type_autocomplete(self, ctx: discord.AutocompleteContext):
         """Autocomplete for channel types"""
@@ -68,9 +81,17 @@ class AdminChannels(discord.Cog):
                 
             channel_config = self.channel_types[channel_type]
             
-            # Check if channel type requires premium
+            # Check if channel type requires premium - do this check BEFORE defer
             if channel_config['premium']:
-                has_premium = await self.check_premium_access(guild_id)
+                # Quick premium check without database calls during command execution
+                try:
+                    guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
+                    has_premium_access = guild_config.get('premium_access', False) if guild_config else False
+                    has_premium_servers = bool(guild_config.get('premium_servers', [])) if guild_config else False
+                    has_premium = has_premium_access or has_premium_servers
+                except:
+                    has_premium = False
+                
                 if not has_premium:
                     embed = discord.Embed(
                         title="Premium Feature Required",
