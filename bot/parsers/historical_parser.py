@@ -224,7 +224,7 @@ class HistoricalParser:
         return embed
 
     async def get_all_csv_files(self, server_config: Dict[str, Any]) -> Tuple[List[str], Dict]:
-        """Get all CSV files for historical parsing with comprehensive validation"""
+        """Get all CSV file paths (not content) for historical parsing"""
         processing_report = {
             'files_discovered': 0,
             'files_processed': 0,
@@ -236,19 +236,71 @@ class HistoricalParser:
         }
 
         try:
-            if self.bot.dev_mode:
-                lines, report = await self.get_dev_csv_files()
-                processing_report.update(report)
-                return lines, processing_report
-            else:
-                lines, report = await self.get_sftp_csv_files(server_config)
-                processing_report.update(report)
-                return lines, processing_report
+            # Get file paths, not file content
+            file_paths, report = await self.discover_csv_file_paths(server_config)
+            processing_report.update(report)
+            return file_paths, processing_report
 
         except Exception as e:
             logger.error(f"Failed to get CSV files: {e}")
             processing_report['critical_error'] = str(e)
             return [], processing_report
+
+    async def discover_csv_file_paths(self, server_config: Dict[str, Any]) -> Tuple[List[str], Dict]:
+        """Discover CSV file paths without processing content"""
+        report = {
+            'files_discovered': 0,
+            'total_size': 0,
+            'failed_files': []
+        }
+
+        try:
+            conn = await self.get_sftp_connection(server_config)
+            if not conn:
+                report['critical_error'] = "Failed to establish SFTP connection"
+                return [], report
+
+            server_id = str(server_config.get('_id', 'unknown'))
+            sftp_host = server_config.get('host')
+            remote_path = f"./{sftp_host}_{server_id}/actual1/deathlogs/"
+
+            async with conn.start_sftp_client() as sftp:
+                pattern = f"{remote_path}**/*.csv"
+                logger.info(f"🔍 Discovering CSV file paths with pattern: {pattern}")
+
+                try:
+                    paths = await sftp.glob(pattern)
+                    logger.info(f"📁 Discovered {len(paths)} CSV files")
+                    
+                    file_paths = []
+                    total_size = 0
+                    
+                    for path in paths:
+                        try:
+                            stat_result = await sftp.stat(path)
+                            size = getattr(stat_result, 'size', 0)
+                            total_size += size
+                            file_paths.append(path)
+                            
+                        except Exception as e:
+                            logger.warning(f"Error getting file info for {path}: {e}")
+                            report['failed_files'].append(f"{path}: {str(e)}")
+                    
+                    report['files_discovered'] = len(file_paths)
+                    report['total_size'] = total_size
+                    
+                    logger.info(f"📊 File discovery complete: {len(file_paths)} files, {total_size:,} bytes total")
+                    return file_paths, report
+                    
+                except Exception as e:
+                    logger.error(f"Failed to discover CSV files: {e}")
+                    report['critical_error'] = f"File discovery failed: {str(e)}"
+                    return [], report
+
+        except Exception as e:
+            logger.error(f"Failed to discover CSV file paths: {e}")
+            report['critical_error'] = str(e)
+            return [], report
 
     async def get_dev_csv_files(self) -> Tuple[List[str], Dict]:
         """Get all CSV files from dev_data directory with bulletproof processing"""
