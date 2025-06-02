@@ -206,11 +206,12 @@ class ScalableKillfeedProcessor:
                             new_position = current_state.last_byte_position + len(new_content)
                             new_line = current_state.last_line + len(lines)
                             
-                            await self.state_manager.update_parser_state(
-                                self.guild_id, self.server_name,
-                                current_file, new_line, new_position,
-                                'killfeed', current_state.file_timestamp
-                            )
+                            if self.state_manager:
+                                await self.state_manager.update_parser_state(
+                                    self.guild_id, self.server_name,
+                                    current_file, new_line, new_position,
+                                    'killfeed', current_state.file_timestamp
+                                )
                 
         except Exception as e:
             logger.error(f"Failed to process incremental update: {e}")
@@ -235,11 +236,12 @@ class ScalableKillfeedProcessor:
                         await self._process_killfeed_lines(lines, 0, newest_file)
                         
                         # Update state
-                        await self.state_manager.update_parser_state(
-                            self.guild_id, self.server_name,
-                            newest_file, len(lines), len(content),
-                            'killfeed', file_timestamp
-                        )
+                        if self.state_manager:
+                            await self.state_manager.update_parser_state(
+                                self.guild_id, self.server_name,
+                                newest_file, len(lines), len(content),
+                                'killfeed', file_timestamp
+                            )
                 
         except Exception as e:
             logger.error(f"Failed to process fresh start: {e}")
