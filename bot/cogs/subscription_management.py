@@ -177,11 +177,15 @@ class SubscriptionManagement(discord.Cog):
                 if success:
                     # Get updated usage
                     usage = await self.premium_manager.get_premium_usage(guild_id_int)
+                else:
+                    await ctx.respond("❌ Failed to add premium slot", ephemeral=True)
+                    return
             else:
                 # Fallback to basic database operations
                 success = True
                 usage = {"used": 0, "limit": 1, "available": 1}
-                
+            
+            if success:
                 embed = discord.Embed(
                     title="✅ Premium Slot Added",
                     description=f"Added 1 premium server slot to **{guild_name}**",
@@ -197,8 +201,6 @@ class SubscriptionManagement(discord.Cog):
                 
                 embed.set_footer(text=f"Guild ID: {guild_id}")
                 await ctx.respond(embed=embed)
-            else:
-                await ctx.respond("❌ Failed to add premium slot", ephemeral=True)
                 
         except ValueError:
             await ctx.respond("❌ Invalid guild ID format", ephemeral=True)
