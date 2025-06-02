@@ -252,7 +252,7 @@ class ChronologicalProcessor:
     
     async def _process_chronologically(self, progress_callback=None):
         """Phase 3: Process all cached records in chronological order"""
-        batch_size = 100
+        batch_size = 500  # Increased for better bulk operation efficiency
         processed = 0
         
         for i in range(0, len(self.kill_cache), batch_size):
@@ -273,11 +273,18 @@ class ChronologicalProcessor:
         logger.info(f"Processed {processed} kills chronologically for server {self.server_id}")
     
     async def _process_kill_batch(self, kill_batch: List[KillRecord]):
-        """Process a batch of chronologically ordered kills"""
+        """Process a batch of chronologically ordered kills with bulk operations"""
         valid_records = 0
         skipped_records = 0
         
         try:
+            # Prepare bulk operations
+            kill_events_to_insert = []
+            player_stat_updates = {}  # {player_name: {kills: int, deaths: int, distance_data: list}}
+            
+            processed_at = datetime.now(timezone.utc)
+            
+            # Build bulk data structures
             for kill_record in kill_batch:
                 # Validate player names before processing
                 killer_valid = kill_record.killer and kill_record.killer.strip()
@@ -287,53 +294,129 @@ class ChronologicalProcessor:
                     skipped_records += 1
                     continue  # Skip records with empty player names
                 
-                # Store kill event in database
+                killer_name = kill_record.killer.strip()
+                victim_name = kill_record.victim.strip()
+                is_suicide = killer_name.lower() == victim_name.lower()
+                
+                # Prepare kill event for bulk insert
                 kill_event = {
                     'guild_id': self.guild_id,
                     'server_id': self.server_id,
-                    'killer': kill_record.killer.strip(),
-                    'victim': kill_record.victim.strip(),
+                    'killer': killer_name,
+                    'victim': victim_name,
                     'weapon': kill_record.weapon or 'Unknown',
                     'distance': kill_record.distance,
                     'killer_platform': kill_record.killer_platform or 'Unknown',
                     'victim_platform': kill_record.victim_platform or 'Unknown',
                     'timestamp': kill_record.timestamp,
                     'file_source': kill_record.file_source,
-                    'is_suicide': kill_record.killer.strip().lower() == kill_record.victim.strip().lower(),
-                    'processed_at': datetime.now(timezone.utc)
+                    'is_suicide': is_suicide,
+                    'processed_at': processed_at
                 }
+                kill_events_to_insert.append(kill_event)
                 
-                # Insert kill event if database manager is available
-                if self.db_manager:
-                    await self.db_manager.kill_events.insert_one(kill_event)
-                    valid_records += 1
+                # Aggregate player stat updates (only for non-suicides)
+                if not is_suicide:
+                    # Killer stats
+                    if killer_name not in player_stat_updates:
+                        player_stat_updates[killer_name] = {'kills': 0, 'deaths': 0, 'distance_data': []}
+                    player_stat_updates[killer_name]['kills'] += 1
+                    player_stat_updates[killer_name]['distance_data'].append({
+                        'distance': kill_record.distance,
+                        'timestamp': kill_record.timestamp
+                    })
                     
-                    # Update player stats (kills for killer, deaths for victim)
-                    if not kill_event['is_suicide']:
-                        # Increment killer stats
-                        await self.db_manager.increment_player_kill(
-                            self.guild_id, 
-                            self.server_id, 
-                            kill_record.killer.strip(), 
-                            kill_record.distance,
-                            kill_record.timestamp
-                        )
-                        
-                        # Increment victim deaths
-                        await self.db_manager.increment_player_death(
-                            self.guild_id,
-                            self.server_id, 
-                            kill_record.victim.strip()
-                        )
+                    # Victim stats
+                    if victim_name not in player_stat_updates:
+                        player_stat_updates[victim_name] = {'kills': 0, 'deaths': 0, 'distance_data': []}
+                    player_stat_updates[victim_name]['deaths'] += 1
+                
+                valid_records += 1
+            
+            # Execute bulk operations if database manager is available
+            if self.db_manager and kill_events_to_insert:
+                # Bulk insert kill events
+                await self.db_manager.kill_events.insert_many(kill_events_to_insert, ordered=True)
+                
+                # Bulk update player statistics
+                await self._bulk_update_player_stats(player_stat_updates)
             
             if valid_records > 0:
-                logger.info(f"Processed {valid_records} valid kill records for server {self.server_id}")
+                logger.info(f"Bulk processed {valid_records} valid kill records for server {self.server_id}")
             if skipped_records > 0:
                 logger.debug(f"Skipped {skipped_records} records with invalid player names")
                 
         except Exception as e:
             logger.error(f"Failed to process kill batch: {e}")
             self.stats.errors.append(f"Batch processing error: {str(e)}")
+    
+    async def _bulk_update_player_stats(self, player_stat_updates: Dict[str, Dict]):
+        """Efficiently update player statistics in bulk"""
+        try:
+            bulk_operations = []
+            
+            for player_name, stats in player_stat_updates.items():
+                kills_to_add = stats['kills']
+                deaths_to_add = stats['deaths']
+                distance_data = stats['distance_data']
+                
+                # Calculate distance statistics
+                max_distance = max((d['distance'] for d in distance_data), default=0)
+                total_distance = sum(d['distance'] for d in distance_data)
+                latest_kill_timestamp = max((d['timestamp'] for d in distance_data), default=None) if distance_data else None
+                
+                # Prepare upsert operation
+                filter_query = {
+                    'guild_id': self.guild_id,
+                    'server_id': self.server_id,
+                    'player_name': player_name
+                }
+                
+                update_ops = {
+                    '$inc': {
+                        'kills': kills_to_add,
+                        'deaths': deaths_to_add,
+                        'total_distance': total_distance
+                    },
+                    '$max': {
+                        'personal_best_distance': max_distance
+                    },
+                    '$set': {
+                        'last_updated': datetime.now(timezone.utc)
+                    }
+                }
+                
+                if latest_kill_timestamp:
+                    update_ops['$max']['last_kill_timestamp'] = latest_kill_timestamp
+                
+                # Create upsert operation
+                from pymongo import UpdateOne
+                bulk_operations.append(
+                    UpdateOne(filter_query, update_ops, upsert=True)
+                )
+            
+            # Execute bulk write
+            if bulk_operations:
+                result = await self.db_manager.pvp_data.bulk_write(bulk_operations, ordered=False)
+                logger.debug(f"Bulk updated {len(bulk_operations)} player stat records, {result.upserted_count} new players")
+                
+        except Exception as e:
+            logger.error(f"Failed to bulk update player stats: {e}")
+            # Fall back to individual updates for critical data integrity
+            for player_name, stats in player_stat_updates.items():
+                try:
+                    for _ in range(stats['kills']):
+                        await self.db_manager.increment_player_kill(
+                            self.guild_id, self.server_id, player_name, 
+                            max((d['distance'] for d in stats['distance_data']), default=0),
+                            max((d['timestamp'] for d in stats['distance_data']), default=datetime.now(timezone.utc))
+                        )
+                    for _ in range(stats['deaths']):
+                        await self.db_manager.increment_player_death(
+                            self.guild_id, self.server_id, player_name
+                        )
+                except Exception as fallback_error:
+                    logger.error(f"Fallback update failed for {player_name}: {fallback_error}")
     
     def cancel(self):
         """Cancel the processing"""

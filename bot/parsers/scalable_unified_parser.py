@@ -19,9 +19,11 @@ class ScalableUnifiedParser:
         self.bot = bot
         self.active_sessions: Dict[int, ScalableUnifiedProcessor] = {}
         self.state_manager = get_shared_state_manager()
+        self.activity_tracker = {}  # Track server activity levels
+        self.last_activity_check = None
         
     async def run_log_parser(self):
-        """Main scheduled unified log parser execution"""
+        """Main scheduled unified log parser execution with adaptive scheduling"""
         try:
             logger.info("🔍 Starting scalable unified log parser run...")
             
@@ -35,12 +37,16 @@ class ScalableUnifiedParser:
             total_servers = sum(len(servers) for servers in guild_configs.values())
             logger.info(f"🔍 Scalable unified parser: Processing {len(guild_configs)} guilds with {total_servers} total servers")
             
-            # Process all guilds using the multi-guild processor
+            # Process all guilds using the multi-guild processor with activity tracking
             processor = MultiGuildUnifiedProcessor()
             results = await processor.process_all_guilds(guild_configs)
             
-            # Log summary
-            logger.info(f"📊 Scalable unified parser completed: {results.get('successful_guilds', 0)}/{results.get('total_guilds', 0)} guilds, {results.get('processed_servers', 0)} servers processed, {results.get('rotated_servers', 0)} servers rotated")
+            # Track activity levels for smart scheduling
+            await self._update_activity_tracking(results)
+            
+            # Log summary with activity info
+            activity_info = await self._get_activity_summary()
+            logger.info(f"📊 Scalable unified parser completed: {results.get('successful_guilds', 0)}/{results.get('total_guilds', 0)} guilds, {results.get('processed_servers', 0)} servers processed, {results.get('rotated_servers', 0)} servers rotated{activity_info}")
             
             # Cleanup stale sessions periodically
             if self.state_manager:
@@ -48,6 +54,136 @@ class ScalableUnifiedParser:
             
         except Exception as e:
             logger.error(f"Scalable unified parser execution failed: {e}")
+    
+    async def _update_activity_tracking(self, results: Dict[str, Any]):
+        """Update server activity tracking for smart scheduling"""
+        try:
+            current_time = datetime.now(timezone.utc)
+            
+            # Process guild results to track activity
+            for guild_id, guild_result in results.get('guild_results', {}).items():
+                for server_result in guild_result.get('server_results', {}).values():
+                    server_id = server_result.get('server_id', 'unknown')
+                    processed_kills = server_result.get('processed_kills', 0)
+                    
+                    # Initialize tracking for new servers
+                    if server_id not in self.activity_tracker:
+                        self.activity_tracker[server_id] = {
+                            'recent_activity': [],
+                            'avg_kills_per_hour': 0,
+                            'last_active': None,
+                            'activity_level': 'idle'  # idle, moderate, active, high
+                        }
+                    
+                    # Record this parsing session
+                    self.activity_tracker[server_id]['recent_activity'].append({
+                        'timestamp': current_time,
+                        'kills_processed': processed_kills
+                    })
+                    
+                    # Keep only last 20 sessions for analysis (last hour of data)
+                    self.activity_tracker[server_id]['recent_activity'] = \
+                        self.activity_tracker[server_id]['recent_activity'][-20:]
+                    
+                    # Update activity metrics
+                    if processed_kills > 0:
+                        self.activity_tracker[server_id]['last_active'] = current_time
+                    
+                    # Calculate activity level
+                    await self._calculate_activity_level(server_id)
+            
+            self.last_activity_check = current_time
+            
+        except Exception as e:
+            logger.error(f"Failed to update activity tracking: {e}")
+    
+    async def _calculate_activity_level(self, server_id: str):
+        """Calculate activity level for a server based on recent data"""
+        try:
+            tracker = self.activity_tracker[server_id]
+            recent_sessions = tracker['recent_activity']
+            
+            if not recent_sessions:
+                tracker['activity_level'] = 'idle'
+                tracker['avg_kills_per_hour'] = 0
+                return
+            
+            # Calculate kills per hour over recent sessions
+            current_time = datetime.now(timezone.utc)
+            one_hour_ago = current_time.replace(hour=current_time.hour-1) if current_time.hour > 0 else current_time.replace(day=current_time.day-1, hour=23)
+            
+            recent_kills = sum(
+                session['kills_processed'] 
+                for session in recent_sessions 
+                if session['timestamp'] >= one_hour_ago
+            )
+            
+            # Estimate kills per hour (3-minute intervals = 20 sessions per hour)
+            sessions_in_hour = len([s for s in recent_sessions if s['timestamp'] >= one_hour_ago])
+            if sessions_in_hour > 0:
+                estimated_kills_per_hour = (recent_kills / sessions_in_hour) * 20
+            else:
+                estimated_kills_per_hour = 0
+            
+            tracker['avg_kills_per_hour'] = estimated_kills_per_hour
+            
+            # Classify activity level
+            if estimated_kills_per_hour >= 60:  # 1+ kills per minute
+                tracker['activity_level'] = 'high'
+            elif estimated_kills_per_hour >= 20:  # 1 kill per 3 minutes
+                tracker['activity_level'] = 'active'
+            elif estimated_kills_per_hour >= 5:   # 1 kill per 12 minutes
+                tracker['activity_level'] = 'moderate'
+            else:
+                tracker['activity_level'] = 'idle'
+                
+        except Exception as e:
+            logger.error(f"Failed to calculate activity level for server {server_id}: {e}")
+    
+    async def _get_activity_summary(self) -> str:
+        """Get a summary of current server activity levels"""
+        try:
+            if not self.activity_tracker:
+                return ""
+            
+            activity_counts = {'high': 0, 'active': 0, 'moderate': 0, 'idle': 0}
+            
+            for tracker in self.activity_tracker.values():
+                level = tracker.get('activity_level', 'idle')
+                activity_counts[level] += 1
+            
+            if activity_counts['high'] > 0 or activity_counts['active'] > 0:
+                return f" | Activity: {activity_counts['high']} high, {activity_counts['active']} active, {activity_counts['moderate']} moderate, {activity_counts['idle']} idle"
+            else:
+                return f" | Activity: {activity_counts['moderate']} moderate, {activity_counts['idle']} idle servers"
+                
+        except Exception:
+            return ""
+    
+    def get_recommended_interval(self) -> int:
+        """Get recommended parsing interval based on current activity levels"""
+        try:
+            if not self.activity_tracker:
+                return 180  # Default 3 minutes
+            
+            activity_counts = {'high': 0, 'active': 0, 'moderate': 0, 'idle': 0}
+            
+            for tracker in self.activity_tracker.values():
+                level = tracker.get('activity_level', 'idle')
+                activity_counts[level] += 1
+            
+            # Smart interval selection
+            if activity_counts['high'] > 0:
+                return 60   # 1 minute for high activity servers
+            elif activity_counts['active'] > 0:
+                return 120  # 2 minutes for active servers
+            elif activity_counts['moderate'] > 0:
+                return 180  # 3 minutes for moderate activity
+            else:
+                return 300  # 5 minutes for idle servers only
+                
+        except Exception:
+            return 180  # Safe default
     
     async def _get_all_guild_configs(self) -> Dict[int, List[Dict[str, Any]]]:
         """Get all guild configurations with servers"""
