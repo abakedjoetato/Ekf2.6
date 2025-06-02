@@ -297,7 +297,7 @@ class KillfeedParser:
                     lines = content.strip().split('\n')
                     
                     last_line_count = self.last_processed_lines.get(server_key, 0)
-                    remaining_lines = lines[max(1, last_line_count):]
+                    remaining_lines = lines[last_line_count:]
                     
                     if remaining_lines:
                         logger.info(f"📋 Processing {len(remaining_lines)} final lines from old file")
@@ -351,8 +351,8 @@ class KillfeedParser:
                         content = await f.read()
                         lines = content.strip().split('\n')
                         
-                        # Skip header and previously processed lines
-                        new_lines = lines[max(1, last_line_count):]
+                        # Process lines from last processed count (no header to skip)
+                        new_lines = lines[last_line_count:]
                         logger.info(f"📊 Processing {len(new_lines)} new lines (total: {len(lines)}, last processed: {last_line_count})")
                         
                         kill_count = 0
