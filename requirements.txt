@@ -116,4 +116,4 @@ apscheduler
 asyncssh
 motor
 python-dotenv
-py-cord==2.6.1
+discord-py
