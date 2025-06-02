@@ -373,6 +373,11 @@ class EmeraldKillfeedBot(commands.Bot):
             # Unified log parser cleanup  
             if hasattr(self, 'unified_log_parser') and self.unified_log_parser:
                 cleanup_tasks.append(self._cleanup_parser_connections(self.unified_log_parser, "unified_log"))
+            
+            # Scalable historical parser cleanup
+            if hasattr(self, 'historical_parser') and self.historical_parser:
+                if hasattr(self.historical_parser, 'stop_connection_manager'):
+                    cleanup_tasks.append(self.historical_parser.stop_connection_manager())
 
             # Execute all cleanup tasks with timeout
             if cleanup_tasks:
@@ -497,13 +502,19 @@ class EmeraldKillfeedBot(commands.Bot):
             # Legacy compatibility for existing code
             self.premium_manager = self.premium_manager_v2
 
+            # Initialize connection manager for scalable parsing
+            from bot.utils.connection_pool import connection_manager
+            await connection_manager.start()
+            logger.info("Connection pool manager started for scalable parsing")
+
             # Initialize parsers (PHASE 2) - Data parsers for killfeed & log events
             self.killfeed_parser = KillfeedParser(self)
-            self.historical_parser = HistoricalParser(self)
+            from bot.parsers.scalable_historical_parser import ScalableHistoricalParser
+            self.historical_parser = ScalableHistoricalParser(self)
             self.unified_log_parser = UnifiedLogParser(self)
             # Ensure consistent parser access
             self.log_parser = self.unified_log_parser  # Legacy compatibility
-            logger.info("Parsers initialized (PHASE 2) + Unified Log Parser + Advanced Rate Limiter + Batch Sender + Channel Router")
+            logger.info("Parsers initialized (PHASE 2) + Scalable Historical Parser + Unified Log Parser + Advanced Rate Limiter + Batch Sender + Channel Router")
 
             return True
 

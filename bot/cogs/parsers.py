@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any
 import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
-from bot.parsers.historical_parser import HistoricalParser
+from bot.parsers.scalable_historical_parser import ScalableHistoricalParser
 from discord import Option
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class Parsers(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.historical_parser = HistoricalParser(bot)
+        self.scalable_historical_parser = ScalableHistoricalParser(bot)
     
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
