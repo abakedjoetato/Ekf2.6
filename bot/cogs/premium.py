@@ -286,17 +286,16 @@ class Premium(discord.Cog):
             guild_id = ctx.guild.id if ctx.guild else 0
 
             # Get guild configuration
-            guild_config = has_premium = self.check_premium_access(guild_id)}')
-                is_premium = await self.check_premium_access(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
+            is_premium = self.check_premium_access(guild_id)
 
-                if is_premium:
-                    # Get expiration info
-                    premium_doc = await self.bot.db_manager.premium.find_one({
-                        "guild_id": guild_id,
-                        "server_id": server_id
-                    })
+            if is_premium:
+                # Get expiration info
+                premium_doc = await self.bot.db_manager.premium.find_one({
+                    "guild_id": guild_id
+                })
 
-                    if premium_doc and premium_doc.get('expires_at'):
+                if premium_doc and premium_doc.get('expires_at'):
                         expires_text = f"<t:{int(premium_doc['expires_at'].timestamp())}:R>"
                     else:
                         expires_text = "Never"

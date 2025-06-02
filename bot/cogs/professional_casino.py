@@ -1107,7 +1107,7 @@ class ProfessionalCasino(discord.Cog):
             user_id = ctx.user.id
             
             # Check premium access
-            if not await self.check_premium_access(guild_id):
+            if not self.check_premium_access(guild_id):
                 embed = discord.Embed(
                     title="🔒 Premium Access Required",
                     description="The Emerald Elite Casino requires premium subscription.",
