@@ -351,7 +351,7 @@ class KillfeedParser:
                         content = await f.read()
                         lines = content.strip().split('\n')
                         
-                        # Process lines from last processed count (no header to skip)
+                        # Process only new lines (start from line after last processed)
                         new_lines = lines[last_line_count:]
                         logger.info(f"📊 Processing {len(new_lines)} new lines (total: {len(lines)}, last processed: {last_line_count})")
                         
