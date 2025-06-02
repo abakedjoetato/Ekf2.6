@@ -127,7 +127,7 @@ class AdvancedEmeraldBot(discord.Bot):
         try:
             logger.info("🔧 Loading advanced cogs...")
             
-            # Complete cog system - all available features
+            # Complete working cog system - 19 functional modules
             advanced_cogs = [
                 # Enhanced core systems
                 "bot.cogs.admin_channels_enhanced",    # Enhanced channel configuration
@@ -136,7 +136,6 @@ class AdvancedEmeraldBot(discord.Bot):
                 
                 # Administrative systems
                 "bot.cogs.admin_batch",                # Batch management
-                "bot.cogs.admin_fixed",                # Admin commands with UI
                 "bot.cogs.advanced_premium",           # Premium management
                 "bot.cogs.core",                       # Core functionality
                 "bot.cogs.cache_management",           # Cache management
@@ -158,7 +157,6 @@ class AdvancedEmeraldBot(discord.Bot):
                 "bot.cogs.parsers",                    # Parser management
                 "bot.cogs.subscription_management_fixed", # Subscription management
                 "bot.cogs.autocomplete",               # Enhanced autocomplete
-                "bot.cogs.advanced_commands"           # Advanced command system
             ]
             
             loaded_count = 0
