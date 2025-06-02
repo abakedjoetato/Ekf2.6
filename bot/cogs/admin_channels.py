@@ -43,9 +43,19 @@ class AdminChannels(discord.Cog):
         """Check premium access - bypassed for testing"""
         return True
     
+    async def channel_type_autocomplete(self, ctx: discord.AutocompleteContext):
+        """Autocomplete for channel types"""
+        return [
+            discord.OptionChoice(name=f"{key} - {info['description']}", value=key)
+            for key, info in self.channel_types.items()
+        ]
+    
     @discord.slash_command(name="setchannel", description="Configure output channels for the bot")
     @discord.default_permissions(administrator=True)
-    async def set_channel(self, ctx, channel_type: str, channel: discord.abc.GuildChannel, server_id: str = "default"):
+    async def set_channel(self, ctx, 
+                         channel_type: discord.Option(str, "Type of channel to configure", autocomplete=channel_type_autocomplete), 
+                         channel: discord.abc.GuildChannel, 
+                         server_id: str = "default"):
         """Configure a specific channel type for a specific server"""
         await ctx.defer(ephemeral=True)
         
