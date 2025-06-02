@@ -129,35 +129,26 @@ class AdvancedEmeraldBot(discord.Bot):
             
             # Complete cog system - all available features
             advanced_cogs = [
-                # Core system cogs
-                "bot.cogs.advanced_premium",     # Premium management
-                "bot.cogs.admin_channels",       # Channel configuration
-                "bot.cogs.autocomplete",         # Enhanced autocomplete
-                "bot.cogs.parsers",              # Parser management (preserved)
+                # Enhanced core systems
+                "bot.cogs.admin_channels_enhanced",    # Enhanced channel configuration
+                "bot.cogs.admin_server_management",    # SFTP server management
+                "bot.cogs.statistics_enhanced",        # Enhanced player statistics
+                "bot.cogs.admin_fixed",                # Admin commands with UI
                 
-                # Administrative features
-                # "bot.cogs.admin_fixed",          # Admin commands (temporarily disabled)
-                "bot.cogs.admin_batch",          # Batch management
-                
-                # Gaming and economy features
-                "bot.cogs.professional_casino",  # Comprehensive casino system
-                "bot.cogs.economy",              # Economy system
-                "bot.cogs.bounties",             # Bounty system
-                
-                # Player features
-                "bot.cogs.stats",                # Player statistics
-                "bot.cogs.linking",              # Character linking
-                "bot.cogs.factions",             # Faction management
-                "bot.cogs.leaderboards_fixed",   # Leaderboards
-                "bot.cogs.automated_leaderboard", # Automated leaderboards
-                
-                # System features
-                "bot.cogs.core",                 # Core functionality
-                "bot.cogs.cache_management",     # Cache management
+                # Existing stable cogs
+                "bot.cogs.admin_batch",                # Batch management
+                "bot.cogs.advanced_casino",            # Casino system
                 "bot.cogs.subscription_management_fixed", # Subscription management
-                
-                # Advanced commands (fix UI imports first)
-                # "bot.cogs.advanced_commands",    # Main command system with UI
+                "bot.cogs.parsers",                    # Parser management (preserved)
+                "bot.cogs.leaderboard",                # Leaderboards
+                "bot.cogs.factions",                   # Faction management
+                "bot.cogs.link_management",            # Character linking
+                "bot.cogs.economy",                    # Economy system
+                "bot.cogs.help_system",                # Help system
+                "bot.cogs.wallet",                     # Wallet system
+                "bot.cogs.bounty_system",              # Bounty system
+                "bot.cogs.admin",                      # Basic admin
+                "bot.cogs.killfeed"                    # Killfeed
             ]
             
             loaded_count = 0
@@ -176,9 +167,14 @@ class AdvancedEmeraldBot(discord.Bot):
             raise
 
     async def _initialize_parser_systems(self):
-        """Initialize parser systems (preserved from original)"""
+        """Initialize parser systems with enhanced channel routing"""
         try:
             logger.info("📜 Initializing parser systems...")
+            
+            # Initialize channel router
+            from bot.utils.channel_router import ChannelRouter
+            self.channel_router = ChannelRouter(self.db_manager)
+            logger.info("✅ Channel router initialized")
             
             # Import preserved parsers
             try:
@@ -186,12 +182,12 @@ class AdvancedEmeraldBot(discord.Bot):
                 from bot.parsers.unified_log_parser import UnifiedLogParser
                 from bot.parsers.historical_parser import HistoricalParser
                 
-                # Initialize parsers with new database manager
-                self.killfeed_parser = KillfeedParser(self.db_manager)
-                self.unified_parser = UnifiedLogParser(self.db_manager)
-                self.historical_parser = HistoricalParser(self.db_manager)
+                # Initialize parsers with database manager and channel router
+                self.killfeed_parser = KillfeedParser(self.db_manager, self.channel_router)
+                self.unified_parser = UnifiedLogParser(self.db_manager, self.channel_router)
+                self.historical_parser = HistoricalParser(self.db_manager, self.channel_router)
                 
-                logger.info("✅ Parser systems initialized")
+                logger.info("✅ Parser systems initialized with channel routing")
                 
             except ImportError as e:
                 logger.warning(f"⚠️ Some parsers not available: {e}")
