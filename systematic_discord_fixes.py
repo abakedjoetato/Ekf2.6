@@ -57,7 +57,8 @@ def update_main_py():
         
         # Fix Bot class usage
         content = re.sub(r'commands\.Bot\(', 'discord.Bot(', content)
-        content = re.sub(r'from discord\.ext import commands', 'import discord\nfrom discord.ext import commands', content)
+        content = re.sub(r'from discord\.ext import commands', 'import discord\nimport discord
+from discord.ext import commands', content)
         
         with open('main.py', 'w') as f:
             f.write(content)

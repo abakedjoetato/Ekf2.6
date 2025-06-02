@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Any, Tuple
 import discord
 import discord
 import discord
+import discord
 from discord.ext import commands
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ class Bounties(discord.Cog):
             await ctx.respond("❌ This command must be used in a server", ephemeral=True)
             return
             
-        guild_id = ctx.guild.id if ctx.guild else 0
+        guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
 
         if isinstance(target, discord.Member):
             # Discord user - must be linked
@@ -118,7 +119,7 @@ class Bounties(discord.Cog):
                 "timestamp": datetime.now(timezone.utc)
             }
 
-            await self.bot.db_manager.db.wallet_events.insert_one(event_doc)
+            await self.bot.db_manager.wallet_events.insert_one(event_doc)
 
         except Exception as e:
             logger.error(f"Failed to add wallet event: {e}")
@@ -129,7 +130,7 @@ class Bounties(discord.Cog):
     async def bounty_set(self, ctx: discord.ApplicationContext, target: str, amount: int):
         """Set a bounty on a target (Discord user or player name)"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id if ctx.user else 0
 
             # Check premium access
@@ -286,7 +287,7 @@ class Bounties(discord.Cog):
     async def bounty_list(self, ctx: discord.ApplicationContext):
         """List all active bounties"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
 
             # Check premium access
             if not await self.check_premium_server(guild_id):
@@ -434,7 +435,7 @@ class Bounties(discord.Cog):
         """Send bounty claimed notification"""
         try:
             # Get guild channels
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
             if not guild_config:
                 return
 
@@ -589,7 +590,7 @@ class Bounties(discord.Cog):
         """Send auto-bounty notification"""
         try:
             # Get guild channels
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
             if not guild_config:
                 return
 
@@ -661,7 +662,7 @@ class Bounties(discord.Cog):
                             amount: discord.Option(int, "Bounty amount", min_value=100)):
         """Set a bounty on a player"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
             
             if not await self.check_premium_server(guild_id):
@@ -702,7 +703,7 @@ class Bounties(discord.Cog):
                 "claimed": False
             }
             
-            await self.bot.db_manager.db.bounties.insert_one(bounty_doc)
+            await self.bot.db_manager.bounties.insert_one(bounty_doc)
             
             embed = discord.Embed(
                 title="Bounty Set",
@@ -719,9 +720,9 @@ class Bounties(discord.Cog):
     async def bounty_list_cmd(self, ctx: discord.ApplicationContext):
         """List active bounties"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             
-            bounties = await self.bot.db_manager.db.bounties.find({
+            bounties = await self.bot.db_manager.bounties.find({
                 "guild_id": guild_id,
                 "claimed": False,
                 "expires_at": {"$gt": datetime.now(timezone.utc)}

@@ -7,6 +7,7 @@ Admin control: /eco give, /eco take, /eco reset
 
 import discord
 import discord
+import discord
 from discord.ext import commands
 import asyncio
 import random
@@ -75,7 +76,7 @@ class Economy(discord.Cog):
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
                 
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -118,7 +119,7 @@ class Economy(discord.Cog):
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
                 
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -174,7 +175,7 @@ class Economy(discord.Cog):
                 await ctx.respond("❌ You need administrator permissions", ephemeral=True)
                 return
                 
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
 
             # Check premium access
             if not await self.check_premium_server(guild_id):

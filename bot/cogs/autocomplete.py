@@ -1,6 +1,7 @@
 import discord
 import discord
 import discord
+import discord
 from discord.ext import commands
 from typing import List, Optional
 
@@ -39,7 +40,7 @@ class ServerAutocomplete:
                 return []
 
             # Get only the current guild's configuration
-            guild_config = await ctx.bot.db_manager.get_guild(guild_id)
+            guild_config = await ctx.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             if not guild_config:
                 return []
 

@@ -1079,7 +1079,7 @@ class ProfessionalCasino(discord.Cog):
                 return await self.bot.db_manager.has_premium_access(guild_id)
             else:
                 # Fallback to standard database check
-                guild_config = await self.bot.db_manager.get_guild(guild_id)
+                guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
                 if not guild_config:
                     return False
                     

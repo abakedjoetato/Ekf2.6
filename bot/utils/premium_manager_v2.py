@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import discord
 import discord
+import discord
 from discord.ext import commands
 
 
@@ -461,7 +462,7 @@ class PremiumManagerV2:
     async def is_guild_admin(self, user_id: int, guild_id: int, bot) -> bool:
         """Check if user is admin in specific guild"""
         try:
-            guild = bot.get_guild(guild_id)
+            guild = bot.guilds.find_one({"guild_id": guild_id})
             if not guild:
                 return False
             

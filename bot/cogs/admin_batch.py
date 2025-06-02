@@ -5,6 +5,7 @@ Admin Batch Management Cog - Monitor and control batch sender
 import discord
 import discord
 import discord
+import discord
 from discord.ext import commands
 import logging
 from datetime import datetime, timezone
@@ -56,7 +57,7 @@ class AdminBatch(discord.Cog):
             guild_id = ctx.guild_id
 
             # Get all servers for this guild
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
             if not guild_config:
                 await ctx.respond("No guild configuration found", ephemeral=True)
                 return

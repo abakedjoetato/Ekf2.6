@@ -6,6 +6,7 @@ Posts and updates consolidated leaderboards every 30 minutes
 import discord
 import discord
 import discord
+import discord
 from discord.ext import commands, tasks
 import asyncio
 import logging
@@ -107,7 +108,7 @@ class AutomatedLeaderboard(discord.Cog):
         """Check if leaderboard messages are missing in the channel"""
         try:
             guild_id = guild_config['guild_id']
-            guild = self.bot.get_guild(guild_id)
+            guild = self.bot.guilds.find_one({"guild_id": guild_id})
             if not guild:
                 return False
 
@@ -133,7 +134,7 @@ class AutomatedLeaderboard(discord.Cog):
         """Get the configured leaderboard channel"""
         try:
             guild_id = guild_config['guild_id']
-            guild = self.bot.get_guild(guild_id)
+            guild = self.bot.guilds.find_one({"guild_id": guild_id})
             if not guild:
                 return None
 
@@ -179,7 +180,7 @@ class AutomatedLeaderboard(discord.Cog):
         """Update leaderboard for a specific guild"""
         try:
             guild_id = guild_config['guild_id']
-            guild = self.bot.get_guild(guild_id)
+            guild = self.bot.guilds.find_one({"guild_id": guild_id})
             if not guild:
                 return
 
@@ -336,7 +337,7 @@ class AutomatedLeaderboard(discord.Cog):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
                 # Fallback to old method
-                guild_doc = await self.bot.db_manager.get_guild(guild_id)
+                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
                 if not guild_doc:
                     return False
 

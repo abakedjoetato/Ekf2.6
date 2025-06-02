@@ -23,7 +23,8 @@ for module_name in list(sys.modules.keys()):
 # Import py-cord v2.6.1
 try:
     import discord
-    from discord.ext import commands
+    import discord
+from discord.ext import commands
     print(f"✅ Successfully imported py-cord")
 except ImportError as e:
     print(f"❌ Error importing py-cord: {e}")
@@ -88,7 +89,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class EmeraldKillfeedBot(commands.Bot):
+class EmeraldKillfeedBot(discord.Bot):
     """Main bot class for Emerald's Killfeed"""
 
     def __init__(self):

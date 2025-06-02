@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 
 import discord
+import discord
 from discord.ext import commands
 from bot.utils.embed_factory import EmbedFactory
 
@@ -167,7 +168,7 @@ class Factions(discord.Cog):
     async def faction_create(self, ctx: discord.ApplicationContext, name: str, tag: str = ""):
         """Create a new faction"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -293,7 +294,7 @@ class Factions(discord.Cog):
     async def faction_invite(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Invite a user to join your faction"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -391,7 +392,7 @@ class Factions(discord.Cog):
     async def faction_join(self, ctx: discord.ApplicationContext, faction_name: str):
         """Join a faction by name"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -482,7 +483,7 @@ class Factions(discord.Cog):
     async def faction_leave(self, ctx: discord.ApplicationContext):
         """Leave your current faction"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -557,7 +558,7 @@ class Factions(discord.Cog):
     async def faction_info(self, ctx: discord.ApplicationContext, faction_name: str = ""):
         """View detailed information about a faction"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -700,7 +701,7 @@ class Factions(discord.Cog):
     async def faction_stats(self, ctx: discord.ApplicationContext, faction_name: str = ""):
         """View detailed faction statistics"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             discord_id = ctx.user.id
 
             # Check premium access
@@ -787,7 +788,7 @@ class Factions(discord.Cog):
     async def faction_list(self, ctx: discord.ApplicationContext):
         """List all factions in the guild"""
         try:
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
 
             # Check premium access
             if not await self.check_premium_server(guild_id):

@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 import discord
 import discord
 import discord
+import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
 from discord import Option
@@ -116,7 +117,7 @@ class Parsers(discord.Cog):
             guild_id = ctx.guild.id
 
             # Check if server exists in guild config - fixed database call
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
             if not guild_config:
                 await ctx.respond("This guild is not configured!", ephemeral=True)
                 return

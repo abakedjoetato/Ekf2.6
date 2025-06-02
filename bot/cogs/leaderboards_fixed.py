@@ -4,6 +4,7 @@ Properly themed leaderboards using EmbedFactory
 """
 
 import discord
+import discord
 from discord.ext import commands
 import asyncio
 import logging
@@ -65,7 +66,7 @@ class LeaderboardsFixed(discord.Cog):
                 return
 
             # Get guild configuration
-            guild_doc = await self.bot.db_manager.get_guild(guild_id)
+            guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
             if not guild_doc or not guild_doc.get('servers'):
                 await ctx.followup.send("No servers configured for this guild. Use `/addserver` first!", ephemeral=True)
                 return

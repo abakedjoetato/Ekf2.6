@@ -26,6 +26,7 @@ Admin control: /eco give, /eco take, /eco reset
 """
 
 import discord
+import discord
 from discord.ext import commands
 import asyncio
 import random
@@ -35,7 +36,7 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-class Economy(commands.Cog):
+class Economy(discord.Cog):
     """
     ECONOMY (PREMIUM)
     - Currency stored per Discord user, scoped to guild

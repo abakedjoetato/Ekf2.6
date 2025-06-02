@@ -60,7 +60,7 @@ class PremiumManager:
         """Get guild premium configuration from database"""
         try:
             if hasattr(self.bot, 'db_manager'):
-                guild_doc = await self.bot.db_manager.get_guild(guild_id)
+                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
                 return guild_doc.get('premium_config', {}) if guild_doc else None
         except Exception as e:
             print(f"Failed to get premium config: {e}")

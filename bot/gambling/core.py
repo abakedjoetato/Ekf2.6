@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Any, Tuple
 
 import discord
 import discord
+import discord
 from discord.ext import commands
 from bot.utils.embed_factory import EmbedFactory
 
@@ -29,7 +30,7 @@ class GamblingCore:
                 return await self.bot.premium_manager.check_feature_access(guild_id, 'gambling')
             
             # Fallback check
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
             if not guild_config:
                 return False
                 

@@ -304,7 +304,8 @@ class ComprehensiveSystemFixer:
             
             # Fix common py-cord compatibility issues
             pycord_fixes = [
-                (r'from discord\.ext import commands', r'import discord\nfrom discord.ext import commands'),
+                (r'from discord\.ext import commands', r'import discord\nimport discord
+from discord.ext import commands'),
                 (r'discord\.TextInput', r'discord.ui.TextInput'),
                 (r'discord\.TextStyle', r'discord.TextStyle'),
                 (r'commands\.slash_command', r'discord.slash_command'),

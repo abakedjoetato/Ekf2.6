@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 
 import discord
+import discord
 from discord.ext import commands
 from bot.utils.embed_factory import EmbedFactory
 from bot.cogs.autocomplete import ServerAutocomplete
@@ -55,7 +56,7 @@ class Stats(discord.Cog):
             await ctx.respond("❌ This command must be used in a server", ephemeral=True)
             return
             
-        guild_id = ctx.guild.id if ctx.guild else 0
+        guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
         
         if isinstance(target, discord.Member):
             # Discord user - must be linked
@@ -297,13 +298,13 @@ class Stats(discord.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             server_name = ctx.guild.name
 
             # Handle server filtering if provided
             if server and server.strip():
                 # Validate server exists for this guild
-                guild_doc = await self.bot.db_manager.get_guild(guild_id)
+                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
                 if guild_doc:
                     servers = guild_doc.get('servers', [])
                     server_found = False
@@ -434,7 +435,7 @@ class Stats(discord.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             user1 = ctx.author
             user2 = user
 
@@ -496,7 +497,7 @@ class Stats(discord.Cog):
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
-            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_id = ctx.guild.id if ctx.guild else 0 if ctx.guild else 0
             
             # Get servers for autocomplete resolution
             servers = await ServerAutocomplete.get_servers_for_guild(guild_id or 0, self.bot.db_manager)

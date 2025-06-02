@@ -21,7 +21,8 @@ def fix_file_syntax(filepath):
     # Primary fixes for py-cord 2.6.1
     conversions = [
         # Core command system
-        (r'from discord\.ext import commands', 'import discord\nfrom discord.ext import commands'),
+        (r'from discord\.ext import commands', 'import discord\nimport discord
+from discord.ext import commands'),
         (r'class (\w+)\(commands\.Cog\)', r'class \1(discord.Cog)'),
         (r'commands\.slash_command', 'discord.slash_command'),
         (r'@commands\.slash_command', '@discord.slash_command'),

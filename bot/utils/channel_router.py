@@ -25,7 +25,7 @@ class ChannelRouter:
         3. Legacy channel (channels.{channel_type})
         """
         try:
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
             if not guild_config:
                 logger.debug(f"No guild config found for guild {guild_id}")
                 return None
