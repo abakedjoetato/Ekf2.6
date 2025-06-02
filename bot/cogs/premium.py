@@ -198,16 +198,29 @@ class Premium(discord.Cog):
                 }
 
                 # Add server to guild config
-                await bot.db_manager.add_server_to_guild(guild_id, server_config)
-
-                # Trigger historical parser for the new server
-                parsers_cog = bot.get_cog('Parsers')
-                if parsers_cog and hasattr(parsers_cog, 'historical_parser'):
-                    try:
-                        # Trigger background historical parsing
-                        await parsers_cog.historical_parser.auto_refresh_after_server_add(guild_id, server_config)
-                    except Exception as e:
-                        logger.error(f"Failed to trigger historical parser: {e}")
+                add_result = await bot.db_manager.add_server_to_guild(guild_id, server_config)
+                
+                if add_result:
+                    logger.info(f"✅ Server {serverid} successfully added to guild {guild_id}")
+                    
+                    # Verify server was saved by checking database
+                    guild_config = await bot.db_manager.get_guild(guild_id)
+                    servers_count = len(guild_config.get('servers', [])) if guild_config else 0
+                    logger.info(f"📊 Guild now has {servers_count} servers configured")
+                    
+                    # Trigger historical parser for the new server
+                    parsers_cog = bot.get_cog('Parsers')
+                    if parsers_cog and hasattr(parsers_cog, 'historical_parser'):
+                        try:
+                            logger.info(f"🔄 Triggering historical parser for server {serverid}")
+                            # Trigger background historical parsing
+                            await parsers_cog.historical_parser.auto_refresh_after_server_add(guild_id, server_config)
+                        except Exception as e:
+                            logger.error(f"Failed to trigger historical parser: {e}")
+                    else:
+                        logger.warning("Historical parser not found - auto-trigger skipped")
+                else:
+                    logger.error(f"❌ Failed to add server {serverid} to database")
 
                 # Respond with success
                 embed = discord.Embed(
