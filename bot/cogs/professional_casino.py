@@ -1080,25 +1080,20 @@ class ProfessionalCasino(discord.Cog):
     async def refresh_premium_cache(self, guild_id: int):
         """Refresh premium status from database and cache it"""
         try:
-            guild_config = has_premium = self.check_premium_access(guild_id)}")
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
+            if guild_config:
+                has_premium_access = guild_config.get('premium_access', False)
+                has_premium_servers = bool(guild_config.get('premium_servers', []))
+                self.premium_cache[guild_id] = has_premium_access or has_premium_servers
+            else:
+                self.premium_cache[guild_id] = False
+        except Exception as e:
+            logger.error(f"Failed to refresh premium cache: {e}")
             self.premium_cache[guild_id] = False
 
     def check_premium_access(self, guild_id: int) -> bool:
         """Check premium access from cache (no database calls)"""
         return self.premium_cache.get(guild_id, False)
-    
-    async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has premium access - unified validation"""
-        try:
-            # Use unified premium manager if available
-            if hasattr(self.bot, 'premium_manager_v2'):
-                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
-            elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
-                return await self.bot.db_manager.has_premium_access(guild_id)
-            else:
-                # Fallback to standard database check
-                guild_config = has_premium = self.check_premium_access(guild_id)}")
-            return False
     
     @discord.slash_command(name="casino", description="Enter the Emerald Elite Casino - Professional Gaming Experience")
     async def casino(self, ctx: discord.ApplicationContext):
