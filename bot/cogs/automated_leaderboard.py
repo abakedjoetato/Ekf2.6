@@ -26,14 +26,17 @@ class AutomatedLeaderboard(discord.Cog):
         """Start the automated leaderboard task when cog loads"""
         logger.info("Starting automated leaderboard task...")
         self.automated_leaderboard_task.start()
+        
+        # Run initial check for missing leaderboards immediately
+        asyncio.create_task(self.initial_leaderboard_check())
 
     def cog_unload(self):
         """Stop the task when cog unloads"""
         self.automated_leaderboard_task.cancel()
 
-    @tasks.loop(minutes=30)
+    @tasks.loop(minutes=60)
     async def automated_leaderboard_task(self):
-        """Run automated leaderboard updates every 30 minutes"""
+        """Run automated leaderboard updates every 60 minutes"""
         try:
             logger.info("Running automated leaderboard update...")
 
@@ -65,6 +68,95 @@ class AutomatedLeaderboard(discord.Cog):
         """Wait for bot to be ready before starting task"""
         await self.bot.wait_until_ready()
 
+    async def initial_leaderboard_check(self):
+        """Check for missing leaderboards immediately on startup"""
+        try:
+            await self.bot.wait_until_ready()
+            await asyncio.sleep(10)  # Give bot time to fully initialize
+            
+            logger.info("Running initial leaderboard check for missing embeds...")
+            
+            # Get all guilds with leaderboard channels configured
+            guilds_cursor = self.bot.db_manager.guilds.find({
+                "$or": [
+                    {"channels.leaderboard": {"$exists": True, "$ne": None}},
+                    {"server_channels.default.leaderboard": {"$exists": True, "$ne": None}}
+                ],
+                "leaderboard_enabled": True
+            })
+
+            guilds_with_leaderboard = await guilds_cursor.to_list(length=None)
+            
+            for guild_config in guilds_with_leaderboard:
+                try:
+                    guild_id = guild_config['guild_id']
+                    
+                    # Check if leaderboard messages exist in the channel
+                    if await self.check_missing_leaderboards(guild_config):
+                        logger.info(f"Creating missing leaderboards for guild {guild_id}")
+                        await self.update_guild_leaderboard(guild_config, force_create=True)
+                    
+                except Exception as e:
+                    guild_id = guild_config.get('guild_id', 'Unknown')
+                    logger.error(f"Failed initial leaderboard check for guild {guild_id}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error in initial leaderboard check: {e}")
+
+    async def check_missing_leaderboards(self, guild_config: Dict[str, Any]) -> bool:
+        """Check if leaderboard messages are missing in the channel"""
+        try:
+            guild_id = guild_config['guild_id']
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                return False
+
+            # Get leaderboard channel
+            channel = await self.get_leaderboard_channel(guild_config)
+            if not channel:
+                return False
+
+            # Check last 50 messages for bot's leaderboard embeds
+            async for message in channel.history(limit=50):
+                if (message.author == self.bot.user and 
+                    message.embeds and 
+                    any("Leaderboard" in embed.title for embed in message.embeds)):
+                    return False  # Found existing leaderboard
+            
+            return True  # No leaderboard found, needs creation
+            
+        except Exception as e:
+            logger.error(f"Error checking missing leaderboards: {e}")
+            return True  # Assume missing on error
+
+    async def get_leaderboard_channel(self, guild_config: Dict[str, Any]):
+        """Get the configured leaderboard channel"""
+        try:
+            guild_id = guild_config['guild_id']
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                return None
+
+            # Check new server_channels structure first
+            server_channels_config = guild_config.get('server_channels', {})
+            default_server = server_channels_config.get('default', {})
+            
+            # Check legacy channels structure
+            legacy_channels = guild_config.get('channels', {})
+            
+            # Priority: default server -> legacy channels
+            leaderboard_channel_id = (default_server.get('leaderboard') or 
+                                    legacy_channels.get('leaderboard'))
+            
+            if not leaderboard_channel_id:
+                return None
+
+            return guild.get_channel(leaderboard_channel_id)
+            
+        except Exception as e:
+            logger.error(f"Error getting leaderboard channel: {e}")
+            return None
+
     async def get_top_kills(self, guild_id: int, limit: int = 10, server_id: str = None):
         """Get top killers for automated leaderboard"""
         try:
@@ -83,7 +175,7 @@ class AutomatedLeaderboard(discord.Cog):
             logger.error(f"Error getting top kills for automated leaderboard: {e}")
             return []
 
-    async def update_guild_leaderboard(self, guild_config: Dict[str, Any]):
+    async def update_guild_leaderboard(self, guild_config: Dict[str, Any], force_create: bool = False):
         """Update leaderboard for a specific guild"""
         try:
             guild_id = guild_config['guild_id']
@@ -91,28 +183,16 @@ class AutomatedLeaderboard(discord.Cog):
             if not guild:
                 return
 
-            # Check new server_channels structure first
-            server_channels_config = guild_config.get('server_channels', {})
-            server_specific = server_channels_config.get('default', {})  # For leaderboards, use default server
-            default_server = server_channels_config.get('default', {})
-            
-            # Check legacy channels structure
-            legacy_channels = guild_config.get('channels', {})
-            
-            # Priority: server-specific -> default server -> legacy channels
-            leaderboard_channel_id = (server_specific.get('leaderboard') or 
-                                    default_server.get('leaderboard') or 
-                                    legacy_channels.get('leaderboard'))
-            if not leaderboard_channel_id:
-                return
-
-            channel = guild.get_channel(leaderboard_channel_id)
+            # Get leaderboard channel using the helper function
+            channel = await self.get_leaderboard_channel(guild_config)
             if not channel:
+                logger.warning(f"No leaderboard channel found for guild {guild_id}")
                 return
 
             # Get servers for this guild
             servers = guild_config.get('servers', [])
             if not servers:
+                logger.warning(f"No servers configured for guild {guild_id}")
                 return
 
             # Process each server
@@ -127,22 +207,28 @@ class AutomatedLeaderboard(discord.Cog):
                     )
 
                     if embed:
-                        # Send via rate limiter if available
-                        if hasattr(self.bot, 'advanced_rate_limiter') and self.bot.advanced_rate_limiter:
-                            from bot.utils.advanced_rate_limiter import MessagePriority
-                            await self.bot.advanced_rate_limiter.queue_message(
-                                channel_id=channel.id,
-                                embed=embed,
-                                file=file_attachment,
-                                priority=MessagePriority.LOW
-                            )
+                        # Try to find and update existing leaderboard message
+                        existing_message = None
+                        if not force_create:
+                            existing_message = await self.find_existing_leaderboard_message(channel, server_name)
+                        
+                        if existing_message:
+                            # Edit existing message
+                            try:
+                                if file_attachment:
+                                    await existing_message.edit(embed=embed, attachments=[file_attachment])
+                                else:
+                                    await existing_message.edit(embed=embed)
+                                logger.info(f"Updated existing leaderboard for {server_name}")
+                            except Exception as edit_error:
+                                logger.warning(f"Failed to edit existing message, posting new one: {edit_error}")
+                                # Fall back to posting new message
+                                await self.post_new_leaderboard_message(channel, embed, file_attachment)
+                                logger.info(f"Posted new leaderboard for {server_name}")
                         else:
-                            if file_attachment:
-                                await channel.send(embed=embed, file=file_attachment)
-                            else:
-                                await channel.send(embed=embed)
-
-                        logger.info(f"Posted automated leaderboard for {server_name}")
+                            # Post new message
+                            await self.post_new_leaderboard_message(channel, embed, file_attachment)
+                            logger.info(f"Posted new leaderboard for {server_name}")
 
                 except Exception as e:
                     logger.error(f"Failed to post leaderboard for {server_name}: {e}")

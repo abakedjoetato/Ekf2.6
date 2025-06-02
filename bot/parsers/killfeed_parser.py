@@ -251,16 +251,7 @@ class KillfeedParser:
         """Process a kill event and update database"""
         try:
             # Update database with kill event
-            await self.bot.db_manager.record_kill_event(
-                guild_id=guild_id,
-                server_id=server_id,
-                timestamp=kill_data['timestamp'],
-                killer=kill_data['killer'],
-                victim=kill_data['victim'],
-                weapon=kill_data['weapon'],
-                distance=kill_data['distance'],
-                is_suicide=kill_data['is_suicide']
-            )
+            await self.bot.db_manager.add_kill_event(guild_id, server_id, kill_data)
 
         except Exception as e:
             logger.error(f"Error processing kill event: {e}")
