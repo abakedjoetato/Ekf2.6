@@ -12,106 +12,110 @@ async def complete_server_cleanup():
     
     mongo_uri = os.getenv('MONGO_URI')
     client = AsyncIOMotorClient(mongo_uri)
-    db = client['emeralds_killfeed']
     
     server_id = "7020"
     server_name = "Emerald EU"
+    server_host = "79.127.236.1"
     
     print(f'=== Complete Cleanup for {server_name} (ID: {server_id}) ===')
     
-    # 1. Remove server from all guild configurations
-    print('\n1. Removing server from guild configurations...')
+    # Get all databases
+    databases = await client.list_database_names()
+    databases = [db for db in databases if db not in ['admin', 'config', 'local']]
     
-    # Remove from servers array in all guilds
-    guild_result = await db.guilds.update_many(
-        {},
-        {"$pull": {"servers": {"$or": [
-            {"_id": server_id},
-            {"server_id": server_id},
-            {"name": server_name}
-        ]}}}
-    )
-    print(f'   ✓ Updated {guild_result.modified_count} guild configurations')
+    total_removed = 0
     
-    # 2. Clean PvP data for this server
-    print('\n2. Cleaning PvP data...')
-    pvp_result = await db.pvp_data.delete_many({"server_id": server_id})
-    print(f'   ✓ Removed {pvp_result.deleted_count} PvP records')
-    
-    # 3. Clean kill events for this server
-    print('\n3. Cleaning kill events...')
-    kill_result = await db.kill_events.delete_many({"server_id": server_id})
-    print(f'   ✓ Removed {kill_result.deleted_count} kill events')
-    
-    # 4. Clean player sessions for this server
-    print('\n4. Cleaning player sessions...')
-    session_result = await db.player_sessions.delete_many({"server_id": server_id})
-    print(f'   ✓ Removed {session_result.deleted_count} player sessions')
-    
-    # 5. Clean parser states for this server
-    print('\n5. Cleaning parser states...')
-    parser_result = await db.parser_states.delete_many({"server_id": server_id})
-    print(f'   ✓ Removed {parser_result.deleted_count} parser states')
-    
-    # 6. Clean premium assignments for this server
-    print('\n6. Cleaning premium assignments...')
-    premium_result = await db.server_premium_status.delete_many({"server_id": server_id})
-    print(f'   ✓ Removed {premium_result.deleted_count} premium assignments')
-    
-    # 7. Clean any faction data for this server
-    print('\n7. Cleaning faction data...')
-    faction_result = await db.factions.delete_many({"server_id": server_id})
-    print(f'   ✓ Removed {faction_result.deleted_count} faction records')
-    
-    # 8. Clean any bounty data for this server
-    print('\n8. Cleaning bounty data...')
-    bounty_result = await db.bounties.delete_many({"server_id": server_id})
-    print(f'   ✓ Removed {bounty_result.deleted_count} bounty records')
-    
-    # 9. Verify complete removal
-    print('\n9. Verification - checking for any remaining data...')
-    
-    collections_to_check = [
-        'guilds', 'pvp_data', 'kill_events', 'player_sessions', 
-        'parser_states', 'server_premium_status', 'factions', 'bounties'
-    ]
-    
-    remaining_data = False
-    for collection_name in collections_to_check:
-        collection = db[collection_name]
+    for db_name in databases:
+        print(f'\n--- Processing database: {db_name} ---')
+        db = client[db_name]
+        collections = await db.list_collection_names()
         
-        if collection_name == 'guilds':
-            # Check if server exists in any guild's servers array
-            count = await collection.count_documents({
-                "servers": {"$elemMatch": {"$or": [
-                    {"_id": server_id},
-                    {"server_id": server_id},
-                    {"name": server_name}
-                ]}}
-            })
-        else:
-            count = await collection.count_documents({"server_id": server_id})
-        
-        if count > 0:
-            print(f'   ⚠️  {collection_name}: {count} records still exist')
-            remaining_data = True
-        else:
-            print(f'   ✓ {collection_name}: clean')
-    
-    if not remaining_data:
-        print(f'\n✅ Complete cleanup successful - {server_name} (ID: {server_id}) fully removed')
-    else:
-        print(f'\n⚠️  Some data may still exist - manual review recommended')
+        for coll_name in collections:
+            collection = db[coll_name]
+            
+            # Delete all documents that reference this server
+            query = {
+                '$or': [
+                    {'server_id': server_id},
+                    {'host': server_host},
+                    {'name': server_name},
+                    {'server_name': server_name},
+                    {'hostname': server_host},
+                    {'servers.server_id': server_id},
+                    {'servers.host': server_host},
+                    {'servers.name': server_name},
+                    {'servers.hostname': server_host}
+                ]
+            }
+            
+            # First try direct deletion
+            try:
+                result = await collection.delete_many(query)
+                if result.deleted_count > 0:
+                    print(f'  {coll_name}: deleted {result.deleted_count} documents')
+                    total_removed += result.deleted_count
+            except Exception as e:
+                print(f'  {coll_name}: delete error - {e}')
+            
+            # Then try removing from arrays (for embedded server configs)
+            try:
+                update_result = await collection.update_many(
+                    {'servers': {'$exists': True}},
+                    {
+                        '$pull': {
+                            'servers': {
+                                '$or': [
+                                    {'server_id': server_id},
+                                    {'_id': server_id},
+                                    {'host': server_host},
+                                    {'name': server_name},
+                                    {'hostname': server_host}
+                                ]
+                            }
+                        }
+                    }
+                )
+                if update_result.modified_count > 0:
+                    print(f'  {coll_name}: updated {update_result.modified_count} documents (removed from arrays)')
+            except Exception as e:
+                print(f'  {coll_name}: update error - {e}')
     
     print(f'\n=== Cleanup Summary ===')
-    print(f'Guild configs updated: {guild_result.modified_count}')
-    print(f'PvP records removed: {pvp_result.deleted_count}')
-    print(f'Kill events removed: {kill_result.deleted_count}')
-    print(f'Player sessions removed: {session_result.deleted_count}')
-    print(f'Parser states removed: {parser_result.deleted_count}')
-    print(f'Premium assignments removed: {premium_result.deleted_count}')
-    print(f'Faction records removed: {faction_result.deleted_count}')
-    print(f'Bounty records removed: {bounty_result.deleted_count}')
+    print(f'Total documents removed: {total_removed}')
+    
+    # Final verification
+    print(f'\n=== Verification ===')
+    remaining_count = 0
+    
+    for db_name in databases:
+        db = client[db_name]
+        collections = await db.list_collection_names()
+        
+        for coll_name in collections:
+            collection = db[coll_name]
+            
+            query = {
+                '$or': [
+                    {'server_id': server_id},
+                    {'host': server_host},
+                    {'name': server_name},
+                    {'servers.server_id': server_id},
+                    {'servers.host': server_host}
+                ]
+            }
+            
+            try:
+                count = await collection.count_documents(query)
+                if count > 0:
+                    remaining_count += count
+                    print(f'  {db_name}.{coll_name}: {count} documents still contain server references')
+            except Exception:
+                pass
+    
+    if remaining_count == 0:
+        print('✅ Server completely removed from all databases')
+    else:
+        print(f'⚠️  {remaining_count} references still remain')
 
 if __name__ == "__main__":
     asyncio.run(complete_server_cleanup())
