@@ -27,8 +27,8 @@ class DatabaseManager:
         self.db: AsyncIOMotorDatabase = mongo_client.emerald_killfeed
         
         # Collections
-        self.guilds = self.db.guilds
-        self.guild_configs = self.db.guild_configs  # Alias for compatibility
+        self.guild_configs = self.db.guild_configs
+        self.guilds = self.guild_configs  # Point to same collection
         self.pvp_data = self.db.pvp_data
         self.players = self.db.players
         self.economy = self.db.economy
