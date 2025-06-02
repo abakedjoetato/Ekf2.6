@@ -99,7 +99,7 @@ class AdminChannels(discord.Cog):
                         color=0xFF6B6B,
                         timestamp=datetime.now(timezone.utc)
                     )
-                    await ctx.followup.send(embed=embed, ephemeral=True)
+                    await ctx.respond(embed=embed, ephemeral=True)
                     return
             
             # Save channel configuration
