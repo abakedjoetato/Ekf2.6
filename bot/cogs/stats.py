@@ -304,7 +304,7 @@ class Stats(discord.Cog):
             # Handle server filtering if provided
             if server and server.strip():
                 # Validate server exists for this guild
-                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
                 if guild_doc:
                     servers = guild_doc.get('servers', [])
                     server_found = False

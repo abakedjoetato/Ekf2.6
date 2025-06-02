@@ -435,7 +435,7 @@ class Bounties(discord.Cog):
         """Send bounty claimed notification"""
         try:
             # Get guild channels
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             if not guild_config:
                 return
 
@@ -590,7 +590,7 @@ class Bounties(discord.Cog):
         """Send auto-bounty notification"""
         try:
             # Get guild channels
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             if not guild_config:
                 return
 

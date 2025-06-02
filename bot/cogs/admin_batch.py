@@ -57,7 +57,7 @@ class AdminBatch(discord.Cog):
             guild_id = ctx.guild_id
 
             # Get all servers for this guild
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             if not guild_config:
                 await ctx.respond("No guild configuration found", ephemeral=True)
                 return

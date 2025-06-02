@@ -261,7 +261,7 @@ class Premium(discord.Cog):
             guild_id = ctx.guild.id if ctx.guild else 0
 
             # Get guild configuration
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id}
 
             if not guild_config:
                 await ctx.respond("This guild is not configured!", ephemeral=True)
@@ -384,7 +384,7 @@ class Premium(discord.Cog):
                 return
 
             # Get or create guild
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id}
             if not guild_config:
                 guild_config = await self.bot.db_manager.create_guild(guild_id, ctx.guild.name)
 
@@ -453,7 +453,7 @@ class Premium(discord.Cog):
             guild_id = ctx.guild.id if ctx.guild else 0
 
             # Get guild configuration
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id}
 
             if not guild_config:
                 await ctx.respond("This guild is not configured!", ephemeral=True)
@@ -533,7 +533,7 @@ class Premium(discord.Cog):
             if not guild_id:
                 return []
                 
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id}
             if not guild_config:
                 return []
                 
@@ -566,7 +566,7 @@ class Premium(discord.Cog):
             server_id = server  # Server ID from autocomplete
 
             # Get guild configuration
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id}
 
             if not guild_config:
                 await ctx.respond("This guild is not configured!", ephemeral=True)
@@ -669,7 +669,7 @@ class Premium(discord.Cog):
             server_id = server  # Server ID from autocomplete
 
             # Get guild configuration
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id}
 
             if not guild_config:
                 await ctx.respond("This guild is not configured!", ephemeral=True)

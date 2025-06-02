@@ -337,7 +337,7 @@ class AutomatedLeaderboard(discord.Cog):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
                 # Fallback to old method
-                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
                 if not guild_doc:
                     return False
 

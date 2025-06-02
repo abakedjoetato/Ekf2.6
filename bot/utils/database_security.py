@@ -22,7 +22,7 @@ class DatabaseSecurityManager:
             await self.log_access_attempt(guild_id, operation, resource)
             
             # Check if guild exists and is active
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             if not guild_config:
                 logger.warning(f"Access denied: Guild {guild_id} not found")
                 return False
