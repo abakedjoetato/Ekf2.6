@@ -40,8 +40,20 @@ class AdminChannels(discord.Cog):
         }
     
     async def check_premium_access(self, guild_id: int) -> bool:
-        """Check premium access - bypassed for testing"""
-        return True
+        """Check if guild has premium access"""
+        try:
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
+            if not guild_config:
+                return False
+            
+            # Check for premium access flag or premium servers
+            has_premium_access = guild_config.get('premium_access', False)
+            has_premium_servers = bool(guild_config.get('premium_servers', []))
+            
+            return has_premium_access or has_premium_servers
+        except Exception as e:
+            logger.error(f"Error checking premium access: {e}")
+            return False
     
     async def channel_type_autocomplete(self, ctx: discord.AutocompleteContext):
         """Autocomplete for channel types"""
