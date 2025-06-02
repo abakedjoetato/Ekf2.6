@@ -115,21 +115,73 @@ class KillfeedParser:
                     # Remove dead connection
                     del self.sftp_connections[server_key]
 
-            # Create new connection
-            conn = await asyncssh.connect(
-                server_config['host'],
-                port=server_config['port'],
-                username=server_config['username'],
-                password=server_config['password'],
-                known_hosts=None
-            )
-            
-            self.sftp_connections[server_key] = conn
-            return conn
+            # Enhanced connection with multiple retry attempts
+            max_retries = 3
+            for attempt in range(1, max_retries + 1):
+                try:
+                    # Configure connection options with legacy support
+                    options = {
+                        'username': server_config['username'],
+                        'password': server_config['password'],
+                        'known_hosts': None,
+                        'client_keys': None,
+                        'preferred_auth': 'password,keyboard-interactive',
+                        'kex_algs': [
+                            'diffie-hellman-group14-sha256',
+                            'diffie-hellman-group16-sha512',
+                            'diffie-hellman-group18-sha512',
+                            'diffie-hellman-group14-sha1',
+                            'diffie-hellman-group1-sha1',
+                            'diffie-hellman-group-exchange-sha256',
+                            'diffie-hellman-group-exchange-sha1'
+                        ],
+                        'encryption_algs': [
+                            'aes256-ctr', 'aes192-ctr', 'aes128-ctr',
+                            'aes256-cbc', 'aes192-cbc', 'aes128-cbc',
+                            '3des-cbc', 'blowfish-cbc'
+                        ],
+                        'mac_algs': [
+                            'hmac-sha2-256', 'hmac-sha2-512',
+                            'hmac-sha1', 'hmac-md5'
+                        ]
+                    }
+                    
+                    # Establish connection with timeout
+                    logger.debug(f"SFTP connection attempt {attempt}/{max_retries} to {server_config['host']}:{server_config['port']}")
+                    conn = await asyncio.wait_for(
+                        asyncssh.connect(server_config['host'], port=server_config['port'], **options),
+                        timeout=30
+                    )
+
+                    logger.info(f"Successfully connected to SFTP server {server_config['host']}")
+                    self.sftp_connections[server_key] = conn
+                    return conn
+
+                except asyncio.TimeoutError:
+                    logger.warning(f"SFTP connection timed out (attempt {attempt}/{max_retries})")
+                except asyncssh.DisconnectError as e:
+                    logger.warning(f"SFTP server disconnected: {e} (attempt {attempt}/{max_retries})")
+                except Exception as e:
+                    if 'Invalid DH parameters' in str(e):
+                        logger.warning(f"DH parameters rejected, trying fallback options (attempt {attempt}/{max_retries})")
+                    elif 'auth' in str(e).lower():
+                        logger.error(f"SFTP authentication failed with provided credentials")
+                        return None
+                    else:
+                        logger.warning(f"SFTP connection error: {e} (attempt {attempt}/{max_retries})")
+
+                # Apply exponential backoff between retries
+                if attempt < max_retries:
+                    delay = 2 ** attempt
+                    logger.debug(f"Retrying in {delay} seconds...")
+                    await asyncio.sleep(delay)
+
+            logger.error(f"Failed to connect to SFTP server after {max_retries} attempts")
+            return None
 
         except Exception as e:
             logger.error(f"SFTP connection failed: {e}")
-            return {}
+            return None
     async def get_sftp_csv_files(self, server_config: Dict[str, Any]) -> List[str]:
         """Get CSV files from SFTP server"""
         try:
