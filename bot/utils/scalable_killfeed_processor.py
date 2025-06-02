@@ -50,12 +50,14 @@ class ScalableKillfeedProcessor:
         
         try:
             # Register session to prevent conflicts
-            if not await self.state_manager.register_session(self.guild_id, self.server_name, 'killfeed'):
+            if self.state_manager and not await self.state_manager.register_session(self.guild_id, self.server_name, 'killfeed'):
                 results['error'] = 'Server currently under historical processing'
                 return results
             
             # Get current parser state
-            current_state = await self.state_manager.get_parser_state(self.guild_id, self.server_name)
+            current_state = None
+            if self.state_manager:
+                current_state = await self.state_manager.get_parser_state(self.guild_id, self.server_name)
             
             # Discover current newest file
             newest_file = await self._discover_newest_file()
@@ -76,7 +78,7 @@ class ScalableKillfeedProcessor:
                     await self._process_incremental_update(current_state, newest_file, progress_callback)
             else:
                 # Fresh start - process from beginning
-                await self._process_fresh_start(newest_file, file_timestamp, progress_callback)
+                await self._process_fresh_start(newest_file, file_timestamp or "", progress_callback)
             
             results['success'] = True
             results['state_updated'] = True
@@ -87,7 +89,8 @@ class ScalableKillfeedProcessor:
         
         finally:
             # Unregister session
-            await self.state_manager.unregister_session(self.guild_id, self.server_name, 'killfeed')
+            if self.state_manager:
+                await self.state_manager.unregister_session(self.guild_id, self.server_name, 'killfeed')
         
         return results
     
@@ -164,11 +167,12 @@ class ScalableKillfeedProcessor:
                         final_position = current_state.last_byte_position + len(remaining_content)
                         final_line = current_state.last_line + len(lines)
                         
-                        await self.state_manager.update_parser_state(
-                            self.guild_id, self.server_name,
-                            current_state.last_file, final_line, final_position,
-                            'killfeed', current_state.file_timestamp
-                        )
+                        if self.state_manager:
+                            await self.state_manager.update_parser_state(
+                                self.guild_id, self.server_name,
+                                current_state.last_file, final_line, final_position,
+                                'killfeed', current_state.file_timestamp
+                            )
                 
         except Exception as e:
             logger.error(f"Failed to process gap from previous file: {e}")

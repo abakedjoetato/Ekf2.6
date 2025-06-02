@@ -112,7 +112,7 @@ class SharedParserStateManager:
     
     async def update_parser_state(self, guild_id: int, server_name: str, 
                                 last_file: str, last_line: int, last_byte_position: int,
-                                parser_type: str, file_timestamp: str = None) -> bool:
+                                parser_type: str, file_timestamp: Optional[str] = None) -> bool:
         """Update the parsing state for a server"""
         try:
             collection = self.db_manager.db.shared_parser_states
@@ -127,7 +127,7 @@ class SharedParserStateManager:
                 'updated_by_parser': parser_type
             }
             
-            if file_timestamp:
+            if file_timestamp is not None:
                 state_data['file_timestamp'] = file_timestamp
             
             await collection.replace_one(

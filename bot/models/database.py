@@ -38,6 +38,7 @@ class DatabaseManager:
         self.server_premium_status = self.db.server_premium_status
         self.kill_events = self.db.kill_events
         self.parser_states = self.db.parser_states
+        self.shared_parser_states = self.db.shared_parser_states
         self.player_sessions = self.db.player_sessions
         self.leaderboard_messages = self.db.leaderboard_messages
     
