@@ -23,8 +23,7 @@ for module_name in list(sys.modules.keys()):
 # Import py-cord v2.6.1
 try:
     import discord
-    import discord
-from discord.ext import commands
+    from discord.ext import commands
     print(f"✅ Successfully imported py-cord")
 except ImportError as e:
     print(f"❌ Error importing py-cord: {e}")

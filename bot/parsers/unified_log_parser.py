@@ -42,14 +42,14 @@ class UnifiedLogParser:
             # Get guilds from bot's connected guilds
             guilds = []
             for guild in self.bot.guilds:
-                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild.id)
+                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild.id})
                 if guild_doc:
                     guilds.append(guild_doc)
                 else:
                     # Check if we need to auto-detect servers for this guild
                     await self.check_for_unregistered_servers(guild.id)
                     # Try to get guild doc again after potential auto-registration
-                    guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild.id)
+                    guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild.id})
                     if guild_doc:
                         guilds.append(guild_doc)
             

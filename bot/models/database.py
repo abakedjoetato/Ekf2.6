@@ -25,10 +25,6 @@ class DatabaseManager:
     def __init__(self, mongo_client: AsyncIOMotorClient):
         self.client = mongo_client
         self.db: AsyncIOMotorDatabase = mongo_client.emerald_killfeed
-        # Configure connection with timeouts
-        self.client.server_selection_timeout_ms = 3000  # 3 seconds
-        self.client.connect_timeout_ms = 5000  # 5 seconds
-        self.client.socket_timeout_ms = 5000  # 5 seconds
         
         # Collections
         self.guilds = self.db.guilds

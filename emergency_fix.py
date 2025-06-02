@@ -1,4 +1,14 @@
+#!/usr/bin/env python3
 """
+Emergency Fix - Restore bot to working state
+"""
+
+import os
+import re
+
+def fix_admin_channels():
+    """Fix admin_channels.py to basic working state"""
+    content = '''"""
 Emerald's Killfeed - Admin Channel Configuration (PHASE 3)
 Channel setup commands with premium gating
 """
@@ -92,3 +102,16 @@ class AdminChannels(discord.Cog):
 
 def setup(bot):
     bot.add_cog(AdminChannels(bot))
+'''
+    
+    with open('bot/cogs/admin_channels.py', 'w') as f:
+        f.write(content)
+    
+    print("✅ Fixed admin_channels.py")
+
+def main():
+    fix_admin_channels()
+    print("Emergency fixes applied")
+
+if __name__ == "__main__":
+    main()
