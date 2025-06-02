@@ -35,14 +35,16 @@ class KillfeedParser:
     def parse_csv_line(self, line: str) -> Dict[str, Any]:
         """Parse a single CSV line into kill event data"""
         try:
-            parts = line.strip().split(',')
-            if len(parts) < 6:
+            parts = line.strip().split(';')
+            if len(parts) < 7:
                 return {}
             timestamp_str = parts[0].strip()
             killer = parts[1].strip()
-            victim = parts[2].strip()
-            weapon = parts[3].strip()
-            distance = parts[4].strip()
+            killer_id = parts[2].strip()
+            victim = parts[3].strip()
+            victim_id = parts[4].strip()
+            weapon = parts[5].strip()
+            distance = parts[6].strip() if len(parts) > 6 else '0'
 
             killer = killer.strip()
             victim = victim.strip()
@@ -200,19 +202,20 @@ class KillfeedParser:
 
         logger.error(f"❌ All connection strategies failed for {server_config['host']}")
         return None
-    async def get_sftp_csv_files(self, server_config: Dict[str, Any]) -> List[str]:
-        """Get CSV files from SFTP server"""
+    async def get_newest_csv_file(self, server_config: Dict[str, Any]) -> Optional[str]:
+        """Get the newest CSV file from SFTP server"""
         try:
             conn = await self.get_sftp_connection(server_config)
             if not conn:
-                return []
+                return None
 
             async with conn.start_sftp_client() as sftp:
                 base_path = f"./{server_config['host']}_{server_config['server_id']}/actual1/deathlogs"
                 
                 try:
                     dirs = await sftp.listdir(base_path)
-                    csv_files = []
+                    newest_file = None
+                    newest_time = None
                     
                     for dir_name in dirs:
                         dir_path = f"{base_path}/{dir_name}"
@@ -220,18 +223,29 @@ class KillfeedParser:
                             files = await sftp.listdir(dir_path)
                             for file_name in files:
                                 if file_name.endswith('.csv'):
-                                    csv_files.append(f"{dir_path}/{file_name}")
+                                    file_path = f"{dir_path}/{file_name}"
+                                    
+                                    # Extract timestamp from filename (YYYY.MM.DD-HH.MM.SS format)
+                                    try:
+                                        timestamp_str = file_name.replace('.csv', '')
+                                        file_time = datetime.strptime(timestamp_str, '%Y.%m.%d-%H.%M.%S')
+                                        
+                                        if newest_time is None or file_time > newest_time:
+                                            newest_time = file_time
+                                            newest_file = file_path
+                                    except ValueError:
+                                        continue
                         except Exception:
                             continue
                     
-                    return sorted(csv_files)
+                    return newest_file
                     
                 except Exception:
-                    return []
+                    return None
 
         except Exception as e:
-            logger.error(f"Error getting SFTP CSV files: {e}")
-            return []
+            logger.error(f"Error getting newest CSV file: {e}")
+            return None
 
     async def process_kill_event(self, guild_id: int, server_id: str, kill_data: Dict[str, Any]):
         """Process a kill event and update database"""
@@ -271,23 +285,60 @@ class KillfeedParser:
         except Exception as e:
             logger.error(f"Error sending killfeed embed: {e}")
 
+    async def _process_final_lines(self, server_config: Dict[str, Any], file_path: str, server_key: str, guild_id: int):
+        """Process remaining lines from old file before switching to new one"""
+        try:
+            conn = await self.get_sftp_connection(server_config)
+            if not conn:
+                return
+
+            async with conn.start_sftp_client() as sftp:
+                async with sftp.open(file_path, 'r') as f:
+                    content = await f.read()
+                    lines = content.decode('utf-8').strip().split('\n')
+                    
+                    last_line_count = self.last_processed_lines.get(server_key, 0)
+                    remaining_lines = lines[max(1, last_line_count):]
+                    
+                    if remaining_lines:
+                        logger.info(f"📋 Processing {len(remaining_lines)} final lines from old file")
+                        for line in remaining_lines:
+                            if line.strip():
+                                kill_data = self.parse_csv_line(line)
+                                if kill_data:
+                                    await self.process_kill_event(guild_id, server_config['server_id'], kill_data)
+        except Exception as e:
+            logger.error(f"Error processing final lines: {e}")
+
     async def parse_server_killfeed(self, guild_id: int, server_config: Dict[str, Any]):
         """Parse killfeed for a single server"""
         try:
             server_id = server_config['server_id']
-            csv_files = await self.get_sftp_csv_files(server_config)
+            newest_file = await self.get_newest_csv_file(server_config)
             
-            if not csv_files:
+            if not newest_file:
                 logger.info(f"⚠️ No CSV files found for server {server_id}")
                 return
             
-            logger.info(f"📁 Found {len(csv_files)} CSV files for server {server_id}")
+            logger.info(f"📁 Processing newest CSV file: {newest_file}")
 
-            # Get most recent CSV file
-            latest_file = csv_files[-1]
             server_key = f"{guild_id}:{server_id}"
             
-            # Get last processed line count
+            # Check if we switched to a new file
+            last_file = self.last_csv_files.get(server_key)
+            file_changed = last_file != newest_file
+            
+            if file_changed and last_file:
+                logger.info(f"📂 File changed from {last_file} to {newest_file}")
+                # Process remaining lines from old file before switching
+                await self._process_final_lines(server_config, last_file, server_key, guild_id)
+                # Reset line count for new file
+                self.last_processed_lines[server_key] = 0
+            
+            # Update current file tracking
+            self.last_csv_files[server_key] = newest_file
+            
+            # Get last processed line count for current file
             last_line_count = self.last_processed_lines.get(server_key, 0)
             
             # Read and parse CSV file
@@ -297,9 +348,9 @@ class KillfeedParser:
 
             async with conn.start_sftp_client() as sftp:
                 try:
-                    async with sftp.open(latest_file, 'r') as f:
+                    async with sftp.open(newest_file, 'r') as f:
                         content = await f.read()
-                        lines = content.strip().split('\n')
+                        lines = content.decode('utf-8').strip().split('\n')
                         
                         # Skip header and previously processed lines
                         new_lines = lines[max(1, last_line_count):]
@@ -314,13 +365,13 @@ class KillfeedParser:
                                     await self.process_kill_event(guild_id, server_id, kill_data)
                                     await self.send_killfeed_embed(guild_id, server_id, kill_data)
                         
-                        logger.info(f"🎯 Processed {kill_count} kill events from {latest_file}")
+                        logger.info(f"🎯 Processed {kill_count} kill events from {newest_file}")
                         
                         # Update last processed line count
                         self.last_processed_lines[server_key] = len(lines)
                         
                 except Exception as e:
-                    logger.error(f"Error reading CSV file {latest_file}: {e}")
+                    logger.error(f"Error reading CSV file {newest_file}: {e}")
 
         except Exception as e:
             logger.error(f"Error parsing server killfeed: {e}")
