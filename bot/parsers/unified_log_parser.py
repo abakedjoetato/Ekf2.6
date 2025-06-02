@@ -477,7 +477,7 @@ class UnifiedLogParser:
             actual_player_count = tracked_player_count
             
             # Get server config to find host for querying
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             if guild_config:
                 servers = guild_config.get('servers', {})
                 # Handle both dictionary and list formats for servers
@@ -526,7 +526,7 @@ class UnifiedLogParser:
             channel_name = f"{color} {server_name} [{status}] • {player_count}/{max_players}"
             
             # Update voice channel
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": int(guild_id))
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": int(guild_id)})
             logger.info(f"🔍 Guild config found: {guild_config is not None}")
             
             if guild_config:
