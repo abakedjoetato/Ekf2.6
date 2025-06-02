@@ -520,11 +520,8 @@ class EmeraldKillfeedBot(commands.Bot):
 
             # STEP 3: Command sync - simplified and robust
             logger.info("🔧 Starting command sync...")
-            try:
-                await self.register_commands_safely()
-                logger.info("✅ Command sync completed")
-            except Exception as sync_error:
-                logger.error(f"❌ Command sync failed: {sync_error}")
+            await self.register_commands_safely()
+            logger.info("✅ Command sync completed")
 
             # STEP 4: Database setup with graceful degradation
             logger.info("🚀 Starting database and parser setup...")
