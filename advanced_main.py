@@ -64,21 +64,27 @@ class AdvancedEmeraldBot(discord.Bot):
             logger.info("🔧 Starting advanced setup hook...")
             
             # Initialize database connection
+            logger.info("📋 Step 1: Initializing database...")
             await self._initialize_advanced_database()
             
             # Load all advanced cogs
+            logger.info("📋 Step 2: Loading cogs...")
             await self._load_advanced_cogs()
             
             # Initialize parsers (preserved from original)
+            logger.info("📋 Step 3: Initializing parsers...")
             await self._initialize_parser_systems()
             
             # Sync commands
+            logger.info("📋 Step 4: Syncing commands...")
             await self._sync_commands()
             
             logger.info("✅ Advanced setup hook completed successfully")
             
         except Exception as e:
             logger.error(f"❌ Setup hook failed: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise
 
     async def _initialize_advanced_database(self):
@@ -110,6 +116,9 @@ class AdvancedEmeraldBot(discord.Bot):
             
         except Exception as e:
             logger.error(f"❌ Database initialization failed: {e}")
+            logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             logger.info("🔄 Continuing without database for testing purposes")
             self.db_manager = None
 
