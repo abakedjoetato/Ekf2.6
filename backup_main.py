@@ -124,12 +124,15 @@ class AdvancedEmeraldBot(discord.Bot):
         logger.info("📜 Initializing parser systems...")
         
         # Initialize channel router
+        from bot.utils.channel_router import ChannelRouter
         self.channel_router = ChannelRouter(self.db_manager)
         
-        # Initialize unified parser with advanced database
-        self.unified_parser = UnifiedLogParser(self.db_manager, self.channel_router)
+        # Initialize advanced unified parser
+        from bot.parsers.advanced_unified_parser import AdvancedUnifiedParser
+        self.unified_parser = AdvancedUnifiedParser(self.db_manager, self.channel_router)
         
         # Initialize killfeed parser
+        from bot.parsers.killfeed_parser import KillfeedParser
         self.killfeed_parser = KillfeedParser(self.db_manager, self.channel_router)
         
         logger.info("✅ Parser systems initialized")
@@ -139,8 +142,8 @@ class AdvancedEmeraldBot(discord.Bot):
         logger.info("🔧 Loading advanced cogs...")
         
         cog_modules = [
-            "bot.cogs.premium",              # Advanced premium system
-            "bot.cogs.professional_casino",  # Casino with premium validation
+            "bot.cogs.advanced_premium",     # Advanced premium system
+            "bot.cogs.advanced_casino",      # Casino with premium validation
             "bot.cogs.admin_channels",       # Admin tools with guild isolation
             "bot.cogs.autocomplete",         # Advanced autocomplete
             "bot.cogs.automated_leaderboard", # Premium-only leaderboards
