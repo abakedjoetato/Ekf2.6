@@ -133,22 +133,32 @@ class AdvancedEmeraldBot(discord.Bot):
                 "bot.cogs.admin_channels_enhanced",    # Enhanced channel configuration
                 "bot.cogs.admin_server_management",    # SFTP server management
                 "bot.cogs.statistics_enhanced",        # Enhanced player statistics
-                "bot.cogs.admin_fixed",                # Admin commands with UI
                 
-                # Existing stable cogs
+                # Administrative systems
                 "bot.cogs.admin_batch",                # Batch management
+                "bot.cogs.admin_fixed",                # Admin commands with UI
+                "bot.cogs.advanced_premium",           # Premium management
+                "bot.cogs.core",                       # Core functionality
+                "bot.cogs.cache_management",           # Cache management
+                
+                # Gaming and economy
                 "bot.cogs.advanced_casino",            # Casino system
-                "bot.cogs.subscription_management_fixed", # Subscription management
-                "bot.cogs.parsers",                    # Parser management (preserved)
-                "bot.cogs.leaderboard",                # Leaderboards
-                "bot.cogs.factions",                   # Faction management
-                "bot.cogs.link_management",            # Character linking
+                "bot.cogs.professional_casino",        # Professional casino
                 "bot.cogs.economy",                    # Economy system
-                "bot.cogs.help_system",                # Help system
-                "bot.cogs.wallet",                     # Wallet system
-                "bot.cogs.bounty_system",              # Bounty system
-                "bot.cogs.admin",                      # Basic admin
-                "bot.cogs.killfeed"                    # Killfeed
+                "bot.cogs.bounties",                   # Bounty system
+                
+                # Player features
+                "bot.cogs.stats",                      # Player statistics
+                "bot.cogs.linking",                    # Character linking
+                "bot.cogs.factions",                   # Faction management
+                "bot.cogs.leaderboards_fixed",         # Leaderboards
+                "bot.cogs.automated_leaderboard",      # Automated leaderboards
+                
+                # System features
+                "bot.cogs.parsers",                    # Parser management
+                "bot.cogs.subscription_management_fixed", # Subscription management
+                "bot.cogs.autocomplete",               # Enhanced autocomplete
+                "bot.cogs.advanced_commands"           # Advanced command system
             ]
             
             loaded_count = 0
@@ -182,10 +192,18 @@ class AdvancedEmeraldBot(discord.Bot):
                 from bot.parsers.unified_log_parser import UnifiedLogParser
                 from bot.parsers.historical_parser import HistoricalParser
                 
-                # Initialize parsers with database manager and channel router
-                self.killfeed_parser = KillfeedParser(self.db_manager, self.channel_router)
-                self.unified_parser = UnifiedLogParser(self.db_manager, self.channel_router)
-                self.historical_parser = HistoricalParser(self.db_manager, self.channel_router)
+                # Initialize parsers with database manager only (channel router added later)
+                self.killfeed_parser = KillfeedParser(self.db_manager)
+                self.unified_parser = UnifiedLogParser(self.db_manager)
+                self.historical_parser = HistoricalParser(self.db_manager)
+                
+                # Add channel router to parsers
+                if hasattr(self.killfeed_parser, 'set_channel_router'):
+                    self.killfeed_parser.set_channel_router(self.channel_router)
+                if hasattr(self.unified_parser, 'set_channel_router'):
+                    self.unified_parser.set_channel_router(self.channel_router)
+                if hasattr(self.historical_parser, 'set_channel_router'):
+                    self.historical_parser.set_channel_router(self.channel_router)
                 
                 logger.info("✅ Parser systems initialized with channel routing")
                 

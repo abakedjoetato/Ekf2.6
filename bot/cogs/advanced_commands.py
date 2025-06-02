@@ -5,7 +5,8 @@ All commands use advanced UI components for maximum user experience
 
 import discord
 from discord.ext import commands
-from discord.ui import Modal, TextInput, Button, View, Select
+from discord.ui import Modal, Button, View, Select
+from discord import InputText
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timezone
 import logging

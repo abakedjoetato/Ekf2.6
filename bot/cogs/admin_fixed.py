@@ -10,13 +10,7 @@ import asyncio
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
-from bot.utils.embed_factory import EmbedFactory
-from bot.ui.advanced_components import (
-    MultiRowButtonView, 
-    ConfirmationView,
-    FactionManagementView,
-    AdvancedCasinoView
-)
+from bot.ui.enhanced_embed_factory import EnhancedEmbedFactory
 
 logger = logging.getLogger(__name__)
 

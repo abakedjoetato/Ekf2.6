@@ -394,6 +394,182 @@ class FactionSelectionView(discord.ui.View):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+class PlayerLinkingModal(discord.ui.Modal):
+    """Modal for linking player characters"""
+    
+    def __init__(self, user_id: int):
+        super().__init__(title="Link Player Character")
+        self.user_id = user_id
+        
+        self.main_player_input = discord.ui.InputText(
+            label="Main Character Name",
+            placeholder="Enter your main character name",
+            min_length=3,
+            max_length=32
+        )
+        self.add_item(self.main_player_input)
+        
+        self.alt_player_input = discord.ui.InputText(
+            label="Alt Character Name (Optional)",
+            placeholder="Enter alt character name to link",
+            min_length=3,
+            max_length=32,
+            required=False
+        )
+        self.add_item(self.alt_player_input)
+    
+    async def callback(self, interaction: discord.Interaction):
+        """Handle player linking"""
+        embed = discord.Embed(
+            title="✅ Character Linked",
+            description=f"Successfully linked character **{self.main_player_input.value}**",
+            color=discord.Color.green()
+        )
+        
+        if self.alt_player_input.value:
+            embed.add_field(name="Alt Character", value=self.alt_player_input.value, inline=True)
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class EconomyConfigModal(discord.ui.Modal):
+    """Modal for economy configuration"""
+    
+    def __init__(self):
+        super().__init__(title="Economy Configuration")
+        
+        self.starting_balance = discord.ui.InputText(
+            label="Starting Balance",
+            placeholder="Default balance for new users",
+            value="1000"
+        )
+        self.add_item(self.starting_balance)
+        
+        self.daily_bonus = discord.ui.InputText(
+            label="Daily Bonus",
+            placeholder="Daily login bonus amount",
+            value="100"
+        )
+        self.add_item(self.daily_bonus)
+    
+    async def callback(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="✅ Economy Updated",
+            description="Economy settings have been updated",
+            color=discord.Color.green()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class BountyCreationModal(discord.ui.Modal):
+    """Modal for creating bounties"""
+    
+    def __init__(self):
+        super().__init__(title="Create Bounty")
+        
+        self.target_input = discord.ui.InputText(
+            label="Target Player",
+            placeholder="Enter target player name"
+        )
+        self.add_item(self.target_input)
+        
+        self.amount_input = discord.ui.InputText(
+            label="Bounty Amount",
+            placeholder="Enter bounty amount"
+        )
+        self.add_item(self.amount_input)
+        
+        self.reason_input = discord.ui.InputText(
+            label="Reason (Optional)",
+            placeholder="Why is this bounty being placed?",
+            style=discord.InputTextStyle.paragraph,
+            required=False
+        )
+        self.add_item(self.reason_input)
+    
+    async def callback(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="💰 Bounty Created",
+            description=f"Bounty placed on **{self.target_input.value}** for **${self.amount_input.value}**",
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed)
+
+class CasinoBetModal(discord.ui.Modal):
+    """Modal for casino betting"""
+    
+    def __init__(self, game_type: str, max_bet: int):
+        super().__init__(title=f"Place Bet - {game_type}")
+        self.game_type = game_type
+        
+        self.bet_input = discord.ui.InputText(
+            label="Bet Amount",
+            placeholder=f"Enter amount (Max: ${max_bet:,})"
+        )
+        self.add_item(self.bet_input)
+    
+    async def callback(self, interaction: discord.Interaction):
+        try:
+            bet_amount = int(self.bet_input.value.replace(',', '').replace('$', ''))
+            embed = discord.Embed(
+                title=f"🎮 {self.game_type}",
+                description=f"Bet placed: **${bet_amount:,}**",
+                color=discord.Color.green()
+            )
+            await interaction.response.send_message(embed=embed)
+        except ValueError:
+            await interaction.response.send_message("Invalid bet amount!", ephemeral=True)
+
+class StatsNavigationView(discord.ui.View):
+    """Navigation view for statistics"""
+    
+    def __init__(self, user_id: int):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+    
+    @discord.ui.button(label="📊 Personal Stats", style=discord.ButtonStyle.primary)
+    async def personal_stats(self, button: discord.ui.Button, interaction: discord.Interaction):
+        embed = discord.Embed(title="📊 Personal Statistics", color=discord.Color.blue())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    @discord.ui.button(label="🏆 Leaderboards", style=discord.ButtonStyle.secondary)
+    async def leaderboards(self, button: discord.ui.Button, interaction: discord.Interaction):
+        embed = discord.Embed(title="🏆 Leaderboards", color=discord.Color.gold())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class LeaderboardView(discord.ui.View):
+    """View for leaderboard navigation"""
+    
+    def __init__(self):
+        super().__init__(timeout=300)
+    
+    @discord.ui.button(label="🔫 Kills", style=discord.ButtonStyle.primary)
+    async def kills_leaderboard(self, button: discord.ui.Button, interaction: discord.Interaction):
+        embed = discord.Embed(title="🔫 Kill Leaderboard", color=discord.Color.red())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class CasinoGameView(discord.ui.View):
+    """View for casino games"""
+    
+    def __init__(self, user_id: int):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+    
+    @discord.ui.button(label="🎰 Slots", style=discord.ButtonStyle.primary)
+    async def slots(self, button: discord.ui.Button, interaction: discord.Interaction):
+        embed = discord.Embed(title="🎰 Slot Machine", color=discord.Color.gold())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class ServerSelectionView(discord.ui.View):
+    """View for server selection"""
+    
+    def __init__(self, servers: list):
+        super().__init__(timeout=300)
+        self.servers = servers
+    
+    @discord.ui.button(label="🌐 Select Server", style=discord.ButtonStyle.primary)
+    async def select_server(self, button: discord.ui.Button, interaction: discord.Interaction):
+        embed = discord.Embed(title="🌐 Server Selection", color=discord.Color.blue())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class MemberInvitationModal(discord.ui.Modal):
     """Modal for inviting new faction members"""
     
