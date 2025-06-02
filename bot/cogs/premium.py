@@ -210,6 +210,13 @@ class Premium(discord.Cog):
                     
                     # Trigger historical parser with Discord progress updates
                     logger.info(f"✅ Server {serverid} added successfully - triggering historical data processing")
+                    
+                    # Actually trigger the historical parser
+                    if hasattr(bot, 'historical_parser') and bot.historical_parser:
+                        try:
+                            await bot.historical_parser.auto_refresh_after_server_add(guild_id, server_config, interaction.channel)
+                        except Exception as e:
+                            logger.error(f"Failed to trigger historical parser: {e}")
                 else:
                     logger.error(f"❌ Failed to add server {serverid} to database")
 
