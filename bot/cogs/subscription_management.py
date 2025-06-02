@@ -438,7 +438,11 @@ class SubscriptionManagement(discord.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
-            guild_config = has_premium = self.check_premium_access(guild_id)}** (`{server_id}`) is now premium",
+            has_premium = await self.bot.db_manager.check_premium_access(guild_id)
+            
+            embed = EmbedFactory.create_info_embed(
+                title="Premium Status Updated",
+                description=f"Server **{server_name}** (`{server_id}`) is now premium",
                     color=discord.Color.green()
                 )
                 embed.add_field(name="Status", value=message, inline=False)

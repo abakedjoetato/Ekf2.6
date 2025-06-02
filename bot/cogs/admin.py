@@ -22,7 +22,7 @@ class Admin(commands.Cog):
         """Admin command group"""
         pass
     
-    @admin_group.command(name="status", description="Check bot system status")
+    @admin_group.subcommand(name="status", description="Check bot system status")
     async def admin_status(self, ctx: discord.ApplicationContext):
         """Check bot system status"""
         try:
