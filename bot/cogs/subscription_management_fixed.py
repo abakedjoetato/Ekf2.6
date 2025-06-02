@@ -115,7 +115,7 @@ class SubscriptionManagement(commands.Cog):
             logger.error(f"Error activating subscription: {e}")
             await ctx.respond("An error occurred while activating premium subscription.", ephemeral=True)
 
-    @subscription.subcommand(name="deactivate", description="Deactivate premium subscription (Admin only)")
+    @subscription.command(name="deactivate", description="Deactivate premium subscription (Admin only)")
     @commands.has_permissions(administrator=True)
     async def subscription_deactivate(self, ctx: discord.ApplicationContext):
         """Deactivate premium subscription for this guild"""
