@@ -31,7 +31,7 @@ class ServerAutocomplete:
         return []
 
     @staticmethod
-    async def autocomplete_server_name(ctx: discord.AutocompleteContext):
+    async def autocomplete_server_name(ctx):
         """Autocomplete for server names (guild-scoped only)"""
         try:
             guild_id = ctx.interaction.guild.id if ctx.interaction.guild else None

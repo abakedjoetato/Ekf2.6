@@ -117,7 +117,7 @@ pymongo
 python-dotenv
 apscheduler
 asyncssh
-discord-py
 motor
 py-cord
 python-dotenv
+py-cord==2.6.1
