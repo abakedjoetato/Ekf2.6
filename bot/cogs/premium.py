@@ -110,16 +110,10 @@ class Premium(discord.Cog):
                     placeholder="e.g., server1 (unique identifier)",
                     max_length=20
                 )
-                self.host = discord.ui.InputText(
-                    label="Host/IP Address",
-                    placeholder="e.g., 192.168.1.100 or game.example.com",
+                self.host_port = discord.ui.InputText(
+                    label="Host:Port",
+                    placeholder="e.g., 192.168.1.100:22",
                     max_length=100
-                )
-                self.port = discord.ui.InputText(
-                    label="SFTP Port",
-                    placeholder="22",
-                    value="22",
-                    max_length=5
                 )
                 self.username = discord.ui.InputText(
                     label="SFTP Username",
@@ -135,8 +129,7 @@ class Premium(discord.Cog):
                 
                 self.add_item(self.server_name)
                 self.add_item(self.server_id)
-                self.add_item(self.host)
-                self.add_item(self.port)
+                self.add_item(self.host_port)
                 self.add_item(self.username)
                 self.add_item(self.password)
             
@@ -146,15 +139,21 @@ class Premium(discord.Cog):
                 # Extract values from modal inputs
                 name = self.server_name.value.strip()
                 serverid = self.server_id.value.strip()
-                host = self.host.value.strip()
+                host_port = self.host_port.value.strip()
                 username = self.username.value.strip()
                 password = self.password.value.strip()
                 
-                try:
-                    port = int(self.port.value.strip())
-                except ValueError:
-                    await interaction.followup.send("Port must be a valid number!", ephemeral=True)
-                    return
+                # Parse host:port
+                if ':' in host_port:
+                    host, port_str = host_port.rsplit(':', 1)
+                    try:
+                        port = int(port_str)
+                    except ValueError:
+                        await interaction.followup.send("Port must be a valid number!", ephemeral=True)
+                        return
+                else:
+                    host = host_port
+                    port = 22  # Default SFTP port
                 
                 # Process the server addition
                 guild_id = interaction.guild.id if interaction.guild else None
