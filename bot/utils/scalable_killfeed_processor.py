@@ -105,7 +105,18 @@ class ScalableKillfeedProcessor:
                 killfeed_path = self.server_config.get('killfeed_path', '/path/to/killfeed/')
                 
                 # List files and find newest timestamp
-                file_attrs = await sftp.listdir_attr(killfeed_path)
+                file_list = await sftp.listdir(killfeed_path)
+                file_attrs = []
+                for filename in file_list:
+                    if filename.endswith('.csv'):
+                        attrs = await sftp.stat(f"{killfeed_path.rstrip('/')}/{filename}")
+                        # Create a simple object with needed attributes
+                        file_info = type('FileInfo', (), {
+                            'filename': filename,
+                            'size': getattr(attrs, 'size', 0),
+                            'mtime': getattr(attrs, 'mtime', 0)
+                        })()
+                        file_attrs.append(file_info)
                 csv_files = []
                 
                 for attr in file_attrs:
@@ -190,9 +201,9 @@ class ScalableKillfeedProcessor:
                 
                 # Get current file size
                 file_attrs = await sftp.stat(file_path)
-                current_size = file_attrs.st_size
+                current_size = file_attrs.size
                 
-                if current_size > current_state.last_byte_position:
+                if current_size and current_size > current_state.last_byte_position:
                     # File has grown - read new content
                     async with sftp.open(file_path, 'rb') as file:
                         await file.seek(current_state.last_byte_position)

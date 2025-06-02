@@ -132,7 +132,7 @@ class ChronologicalProcessor:
                     logger.error(f"Failed to discover files: {e}")
                     self.stats.errors.append(f"File discovery failed: {str(e)}")
                 
-                await sftp.close()
+                await sftp.exit()
                 
         except Exception as e:
             logger.error(f"Connection failed during discovery: {e}")
@@ -182,7 +182,7 @@ class ChronologicalProcessor:
                 async with sftp.open(file_path, 'r') as file:
                     content = await file.read()
                 
-                await sftp.close()
+                await sftp.exit()
                 
                 # Parse lines into kill records
                 lines = content.strip().split('\n')
