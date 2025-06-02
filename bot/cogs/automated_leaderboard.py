@@ -175,6 +175,61 @@ class AutomatedLeaderboard(discord.Cog):
             logger.error(f"Error getting top kills for automated leaderboard: {e}")
             return []
 
+    
+    async def _collect_leaderboard_data(self, guild_id: int, server_id: str = None) -> Dict[str, Any]:
+        """Collect all leaderboard data from correct database collections"""
+        try:
+            data = {}
+            
+            # Base query for filtering
+            base_query = {"guild_id": guild_id}
+            if server_id and server_id != "all":
+                base_query["server_id"] = server_id
+            
+            # Top killers from pvp_data
+            kills_cursor = self.bot.db_manager.pvp_data.find(base_query).sort("kills", -1).limit(10)
+            data["top_killers"] = await kills_cursor.to_list(length=None)
+            
+            # Top KDR (only players with deaths > 0)
+            kdr_query = {**base_query, "deaths": {"$gt": 0}}
+            kdr_pipeline = [
+                {"$match": kdr_query},
+                {"$addFields": {"kdr": {"$divide": ["$kills", "$deaths"]}}},
+                {"$sort": {"kdr": -1}},
+                {"$limit": 10}
+            ]
+            kdr_cursor = self.bot.db_manager.pvp_data.aggregate(kdr_pipeline)
+            data["top_kdr"] = await kdr_cursor.to_list(length=None)
+            
+            # Longest distances from pvp_data
+            distance_cursor = self.bot.db_manager.pvp_data.find(base_query).sort("personal_best_distance", -1).limit(10)
+            data["top_distances"] = await distance_cursor.to_list(length=None)
+            
+            # Best streaks from pvp_data
+            streak_cursor = self.bot.db_manager.pvp_data.find(base_query).sort("longest_streak", -1).limit(10)
+            data["top_streaks"] = await streak_cursor.to_list(length=None)
+            
+            # Top weapons from kill_events
+            weapon_pipeline = [
+                {"$match": {**base_query, "is_suicide": False}},
+                {"$group": {"_id": "$weapon", "kills": {"$sum": 1}, "top_user": {"$first": "$killer"}}},
+                {"$sort": {"kills": -1}},
+                {"$limit": 10}
+            ]
+            weapon_cursor = self.bot.db_manager.kill_events.aggregate(weapon_pipeline)
+            data["top_weapons"] = await weapon_cursor.to_list(length=None)
+            
+            # Top factions from factions collection
+            faction_cursor = self.bot.db_manager.factions.find(base_query).sort("kills", -1).limit(5)
+            data["top_factions"] = await faction_cursor.to_list(length=None)
+            
+            return data
+            
+        except Exception as e:
+            logger.error(f"Failed to collect leaderboard data: {e}")
+            return {}
+
+
     async def update_guild_leaderboard(self, guild_config: Dict[str, Any], force_create: bool = False):
         """Update leaderboard for a specific guild"""
         try:

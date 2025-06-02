@@ -56,10 +56,11 @@ class ProcessingStats:
 class ChronologicalProcessor:
     """Manages chronological processing for a single server"""
     
-    def __init__(self, guild_id: int, server_config: Dict[str, Any]):
+    def __init__(self, guild_id: int, server_config: Dict[str, Any], db_manager=None):
         self.guild_id = guild_id
         self.server_config = server_config
         self.server_id = str(server_config.get('_id', 'unknown'))
+        self.db_manager = db_manager
         self.stats = ProcessingStats()
         self.kill_cache: List[KillRecord] = []
         self._cancelled = False
@@ -273,9 +274,49 @@ class ChronologicalProcessor:
     
     async def _process_kill_batch(self, kill_batch: List[KillRecord]):
         """Process a batch of chronologically ordered kills"""
-        # Here you would integrate with your existing database update logic
-        # For now, this is a placeholder for the actual kill processing
-        await asyncio.sleep(0.01)  # Simulate processing time
+        try:
+            for kill_record in kill_batch:
+                # Store kill event in database
+                kill_event = {
+                    'guild_id': self.guild_id,
+                    'server_id': self.server_id,
+                    'killer': kill_record.killer,
+                    'victim': kill_record.victim,
+                    'weapon': kill_record.weapon,
+                    'distance': kill_record.distance,
+                    'killer_platform': kill_record.killer_platform,
+                    'victim_platform': kill_record.victim_platform,
+                    'timestamp': kill_record.timestamp,
+                    'file_source': kill_record.file_source,
+                    'is_suicide': kill_record.killer == kill_record.victim,
+                    'processed_at': datetime.now(timezone.utc)
+                }
+                
+                # Insert kill event if database manager is available
+                if self.db_manager:
+                    await self.db_manager.kill_events.insert_one(kill_event)
+                    
+                    # Update player stats (kills for killer, deaths for victim)
+                    if not kill_event['is_suicide']:
+                        # Increment killer stats
+                        await self.db_manager.increment_player_kill(
+                            self.guild_id, 
+                            self.server_id, 
+                            kill_record.killer, 
+                            kill_record.distance,
+                            kill_record.timestamp
+                        )
+                        
+                        # Increment victim deaths
+                        await self.db_manager.increment_player_death(
+                            self.guild_id,
+                            self.server_id, 
+                            kill_record.victim
+                        )
+                
+        except Exception as e:
+            logger.error(f"Failed to process kill batch: {e}")
+            self.stats.errors.append(f"Batch processing error: {str(e)}")
     
     def cancel(self):
         """Cancel the processing"""
@@ -303,8 +344,9 @@ class ChronologicalProcessor:
 class MultiServerProcessor:
     """Manages parallel processing across multiple servers"""
     
-    def __init__(self, guild_id: int):
+    def __init__(self, guild_id: int, db_manager=None):
         self.guild_id = guild_id
+        self.db_manager = db_manager
         self.processors: Dict[str, ChronologicalProcessor] = {}
         self.results: Dict[str, Dict[str, Any]] = {}
         
@@ -314,7 +356,7 @@ class MultiServerProcessor:
         # Create processors for each server
         for server_config in server_configs:
             server_id = str(server_config.get('_id', 'unknown'))
-            self.processors[server_id] = ChronologicalProcessor(self.guild_id, server_config)
+            self.processors[server_id] = ChronologicalProcessor(self.guild_id, server_config, self.db_manager)
         
         # Process servers in parallel
         tasks = []

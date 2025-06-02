@@ -23,6 +23,17 @@ def should_use_inline(field_value: str, max_inline_chars: int = 20) -> bool:
     return len(clean_text) <= max_inline_chars
 
 class LeaderboardsFixed(discord.Cog):
+
+    def _add_server_filter(self, pipeline: list, server_id: str = None) -> list:
+        """Add server filtering to aggregation pipeline"""
+        if server_id and server_id != "all":
+            # Add server filter to match stage
+            for stage in pipeline:
+                if "$match" in stage:
+                    stage["$match"]["server_id"] = server_id
+                    break
+        return pipeline
+
     """Fixed leaderboard commands that actually use the themed factory"""
 
     def __init__(self, bot):

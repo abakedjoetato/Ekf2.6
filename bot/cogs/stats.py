@@ -426,7 +426,31 @@ class Stats(discord.Cog):
             else:
                 await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
 
-    @discord.slash_command(name="compare", description="Compare stats with another player")
+    async def _validate_player_data(self, guild_id: int, player_characters: List[str], server_id: str = None) -> bool:
+        """Validate that player data exists in the database"""
+        try:
+            for character in player_characters:
+                # Check if player has any data in pvp_data
+                pvp_exists = await self.bot.db_manager.pvp_data.find_one({
+                    'guild_id': guild_id,
+                    'player_name': character,
+                    'server_id': server_id if server_id else {'$exists': True}
+                })
+                
+                # Check if player has any kill events
+                kills_exist = await self.bot.db_manager.kill_events.find_one({
+                    'guild_id': guild_id,
+                    'killer': character,
+                    'server_id': server_id if server_id else {'$exists': True}
+                })
+                
+                if pvp_exists or kills_exist:
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Data validation failed: {e}")
+            return False
+
     async def compare(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Compare your stats with another player"""
         try:
