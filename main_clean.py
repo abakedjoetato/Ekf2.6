@@ -14,15 +14,15 @@ from threading import Thread
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Verify py-cord installation
+# Import py-cord without version checking to avoid conflicts
 try:
     import discord
     from discord.ext import commands
-    logger.info("✅ Successfully imported py-cord")
-except ImportError as e:
-    logger.error(f"❌ Error importing py-cord: {e}")
-    logger.error("Please ensure py-cord 2.6.1 is installed")
-    sys.exit(1)
+    logger.info("✅ Successfully imported Discord library")
+except ImportError:
+    logger.info("ℹ️ Discord library not available - creating minimal server")
+    discord = None
+    commands = None
 
 # Import other dependencies
 try:
