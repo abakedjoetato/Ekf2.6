@@ -452,11 +452,33 @@ class DatabaseManager:
     async def add_server_to_guild(self, guild_id: int, server_config: Dict[str, Any]) -> bool:
         """Add game server to guild"""
         try:
-            result = await self.guilds.update_one(
-                {"guild_id": guild_id},
-                {"$addToSet": {"servers": server_config}}
-            )
-            return result.modified_count > 0
+            # First ensure the guild document exists
+            guild_doc = await self.guilds.find_one({"guild_id": guild_id})
+            if not guild_doc:
+                # Create new guild document with proper structure
+                new_guild = {
+                    "guild_id": guild_id,
+                    "servers": [server_config],
+                    "channels": {},
+                    "premium_enabled": False,
+                    "features_enabled": [],
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc)
+                }
+                insert_result = await self.guilds.insert_one(new_guild)
+                logger.info(f"Created new guild document for {guild_id} with server {server_config.get('_id')}")
+                return insert_result.inserted_id is not None
+            else:
+                # Guild exists, add server to existing document
+                result = await self.guilds.update_one(
+                    {"guild_id": guild_id},
+                    {
+                        "$addToSet": {"servers": server_config},
+                        "$set": {"updated_at": datetime.now(timezone.utc)}
+                    }
+                )
+                logger.info(f"Added server {server_config.get('_id')} to existing guild {guild_id}")
+                return result.modified_count > 0
         except Exception as e:
             logger.error(f"Failed to add server to guild {guild_id}: {e}")
             return False

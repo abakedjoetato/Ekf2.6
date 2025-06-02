@@ -7,12 +7,10 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 import discord
-import discord
-import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
+from bot.parsers.historical_parser import HistoricalParser
 from discord import Option
-#from discord import app_commands # Removed app_commands import, not needed for py-cord 2.6.1
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +24,7 @@ class Parsers(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.historical_parser = HistoricalParser(bot)
     
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
