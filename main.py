@@ -366,9 +366,12 @@ class EmeraldKillfeedBot(commands.Bot):
         try:
             cleanup_tasks = []
 
-            # Killfeed parser cleanup
+            # Scalable killfeed parser cleanup
             if hasattr(self, 'killfeed_parser') and self.killfeed_parser:
-                cleanup_tasks.append(self._cleanup_parser_connections(self.killfeed_parser, "killfeed"))
+                if hasattr(self.killfeed_parser, 'cleanup_killfeed_connections'):
+                    cleanup_tasks.append(self.killfeed_parser.cleanup_killfeed_connections())
+                else:
+                    cleanup_tasks.append(self._cleanup_parser_connections(self.killfeed_parser, "killfeed"))
 
             # Unified log parser cleanup  
             if hasattr(self, 'unified_log_parser') and self.unified_log_parser:
@@ -507,14 +510,20 @@ class EmeraldKillfeedBot(commands.Bot):
             await connection_manager.start()
             logger.info("Connection pool manager started for scalable parsing")
 
+            # Initialize shared parser state management
+            from bot.utils.shared_parser_state import initialize_shared_state_manager
+            initialize_shared_state_manager(self.db_manager)
+            logger.info("Shared parser state manager initialized")
+
             # Initialize parsers (PHASE 2) - Data parsers for killfeed & log events
-            self.killfeed_parser = KillfeedParser(self)
+            from bot.parsers.scalable_killfeed_parser import ScalableKillfeedParser
+            self.killfeed_parser = ScalableKillfeedParser(self)
             from bot.parsers.scalable_historical_parser import ScalableHistoricalParser
             self.historical_parser = ScalableHistoricalParser(self)
             self.unified_log_parser = UnifiedLogParser(self)
             # Ensure consistent parser access
             self.log_parser = self.unified_log_parser  # Legacy compatibility
-            logger.info("Parsers initialized (PHASE 2) + Scalable Historical Parser + Unified Log Parser + Advanced Rate Limiter + Batch Sender + Channel Router")
+            logger.info("Parsers initialized (PHASE 2) + Scalable Killfeed Parser + Scalable Historical Parser + Unified Log Parser + Advanced Rate Limiter + Batch Sender + Channel Router")
 
             return True
 
@@ -610,8 +619,13 @@ class EmeraldKillfeedBot(commands.Bot):
 
             # STEP 6: Schedule parsers
             if self.killfeed_parser:
-                self.killfeed_parser.schedule_killfeed_parser() if hasattr(self.killfeed_parser, "schedule_killfeed_parser") else None
-                logger.info("📡 Killfeed parser scheduled")
+                self.scheduler.add_job(
+                    self.killfeed_parser.run_killfeed_parser,
+                    'interval',
+                    minutes=5,
+                    id='scalable_killfeed_parser'
+                )
+                logger.info("📡 Scalable killfeed parser scheduled")
 
             if self.unified_log_parser:
                 try:
