@@ -123,38 +123,54 @@ class EmeraldKillfeedBot(commands.Bot):
         logger.info("Bot initialized in production mode")
 
     async def load_cogs(self):
-        """Load all cogs with comprehensive error handling"""
-        cog_files = [
-            'bot.cogs.core',
-            'bot.cogs.admin_channels',
-            'bot.cogs.admin_batch',
-            'bot.cogs.linking',
-            'bot.cogs.stats',
-            'bot.cogs.leaderboards_fixed',
-            'bot.cogs.automated_leaderboard',
-            'bot.cogs.economy',
-            'bot.cogs.professional_casino',
-            'bot.cogs.bounties',
-            'bot.cogs.factions',
-            'bot.cogs.subscription_management',
-            'bot.cogs.parsers',
-            'bot.cogs.cache_management'
+        """Load all cogs with direct registration (py-cord 2.6.1 compatible)"""
+        from bot.cogs.core import Core
+        from bot.cogs.admin_channels import AdminChannels
+        from bot.cogs.admin_batch import AdminBatch
+        from bot.cogs.linking import Linking
+        from bot.cogs.stats import Stats
+        from bot.cogs.leaderboards_fixed import LeaderboardsFixed
+        from bot.cogs.automated_leaderboard import AutomatedLeaderboard
+        from bot.cogs.economy import Economy
+        from bot.cogs.professional_casino import ProfessionalCasino
+        from bot.cogs.bounties import Bounties
+        from bot.cogs.factions import Factions
+        from bot.cogs.subscription_management import SubscriptionManagement
+        from bot.cogs.parsers import Parsers
+        from bot.cogs.cache_management import CacheManagement
+
+        cog_classes = [
+            ('Core', Core),
+            ('AdminChannels', AdminChannels),
+            ('AdminBatch', AdminBatch),
+            ('Linking', Linking),
+            ('Stats', Stats),
+            ('LeaderboardsFixed', LeaderboardsFixed),
+            ('AutomatedLeaderboard', AutomatedLeaderboard),
+            ('Economy', Economy),
+            ('ProfessionalCasino', ProfessionalCasino),
+            ('Bounties', Bounties),
+            ('Factions', Factions),
+            ('SubscriptionManagement', SubscriptionManagement),
+            ('Parsers', Parsers),
+            ('CacheManagement', CacheManagement)
         ]
 
         loaded_count = 0
         failed_cogs = []
 
-        for cog in cog_files:
+        for name, cog_class in cog_classes:
             try:
-                await self.load_extension(cog)
-                logger.info(f"✅ Successfully loaded cog: {cog}")
+                cog_instance = cog_class(self)
+                self.add_cog(cog_instance)
+                logger.info(f"✅ Successfully loaded cog: {name}")
                 loaded_count += 1
             except Exception as e:
-                logger.error(f"❌ Failed to load cog {cog}: {e}")
+                logger.error(f"❌ Failed to load cog {name}: {e}")
                 logger.error(f"Cog error traceback: {traceback.format_exc()}")
-                failed_cogs.append(cog)
+                failed_cogs.append(name)
 
-        logger.info(f"📊 Loaded {loaded_count}/{len(cog_files)} cogs successfully")
+        logger.info(f"📊 Loaded {loaded_count}/{len(cog_classes)} cogs successfully")
 
         # Log command count (py-cord 2.6.1 compatible)
         try:
