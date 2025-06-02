@@ -460,7 +460,7 @@ class SubscriptionManagement(discord.Cog):
         except Exception as e:
             await ctx.respond(f"❌ Error: {str(e)}", ephemeral=True)
     
-    @premium.command(name="deactivate", description="Deactivate premium for a server")
+    @servers.command(name="deactivate", description="Deactivate premium for a server")
     @guild_admin_only()
     async def deactivate_server_premium(self, ctx: discord.ApplicationContext,
                                       server_id: discord.Option(str, "Server ID to deactivate premium for",
@@ -514,7 +514,7 @@ class SubscriptionManagement(discord.Cog):
         except Exception as e:
             await ctx.respond(f"❌ Error: {str(e)}", ephemeral=True)
     
-    @premium.command(name="status", description="View premium status for servers")
+    @servers.command(name="status", description="View premium status for servers")
     async def server_premium_status(self, ctx: discord.ApplicationContext,
                                   server_id: discord.Option(str, "Specific server ID (optional)", 
                                                            autocomplete=ServerAutocomplete.autocomplete_server_name, required=False)):
