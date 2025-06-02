@@ -282,11 +282,12 @@ class AutomatedLeaderboard(discord.Cog):
             return None
 
     async def post_new_leaderboard_message(self, channel, embed, file_attachment):
-        """Post a new leaderboard message"""
+        """Post a new leaderboard message and store ID for persistence across restarts"""
         try:
+            message = None
             if hasattr(self.bot, 'advanced_rate_limiter') and self.bot.advanced_rate_limiter:
                 from bot.utils.advanced_rate_limiter import MessagePriority
-                await self.bot.advanced_rate_limiter.queue_message(
+                message = await self.bot.advanced_rate_limiter.queue_message(
                     channel_id=channel.id,
                     embed=embed,
                     file=file_attachment,
@@ -294,9 +295,14 @@ class AutomatedLeaderboard(discord.Cog):
                 )
             else:
                 if file_attachment:
-                    await channel.send(embed=embed, file=file_attachment)
+                    message = await channel.send(embed=embed, file=file_attachment)
                 else:
-                    await channel.send(embed=embed)
+                    message = await channel.send(embed=embed)
+            
+            # Store message ID for persistence across bot restarts
+            if message:
+                await self.store_leaderboard_message_id(channel.guild.id, channel.id, message.id)
+                
         except Exception as e:
             logger.error(f"Error posting new leaderboard message: {e}")
 

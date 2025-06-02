@@ -39,6 +39,7 @@ class DatabaseManager:
         self.kill_events = self.db.kill_events
         self.parser_states = self.db.parser_states
         self.player_sessions = self.db.player_sessions
+        self.leaderboard_messages = self.db.leaderboard_messages
     
     @property
     def admin(self):
