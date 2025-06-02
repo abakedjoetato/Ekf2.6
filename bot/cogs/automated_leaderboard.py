@@ -209,12 +209,9 @@ class AutomatedLeaderboard(discord.Cog):
                         existing_message = await self.find_existing_leaderboard_message(channel, "Consolidated Leaderboard")
                     
                     if existing_message:
-                        # Edit existing message
+                        # Edit existing message (without file attachments to avoid errors)
                         try:
-                            if file_attachment:
-                                await existing_message.edit(embed=embed, attachments=[file_attachment])
-                            else:
-                                await existing_message.edit(embed=embed)
+                            await existing_message.edit(embed=embed)
                             logger.info(f"Updated existing consolidated leaderboard")
                         except Exception as edit_error:
                             logger.warning(f"Failed to edit existing message, posting new one: {edit_error}")
@@ -392,7 +389,8 @@ class AutomatedLeaderboard(discord.Cog):
                     kills = player.get('kills', 0)
                     faction = await self.get_player_faction(guild_id or 0, name)
                     faction_tag = f" [{faction}]" if faction else ""
-                    killer_lines.append(f"**{i}.** {name}{faction_tag} — {kills:,} Kills")
+                    # Use shorter format to prevent wrapping
+                    killer_lines.append(f"**{i}.** {name}{faction_tag}\n{kills:,} Kills")
                 sections.append(f"**TOP KILLERS**\n" + "\n".join(killer_lines))
 
             if top_kdr:
@@ -402,7 +400,8 @@ class AutomatedLeaderboard(discord.Cog):
                     kdr = player.get('kdr', 0.0)
                     faction = await self.get_player_faction(guild_id or 0, name)
                     faction_tag = f" [{faction}]" if faction else ""
-                    kdr_lines.append(f"**{i}.** {name}{faction_tag} — {kdr:.2f} KDR")
+                    # Use shorter format to prevent wrapping
+                    kdr_lines.append(f"**{i}.** {name}{faction_tag}\n{kdr:.2f} KDR")
                 sections.append(f"**BEST KDR**\n" + "\n".join(kdr_lines))
 
             if top_distance:
@@ -416,7 +415,8 @@ class AutomatedLeaderboard(discord.Cog):
                         dist_str = f"{distance/1000:.1f}km"
                     else:
                         dist_str = f"{distance:.0f}m"
-                    distance_lines.append(f"**{i}.** {name}{faction_tag} — {dist_str}")
+                    # Use shorter format to prevent wrapping
+                    distance_lines.append(f"**{i}.** {name}{faction_tag}\n{dist_str}")
                 sections.append(f"**LONGEST SHOTS**\n" + "\n".join(distance_lines))
 
             if top_streaks:
@@ -426,7 +426,8 @@ class AutomatedLeaderboard(discord.Cog):
                     streak = player.get('longest_streak', 0)
                     faction = await self.get_player_faction(guild_id or 0, name)
                     faction_tag = f" [{faction}]" if faction else ""
-                    streak_lines.append(f"**{i}.** {name}{faction_tag} — {streak} Kill Streak")
+                    # Use shorter format to prevent wrapping
+                    streak_lines.append(f"**{i}.** {name}{faction_tag}\n{streak} Kill Streak")
                 sections.append(f"**BEST STREAKS**\n" + "\n".join(streak_lines))
 
             if top_weapons:
@@ -445,7 +446,8 @@ class AutomatedLeaderboard(discord.Cog):
                     faction_name = faction.get('faction_name', 'Unknown Faction')
                     kills = faction.get('kills', 0)
                     members = faction.get('members', 0)
-                    sections.append(f"**TOP FACTION**\n**1.** [{faction_name}] — {kills:,} Kills | {members} Members")
+                    # Use shorter format to prevent wrapping
+                    sections.append(f"**TOP FACTION**\n**1.** [{faction_name}]\n{kills:,} Kills | {members} Members")
 
             if not sections:
                 # No data available
