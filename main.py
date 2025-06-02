@@ -146,7 +146,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
         for cog in cog_files:
             try:
-                self.load_extension(cog)
+                await self.load_extension(cog)
                 logger.info(f"✅ Successfully loaded cog: {cog}")
                 loaded_count += 1
             except Exception as e:
@@ -156,14 +156,22 @@ class EmeraldKillfeedBot(commands.Bot):
 
         logger.info(f"📊 Loaded {loaded_count}/{len(cog_files)} cogs successfully")
 
-        # Log command count
-        total_commands = len(self.pending_application_commands)
-        logger.info(f"📊 Total slash commands registered: {total_commands} (via pending_application_commands)")
+        # Log command count (py-cord 2.6.1 compatible)
+        try:
+            total_commands = len(getattr(self, 'pending_application_commands', []))
+            logger.info(f"📊 Total slash commands registered: {total_commands}")
+        except AttributeError:
+            # Fallback for py-cord 2.6.1
+            total_commands = len([cmd for cog in self.cogs.values() for cmd in getattr(cog, 'get_commands', lambda: [])()])
+            logger.info(f"📊 Total commands found in cogs: {total_commands}")
 
         # Log command names (first 10)
-        if self.pending_application_commands:
-            command_names = [cmd.name for cmd in self.pending_application_commands[:10]]
-            logger.info(f"🔍 Commands found: {', '.join(command_names)}...")
+        try:
+            if hasattr(self, 'pending_application_commands') and self.pending_application_commands:
+                command_names = [cmd.name for cmd in self.pending_application_commands[:10]]
+                logger.info(f"🔍 Commands found: {', '.join(command_names)}...")
+        except (AttributeError, TypeError):
+            logger.info("🔍 Command names will be available after sync")
 
         if failed_cogs:
             logger.error(f"❌ Failed cogs: {failed_cogs}")
@@ -507,15 +515,33 @@ class EmeraldKillfeedBot(commands.Bot):
 
             logger.info("✅ Cog loading: Complete")
 
-            # STEP 2: Verify commands are actually registered
+            # STEP 2: Verify commands are actually registered (py-cord 2.6.1 compatible)
             command_count = 0
-            if hasattr(self, 'pending_application_commands'):
+            all_commands = []
+            
+            # Try different command attribute names for py-cord 2.6.1
+            if hasattr(self, 'pending_application_commands') and self.pending_application_commands:
                 command_count = len(self.pending_application_commands)
-            elif hasattr(self, 'application_commands'):
+                all_commands = list(self.pending_application_commands)
+            elif hasattr(self, 'application_commands') and self.application_commands:
                 command_count = len(self.application_commands)
+                all_commands = list(self.application_commands)
+            else:
+                # Fallback: count commands from cogs directly
+                for cog_name, cog in self.cogs.items():
+                    if hasattr(cog, 'get_commands'):
+                        cog_commands = cog.get_commands()
+                        command_count += len(cog_commands)
+                        all_commands.extend(cog_commands)
+                    # Also check for slash commands specifically
+                    for attr_name in dir(cog):
+                        attr = getattr(cog, attr_name)
+                        if hasattr(attr, '__discord_app_commands_is_command__'):
+                            command_count += 1
 
             if command_count == 0:
                 logger.error("❌ CRITICAL: No commands found after cog loading - fix required")
+                logger.error("❌ Check cog definitions and @discord.slash_command decorators")
                 return
 
             logger.info(f"✅ {command_count} commands registered and ready for sync")
