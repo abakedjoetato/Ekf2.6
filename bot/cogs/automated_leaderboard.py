@@ -322,8 +322,8 @@ class AutomatedLeaderboard(discord.Cog):
             top_kdr = await self.get_top_kdr(guild_id or 0, 3, server_id)
             top_distance = await self.get_top_distance(guild_id or 0, 3, server_id)
             top_streaks = await self.get_top_streaks(guild_id or 0, 3, server_id)
-            top_weapons = await self.get_top_weapons(guild_id or 0, server_id=server_id)
-            top_faction = await self.get_top_factions(guild_id or 0, server_id=server_id)
+            top_weapons = await self.get_top_weapons(guild_id or 0, 3, server_id)
+            top_faction = await self.get_top_factions(guild_id or 0, 1, server_id)
 
             # Build sections with real data
             sections = []
@@ -472,7 +472,7 @@ class AutomatedLeaderboard(discord.Cog):
             logger.error(f"Failed to get top streaks: {e}")
             return []
 
-    async def get_top_weapons(self, guild_id: int, limit: int = 3, server_id: str = None) -> List[Dict[str, Any]]:
+    async def get_top_weapons(self, guild_id: int, limit: int, server_id: str = None) -> List[Dict[str, Any]]:
         """Get top weapons by kill count"""
         try:
             query = {
@@ -578,38 +578,6 @@ class AutomatedLeaderboard(discord.Cog):
         except Exception as e:
             logger.error(f"Failed to get top deaths: {e}")
             return []
-
-    async def get_top_weapons(self, guild_id: int, limit: int) -> List[Dict[str, Any]]:
-        """Get top weapons"""
-        try:
-            cursor = self.bot.db_manager.kill_events.find({
-                "guild_id": guild_id,
-                "is_suicide": False,
-                "weapon": {"$nin": ["Menu Suicide", "Suicide", "Falling", "suicide_by_relocation"]}
-            })
-
-            weapon_events = await cursor.to_list(length=None)
-
-            # Group weapons
-            weapon_stats = {}
-            for event in weapon_events:
-                weapon = event.get('weapon', 'Unknown')
-                killer = event.get('killer', 'Unknown')
-
-                if weapon not in weapon_stats:
-                    weapon_stats[weapon] = {'kills': 0, 'top_killer': killer}
-                weapon_stats[weapon]['kills'] += 1
-
-            # Sort and limit
-            weapons_data = []
-            for weapon, stats in sorted(weapon_stats.items(), key=lambda x: x[1]['kills'], reverse=True)[:limit]:
-                weapons_data.append({
-                    '_id': weapon,
-                    'kills': stats['kills'],
-                    'top_killer': stats['top_killer']
-                })
-
-            return weapons_data
         except Exception as e:
             logger.error(f"Failed to get top weapons: {e}")
             return []
