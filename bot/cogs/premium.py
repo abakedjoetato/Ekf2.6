@@ -525,12 +525,38 @@ class Premium(discord.Cog):
             logger.error(f"Failed to list servers: {e}")
             await ctx.respond("Failed to list servers. Please try again.", ephemeral=True)
 
+    async def get_servers_autocomplete(self, ctx: discord.AutocompleteContext):
+        """Autocomplete function for server selection"""
+        try:
+            guild_id = ctx.interaction.guild_id if ctx.interaction.guild else None
+            if not guild_id:
+                return []
+                
+            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            if not guild_config:
+                return []
+                
+            servers = guild_config.get('servers', [])
+            choices = []
+            
+            for server in servers:
+                server_id = str(server.get('_id', server.get('server_id', 'unknown')))
+                server_name = server.get('name', server.get('server_name', f'Server {server_id}'))
+                
+                # Filter based on user input
+                if ctx.value.lower() in server_name.lower() or ctx.value.lower() in server_id.lower():
+                    choices.append(discord.OptionChoice(name=f"{server_name} (ID: {server_id})", value=server_id))
+                    
+            return choices[:25]  # Discord limit
+        except Exception:
+            return []
+
     @gameserver.command(name="remove", description="Remove a server from this guild")
     @discord.default_permissions(administrator=True)
     @discord.option(
         name="server",
         description="Select a server to remove",
-        
+        autocomplete=get_servers_autocomplete
     )
     async def server_remove(self, ctx: discord.ApplicationContext, server: str):
         """Remove a server from the guild"""
@@ -586,13 +612,13 @@ class Premium(discord.Cog):
                     super().__init__(timeout=60)
                     self.value = None
 
-                @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="")
+                @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
                 async def cancel_button(self, button, interaction):
                     self.value = False
                     self.stop()
                     await interaction.response.edit_message(content="🛑 Server removal cancelled.", embed=None, view=None)
 
-                @discord.ui.button(label="Remove Server", style=discord.ButtonStyle.danger, emoji="")
+                @discord.ui.button(label="Remove Server", style=discord.ButtonStyle.danger)
                 async def confirm_button(self, button, interaction):
                     self.value = True
                     self.stop()

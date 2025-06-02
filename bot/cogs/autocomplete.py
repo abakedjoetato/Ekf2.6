@@ -64,6 +64,37 @@ class ServerAutocomplete:
             return []
 
     @staticmethod
+    async def autocomplete_player_name(ctx: discord.AutocompleteContext):
+        """Autocomplete for player names based on existing PvP data"""
+        try:
+            guild_id = ctx.interaction.guild.id if ctx.interaction.guild else None
+            if not guild_id:
+                return []
+
+            # Get player names from PvP data for this guild
+            player_docs = await ctx.bot.db_manager.pvp_data.find({
+                "guild_id": guild_id
+            }).limit(100).to_list(length=None)
+
+            player_names = set()
+            for doc in player_docs:
+                player_name = doc.get('player_name', '').strip()
+                if player_name:
+                    player_names.add(player_name)
+
+            # Filter based on user input
+            user_input = ctx.value.lower()
+            filtered_names = [name for name in player_names if user_input in name.lower()]
+            
+            # Sort alphabetically and limit to 25 (Discord limit)
+            filtered_names.sort()
+            return [discord.OptionChoice(name=name, value=name) for name in filtered_names[:25]]
+
+        except Exception as e:
+            logger.error(f"Failed to autocomplete player names: {e}")
+            return []
+
+    @staticmethod
     async def autocomplete_server_name_with_guild(ctx: discord.AutocompleteContext):
         """Autocomplete for server names (cross-guild for premium management)"""
         try:
