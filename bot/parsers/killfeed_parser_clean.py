@@ -35,14 +35,16 @@ class KillfeedParser:
     def parse_csv_line(self, line: str) -> Dict[str, Any]:
         """Parse a single CSV line into kill event data"""
         try:
-            parts = line.strip().split(',')
-            if len(parts) < 6:
+            parts = line.strip().split(';')
+            if len(parts) < 7:
                 return {}
             timestamp_str = parts[0].strip()
             killer = parts[1].strip()
-            victim = parts[2].strip()
-            weapon = parts[3].strip()
-            distance = parts[4].strip()
+            killer_id = parts[2].strip()
+            victim = parts[3].strip()
+            victim_id = parts[4].strip()
+            weapon = parts[5].strip()
+            distance = parts[6].strip() if len(parts) > 6 else '0'
 
             killer = killer.strip()
             victim = victim.strip()
@@ -167,16 +169,7 @@ class KillfeedParser:
         """Process a kill event and update database"""
         try:
             # Update database with kill event
-            await self.bot.db_manager.record_kill_event(
-                guild_id=guild_id,
-                server_id=server_id,
-                timestamp=kill_data['timestamp'],
-                killer=kill_data['killer'],
-                victim=kill_data['victim'],
-                weapon=kill_data['weapon'],
-                distance=kill_data['distance'],
-                is_suicide=kill_data['is_suicide']
-            )
+            await self.bot.db_manager.add_kill_event(guild_id, server_id, kill_data)
 
         except Exception as e:
             logger.error(f"Error processing kill event: {e}")
