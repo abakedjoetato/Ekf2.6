@@ -388,12 +388,10 @@ class EmeraldKillfeedBot(commands.Bot):
             # Clear any remaining parser state
             if hasattr(self, 'unified_log_parser') and self.unified_log_parser:
                 # Clear internal state without requiring guild_id/server_id
-                if hasattr(self.unified_log_parser, 'file_states'):
-                    self.unified_log_parser.file_states.clear()
-                if hasattr(self.unified_log_parser, 'player_sessions'):
-                    self.unified_log_parser.player_sessions.clear()
-                if hasattr(self.unified_log_parser, 'player_lifecycle'):
-                    self.unified_log_parser.player_lifecycle.clear()
+                if hasattr(self.unified_log_parser, 'connections'):
+                    self.unified_log_parser.connections.clear()
+                if hasattr(self.unified_log_parser, 'parser_states'):
+                    self.unified_log_parser.parser_states.clear()
 
             # Force garbage collection
             gc.collect()
@@ -744,8 +742,9 @@ class EmeraldKillfeedBot(commands.Bot):
                     # Cancel any pending database operations
                     await asyncio.sleep(0.1)
 
-                self.db_manager.close()
-                logger.info("MongoDB connection closed")
+                if hasattr(self, 'db_manager') and self.db_manager and hasattr(self.db_manager, 'close'):
+                    self.db_manager.close()
+                    logger.info("MongoDB connection closed")
             except Exception as e:
                 logger.error(f"Error closing MongoDB connection: {e}")
 
@@ -774,7 +773,7 @@ class EmeraldKillfeedBot(commands.Bot):
                 self.scheduler.shutdown()
                 logger.info("Scheduler stopped")
 
-            if hasattr(self, 'mongo_client') and self.mongo_client:
+            if hasattr(self, 'db_manager') and self.db_manager and hasattr(self.db_manager, 'close'):
                 self.db_manager.close()
                 logger.info("MongoDB connection closed")
 

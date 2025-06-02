@@ -35,8 +35,8 @@ class UnifiedLogParser:
                 if guild_doc:
                     guilds.append(guild_doc)
                 else:
-                    # Check if we need to auto-detect servers for this guild
-                    await self.check_for_unregistered_servers(guild.id)
+                    # Auto-registration for unregistered guilds
+                    await self._auto_register_guild(guild.id)
                     # Try to get guild doc again after potential auto-registration
                     guild_doc = await self.bot.db_manager.get_guild(guild.id)
                     if guild_doc:
@@ -572,6 +572,22 @@ class UnifiedLogParser:
             logger.info(f"Parser state reset for {guild_id}_{server_id}")
         except Exception as e:
             logger.error(f"Failed to reset parser state: {e}")
+
+    async def _auto_register_guild(self, guild_id: int):
+        """Auto-register a guild with basic configuration"""
+        try:
+            guild_doc = {
+                'guild_id': guild_id,
+                'servers': [],
+                'channels': {},
+                'premium': False,
+                'created_at': datetime.now(timezone.utc),
+                'auto_registered': True
+            }
+            await self.bot.db_manager.guilds.insert_one(guild_doc)
+            logger.info(f"Auto-registered guild {guild_id}")
+        except Exception as e:
+            logger.error(f"Failed to auto-register guild {guild_id}: {e}")
 
 def setup(bot):
     """Setup function for parser integration"""
