@@ -136,7 +136,7 @@ class AdvancedEmeraldBot(discord.Bot):
                 "bot.cogs.parsers",              # Parser management (preserved)
                 
                 # Administrative features
-                "bot.cogs.admin_fixed",          # Admin commands
+                # "bot.cogs.admin_fixed",          # Admin commands (temporarily disabled)
                 "bot.cogs.admin_batch",          # Batch management
                 
                 # Gaming and economy features
