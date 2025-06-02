@@ -293,6 +293,15 @@ class EmeraldKillfeedBot(commands.Bot):
 
             logger.info(f"🔄 Command structure changed - syncing {len(all_commands)} commands")
 
+            # Clear all commands first to force Discord cache refresh
+            try:
+                logger.info("🧹 Clearing all Discord commands to refresh cache...")
+                await asyncio.wait_for(self.sync_commands(commands=[]), timeout=30)
+                logger.info("✅ Commands cleared")
+                await asyncio.sleep(2)  # Brief pause
+            except Exception as e:
+                logger.warning(f"⚠️ Command clearing failed: {e}")
+
             # Attempt global sync
             try:
                 logger.info("🌍 Performing global command sync...")
