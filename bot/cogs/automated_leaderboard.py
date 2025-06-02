@@ -21,13 +21,15 @@ class AutomatedLeaderboard(discord.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.message_cache = {}  # Store {guild_id: message_id}
+        logger.info("🤖 Automated leaderboard cog initialized")
 
     async def cog_load(self):
         """Start the automated leaderboard task when cog loads"""
-        logger.info("Starting automated leaderboard task...")
+        logger.info("🔄 Starting automated leaderboard task...")
         self.automated_leaderboard_task.start()
         
         # Run initial check for missing leaderboards immediately
+        logger.info("🚀 Scheduling immediate leaderboard check...")
         asyncio.create_task(self.initial_leaderboard_check())
 
     def cog_unload(self):
@@ -235,6 +237,38 @@ class AutomatedLeaderboard(discord.Cog):
 
         except Exception as e:
             logger.error(f"Failed to update guild leaderboard: {e}")
+
+    async def find_existing_leaderboard_message(self, channel, server_name: str):
+        """Find existing leaderboard message for a specific server"""
+        try:
+            async for message in channel.history(limit=50):
+                if (message.author == self.bot.user and 
+                    message.embeds and 
+                    any(server_name in embed.title for embed in message.embeds if embed.title)):
+                    return message
+            return None
+        except Exception as e:
+            logger.error(f"Error finding existing leaderboard message: {e}")
+            return None
+
+    async def post_new_leaderboard_message(self, channel, embed, file_attachment):
+        """Post a new leaderboard message"""
+        try:
+            if hasattr(self.bot, 'advanced_rate_limiter') and self.bot.advanced_rate_limiter:
+                from bot.utils.advanced_rate_limiter import MessagePriority
+                await self.bot.advanced_rate_limiter.queue_message(
+                    channel_id=channel.id,
+                    embed=embed,
+                    file=file_attachment,
+                    priority=MessagePriority.LOW
+                )
+            else:
+                if file_attachment:
+                    await channel.send(embed=embed, file=file_attachment)
+                else:
+                    await channel.send(embed=embed)
+        except Exception as e:
+            logger.error(f"Error posting new leaderboard message: {e}")
 
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access"""
