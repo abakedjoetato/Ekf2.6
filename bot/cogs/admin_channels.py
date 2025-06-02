@@ -66,23 +66,18 @@ class AdminChannels(discord.Cog):
         """Check premium access from cache (no database calls)"""
         return self.premium_cache.get(guild_id, False)
     
-    async def channel_type_autocomplete(self, ctx: discord.AutocompleteContext):
+    def channel_type_autocomplete(self, ctx: discord.AutocompleteContext):
         """Autocomplete for channel types"""
-        try:
-            choices = []
-            for key, info in self.channel_types.items():
-                premium_text = " (PREMIUM)" if info['premium'] else ""
-                choices.append(discord.OptionChoice(name=f"{key}{premium_text}", value=key))
-            return choices
-        except:
-            # Return simple list if autocomplete fails
-            return [discord.OptionChoice(name=key, value=key) for key in self.channel_types.keys()]
+        choices = []
+        for key, info in self.channel_types.items():
+            premium_text = " (PREMIUM)" if info['premium'] else ""
+            choices.append(discord.OptionChoice(name=f"{key}{premium_text}", value=key))
+        return choices
     
     @discord.slash_command(name="setchannel", description="Configure output channels for the bot")
     @discord.default_permissions(administrator=True)
     async def set_channel(self, ctx, 
-                         channel_type: discord.Option(str, "Type of channel: killfeed, leaderboard, playercountvc, events, connections, bounties", 
-                                                     choices=["killfeed", "leaderboard", "playercountvc", "events", "connections", "bounties"]), 
+                         channel_type: discord.Option(str, "Type of channel to configure", autocomplete=channel_type_autocomplete), 
                          channel: discord.abc.GuildChannel, 
                          server_id: str = "default"):
         """Configure a specific channel type for a specific server"""
