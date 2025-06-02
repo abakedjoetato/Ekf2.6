@@ -115,3 +115,9 @@ paramiko
 py-cord
 pymongo
 python-dotenv
+apscheduler
+asyncssh
+discord-py
+motor
+py-cord
+python-dotenv
