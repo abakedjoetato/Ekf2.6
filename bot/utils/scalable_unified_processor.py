@@ -143,12 +143,12 @@ class ScalableUnifiedProcessor:
             
             try:
                 sftp = await conn.start_sftp_client()
-                log_path = server_config.get('log_path', '/path/to/logs/')
-                deadside_log_path = f"{log_path.rstrip('/')}/Deadside.log"
+                host = server_config.get('host', 'unknown')
+                server_id = server_config.get('server_id', 'unknown')
+                deadside_log_path = f"./{host}_{server_id}/Logs/Deadside.log"
                 
                 # Read first line for hash calculation
-                try:
-                    async with sftp.open(deadside_log_path, 'rb') as file:
+                async with sftp.open(deadside_log_path, 'rb') as file:
                     first_line_bytes = await file.read(1024)  # Read first 1024 bytes
                     first_line = first_line_bytes.decode('utf-8', errors='ignore').split('\n')[0].strip()
                     
@@ -205,8 +205,9 @@ class ScalableUnifiedProcessor:
                     return entries
                 
                 sftp = await conn.start_sftp_client()
-                log_path = server_config.get('log_path', '/path/to/logs/')
-                deadside_log_path = f"{log_path.rstrip('/')}/Deadside.log"
+                host = server_config.get('host', 'unknown')
+                server_id = server_config.get('server_id', 'unknown')
+                deadside_log_path = f"./{host}_{server_id}/Logs/Deadside.log"
                 
                 async with sftp.open(deadside_log_path, 'rb') as file:
                     if file_state.rotation_detected:
