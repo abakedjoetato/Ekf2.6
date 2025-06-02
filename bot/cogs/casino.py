@@ -141,7 +141,7 @@ class Casino(commands.Cog):
             logger.error(f"Error in casino slots: {e}")
             await ctx.respond("❌ An error occurred while playing slots.", ephemeral=True)
     
-    @casino_group.command(name="blackjack", description="Play blackjack")
+    @discord.slash_command(name="casino_blackjack", description="Play blackjack")
     async def casino_blackjack(
         self,
         ctx: discord.ApplicationContext,
