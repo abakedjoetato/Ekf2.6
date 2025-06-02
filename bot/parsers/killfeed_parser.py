@@ -277,8 +277,8 @@ class KillfeedParser:
                 return
 
             # Create killfeed embed
-            embed_factory = EmbedFactory(self.bot)
-            embed = await EmbedFactory.create_killfeed_embed(kill_data, server_id)
+            embed_factory = EmbedFactory()
+            embed = await embed_factory.create_killfeed_embed(kill_data, server_id)
             
             await channel.send(embed=embed)
 
