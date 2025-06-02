@@ -85,7 +85,7 @@ class SharedParserStateManager:
     async def get_parser_state(self, guild_id: int, server_name: str) -> Optional[ParserState]:
         """Get the current parsing state for a server"""
         try:
-            collection = self.db_manager.database.shared_parser_states
+            collection = self.db_manager.db.shared_parser_states
             
             state_doc = await collection.find_one({
                 'guild_id': guild_id,
@@ -115,7 +115,7 @@ class SharedParserStateManager:
                                 parser_type: str, file_timestamp: str = None) -> bool:
         """Update the parsing state for a server"""
         try:
-            collection = self.db_manager.database.shared_parser_states
+            collection = self.db_manager.db.shared_parser_states
             
             state_data = {
                 'guild_id': guild_id,
