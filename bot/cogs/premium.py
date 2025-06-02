@@ -357,9 +357,9 @@ class Premium(discord.Cog):
             logger.error(f"Failed to check premium status: {e}")
             await ctx.respond("Failed to check premium status.", ephemeral=True)
 
-    server = discord.SlashCommandGroup("server", "Game server management commands")
+    gameserver = discord.SlashCommandGroup("gameserver", "Game server management commands")
 
-    @server.command(name="add", description="Add a game server with SFTP credentials to this guild")
+    @gameserver.command(name="add", description="Add a game server with SFTP credentials to this guild")
     @discord.default_permissions(administrator=True)
     async def server_add(self, ctx: discord.ApplicationContext, 
                         name: str, host: str, port: int, username: str, password: str, serverid: str):
@@ -445,7 +445,7 @@ class Premium(discord.Cog):
             logger.error(f"Failed to add server: {e}")
             await ctx.respond("Failed to add server. Please try again.", ephemeral=True)
 
-    @server.command(name="list", description="List all configured servers in this guild")
+    @gameserver.command(name="list", description="List all configured servers in this guild")
     async def server_list(self, ctx: discord.ApplicationContext):
         """List all servers configured in this guild"""
         try:
@@ -525,7 +525,7 @@ class Premium(discord.Cog):
             logger.error(f"Failed to list servers: {e}")
             await ctx.respond("Failed to list servers. Please try again.", ephemeral=True)
 
-    @server.command(name="remove", description="Remove a server from this guild")
+    @gameserver.command(name="remove", description="Remove a server from this guild")
     @discord.default_permissions(administrator=True)
     @discord.option(
         name="server",
@@ -628,7 +628,7 @@ class Premium(discord.Cog):
             logger.error(f"Failed to remove server: {e}")
             await ctx.respond("Failed to remove server. Please try again.", ephemeral=True)
 
-    @server.command(name="refresh", description="Refresh data for a server")
+    @gameserver.command(name="refresh", description="Refresh data for a server")
     @discord.default_permissions(administrator=True)
     @discord.option(
         name="server",
