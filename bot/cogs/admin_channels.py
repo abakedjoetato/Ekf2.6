@@ -43,17 +43,12 @@ class AdminChannels(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has any premium servers"""
         try:
-            guild_doc = await self.bot.db_manager.get_guild(guild_id)
-            if not guild_doc:
-                return False
-            
-            servers = guild_doc.get('servers', [])
-            for server_config in servers:
-                server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                if await self.check_premium_access(guild_id):
-                    return True
-            
-            return False
+            # Check premium server status in database
+            premium_count = await self.bot.db_manager.db.server_premium_status.count_documents({
+                "guild_id": guild_id,
+                "premium": True
+            })
+            return premium_count > 0
             
         except Exception as e:
             logger.error(f"Failed to check premium access: {e}")
@@ -67,6 +62,9 @@ class AdminChannels(discord.Cog):
                          channel: discord.Option(discord.abc.GuildChannel, "Channel to set (text or voice based on type)"),
                          server_id: discord.Option(str, "Server to configure channels for", required=False, default="default")):
         """Configure a specific channel type for a specific server"""
+        # Defer immediately to prevent timeout
+        await ctx.defer(ephemeral=True)
+        
         try:
             guild_id = (ctx.guild.id if ctx.guild else None)
             channel_config = self.channel_types[channel_type]
@@ -101,7 +99,7 @@ class AdminChannels(discord.Cog):
                     )
                     
                     embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-                    await ctx.respond(embed=embed, ephemeral=True)
+                    await ctx.followup.send(embed=embed, ephemeral=True)
                     return
             
             # Validate channel type
@@ -113,7 +111,7 @@ class AdminChannels(discord.Cog):
                     description=f"Channel type **{channel_type}** requires a **{type_name}** channel!",
                     color=0xFF6B6B
                 )
-                await ctx.respond(embed=embed, ephemeral=True)
+                await ctx.followup.send(embed=embed, ephemeral=True)
                 return
             
             # Update guild configuration with server-specific channels
@@ -185,13 +183,13 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
             
-            await ctx.respond(embed=embed)
+            await ctx.followup.send(embed=embed)
             
             logger.info(f"Set {channel_type} channel to {channel.id} in guild {guild_id}")
             
         except Exception as e:
             logger.error(f"Failed to set {channel_type} channel: {e}")
-            await ctx.respond("Failed to configure channel.", ephemeral=True)
+            await ctx.followup.send("Failed to configure channel.", ephemeral=True)
     
     @discord.slash_command(name="setchannels", description="Configure multiple channels at once")
     @discord.default_permissions(administrator=True)
@@ -237,7 +235,7 @@ class AdminChannels(discord.Cog):
                 expected_type = channel_config['type']
                 if channel.type != expected_type:
                     type_name = "voice" if expected_type == discord.ChannelType.voice else "text"
-                    await ctx.respond(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+                    await ctx.followup.send(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
                     return
                 
                 # Add to updates
@@ -266,11 +264,11 @@ class AdminChannels(discord.Cog):
                         value="\n".join([ch for ch in configured_channels if 'killfeed' in ch]),
                         inline=False
                     )
-                await ctx.respond(embed=embed, ephemeral=True)
+                await ctx.followup.send(embed=embed, ephemeral=True)
                 return
             
             if not channel_updates:
-                await ctx.respond("No valid channels provided to configure.", ephemeral=True)
+                await ctx.followup.send("No valid channels provided to configure.", ephemeral=True)
                 return
             
             # Apply all updates at once
@@ -302,13 +300,13 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
             
-            await ctx.respond(embed=embed)
+            await ctx.followup.send(embed=embed)
             
             logger.info(f"Configured {len(configured_channels)} channels for guild {guild_id}, server {server_id}")
             
         except Exception as e:
             logger.error(f"Failed to set multiple channels: {e}")
-            await ctx.respond("Failed to configure channels.", ephemeral=True)
+            await ctx.followup.send("Failed to configure channels.", ephemeral=True)
 
     @discord.slash_command(name="clearchannels", description="Clear all configured channels")
     @discord.default_permissions(administrator=True)
@@ -328,7 +326,7 @@ class AdminChannels(discord.Cog):
                     description=f"No channels are currently configured for server **{server_id}**.",
                     color=0x3498DB
                 )
-                await ctx.respond(embed=embed, ephemeral=True)
+                await ctx.followup.send(embed=embed, ephemeral=True)
                 return
             
             # Clear all channels for this server
@@ -376,13 +374,13 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
             
-            await ctx.respond(embed=embed)
+            await ctx.followup.send(embed=embed)
             
             logger.info(f"Cleared all channel configurations for guild {guild_id}")
             
         except Exception as e:
             logger.error(f"Failed to clear channels: {e}")
-            await ctx.respond("Failed to clear channel configurations.", ephemeral=True)
+            await ctx.followup.send("Failed to clear channel configurations.", ephemeral=True)
     
     @discord.slash_command(name="channels", description="View current channel configuration")
     async def view_channels(self, ctx,
@@ -450,11 +448,11 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="= Premium Required • Powered by Discord.gg/EmeraldServers")
             
-            await ctx.respond(embed=embed)
+            await ctx.followup.send(embed=embed)
             
         except Exception as e:
             logger.error(f"Failed to view channels: {e}")
-            await ctx.respond("Failed to retrieve channel configuration.", ephemeral=True)
+            await ctx.followup.send("Failed to retrieve channel configuration.", ephemeral=True)
 
 def setup(bot):
     bot.add_cog(AdminChannels(bot))
