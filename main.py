@@ -136,6 +136,7 @@ class EmeraldKillfeedBot(commands.Bot):
             'bot.cogs.professional_casino',
             'bot.cogs.bounties',
             'bot.cogs.factions',
+            'bot.cogs.premium',
             'bot.cogs.subscription_management',
             'bot.cogs.parsers',
             'bot.cogs.cache_management'
