@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Comprehensive Database Access Standardization
 Fixes all fragmented database access patterns across the entire codebase
@@ -6,53 +5,42 @@ Fixes all fragmented database access patterns across the entire codebase
 
 import os
 import re
-import asyncio
-from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime, timezone
+from pathlib import Path
 
 class DatabaseStandardizationFixer:
     """Comprehensive database access pattern standardization"""
     
     def __init__(self):
-        self.fixed_files = []
-        self.errors = []
+        self.target_database = "emerald_killfeed"
+        self.fixes_applied = 0
+        self.files_processed = 0
         
     def fix_all_casino_database_access(self):
         """Fix all casino files to use unified database access"""
         casino_files = [
-            'bot/cogs/professional_casino.py',
-            'bot/cogs/gambling.py',
-            'bot/cogs/gambling_advanced.py',
-            'bot/cogs/gambling_ultra.py',
-            'bot/cogs/gambling_ultra_v2.py',
-            'bot/cogs/casino_redesign.py',
-            'bot/cogs/ultra_casino_clean.py',
-            'bot/cogs/ultra_casino_v3.py'
+            "bot/cogs/professional_casino.py",
+            "bot/cogs/economy.py",
+            "bot/cogs/bounties.py",
+            "bot/cogs/factions.py"
         ]
         
         for filepath in casino_files:
             if os.path.exists(filepath):
+                print(f"Fixing database access in {filepath}")
                 self._fix_database_access_patterns(filepath)
                 
     def fix_all_premium_validation(self):
         """Standardize premium validation across all cogs"""
-        cog_files = [
-            'bot/cogs/core.py',
-            'bot/cogs/admin_channels.py',
-            'bot/cogs/admin_batch.py',
-            'bot/cogs/linking.py',
-            'bot/cogs/stats.py',
-            'bot/cogs/leaderboards_fixed.py',
-            'bot/cogs/automated_leaderboard.py',
-            'bot/cogs/economy.py',
-            'bot/cogs/bounties.py',
-            'bot/cogs/factions.py',
-            'bot/cogs/subscription_management.py',
-            'bot/cogs/cache_management.py'
+        premium_files = [
+            "bot/cogs/premium.py",
+            "bot/cogs/subscription_management.py",
+            "bot/cogs/leaderboards_fixed.py",
+            "bot/cogs/automated_leaderboard.py"
         ]
         
-        for filepath in cog_files:
+        for filepath in premium_files:
             if os.path.exists(filepath):
+                print(f"Fixing premium validation in {filepath}")
                 self._fix_premium_validation_patterns(filepath)
                 
     def _fix_database_access_patterns(self, filepath):
@@ -63,126 +51,108 @@ class DatabaseStandardizationFixer:
             
             original_content = content
             
-            # Fix direct MongoDB access patterns
-            content = re.sub(
-                r'self\.bot\.db\.([a-zA-Z_]+)\.find_one\(',
-                r'await self.bot.db_manager.\1.find_one(',
-                content
-            )
+            # Fix database client access patterns
+            patterns = [
+                # Fix direct MongoDB client access
+                (r'client\[[\'"](.*?)[\'"]\]', f'client.{self.target_database}'),
+                (r'mongo_client\[[\'"](.*?)[\'"]\]', f'mongo_client.{self.target_database}'),
+                
+                # Fix database manager instantiation
+                (r'DatabaseManager\(mongo_client\[[\'"](.*?)[\'"]\]\)', 'DatabaseManager(mongo_client)'),
+                
+                # Fix collection access patterns
+                (r'self\.client\[[\'"](.*?)[\'"]\]\.(.*)', r'self.db.\2'),
+                (r'db_manager\.client\[[\'"](.*?)[\'"]\]\.(.*)', r'db_manager.\2'),
+                
+                # Fix inconsistent database references
+                (r'emerald_killfeed', self.target_database),
+                (r'EmeraldDB', self.target_database),
+                (r'pvp_stats_bot', self.target_database),
+                (r'deadside_bot', self.target_database),
+                (r'premium_bot', self.target_database)
+            ]
             
-            # Fix wallet access patterns
-            content = re.sub(
-                r'self\.bot\.db\.economy\.find_one\({[^}]*guild_id[^}]*}\)',
-                r'await self.bot.db_manager.get_wallet(guild_id, user_id)',
-                content
-            )
-            
-            # Fix premium config access
-            content = re.sub(
-                r'self\.bot\.db\.guild_configs\.find_one\({[^}]*guild_id[^}]*}\)',
-                r'await self.bot.db_manager.get_guild(guild_id)',
-                content
-            )
-            
-            # Fix balance updates
-            content = re.sub(
-                r'self\.bot\.db\.economy\.update_one\(',
-                r'await self.bot.db_manager.update_wallet(',
-                content
-            )
-            
+            for pattern, replacement in patterns:
+                new_content = re.sub(pattern, replacement, content)
+                if new_content != content:
+                    self.fixes_applied += 1
+                content = new_content
+                
+            # Only write if changes were made
             if content != original_content:
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write(content)
-                self.fixed_files.append(filepath)
-                print(f"✅ Fixed database access patterns in {filepath}")
-            
+                print(f"  ✓ Updated database access patterns in {filepath}")
+                self.files_processed += 1
+                
         except Exception as e:
-            self.errors.append(f"Error fixing {filepath}: {e}")
-            print(f"❌ Error fixing {filepath}: {e}")
+            print(f"  ✗ Error fixing {filepath}: {e}")
             
     def _fix_premium_validation_patterns(self, filepath):
         """Standardize premium validation patterns"""
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
+                
             original_content = content
             
-            # Add unified premium check method if missing
-            if 'async def check_premium_access(self, guild_id: int)' not in content:
-                # Find the class definition
-                class_match = re.search(r'class (\w+)\(discord\.Cog\):', content)
-                if class_match:
-                    # Find the __init__ method
-                    init_match = re.search(r'def __init__\(self, bot\):[^}]*?self\.bot = bot', content, re.DOTALL)
-                    if init_match:
-                        # Insert the premium check method after __init__
-                        premium_method = '''
-    
-    async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has premium access - unified validation"""
-        try:
-            if hasattr(self.bot, 'premium_manager_v2'):
-                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
-            elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
-                return await self.bot.db_manager.has_premium_access(guild_id)
-            else:
-                return False
-        except Exception as e:
-            logger.error(f"Premium access check failed: {e}")
-            return False'''
+            # Fix premium validation to use consistent server_id parameter
+            patterns = [
+                # Standardize premium check method calls
+                (r'check_premium_server\(guild_id\)', 'check_premium_server(guild_id, "default")'),
+                (r'is_server_premium\(guild_id\)', 'is_server_premium(guild_id, "default")'),
+                (r'has_premium_access\(guild_id, None\)', 'has_premium_access(guild_id)'),
+                
+                # Fix server_id parameter handling
+                (r'server_id = None', 'server_id = "default"'),
+                (r'server_id: Optional\[str\] = None', 'server_id: str = "default"'),
+                
+                # Ensure guild isolation
+                (r'guild_id = ctx\.guild\.id if ctx\.guild else 0', 'guild_id = ctx.guild.id')
+            ]
             
-                        content = content[:init_match.end()] + premium_method + content[init_match.end():]
-            
-            # Fix existing premium validation calls to use unified method
-            content = re.sub(
-                r'await self\.bot\.db_manager\.guild_configs\.find_one\({[^}]*guild_id[^}]*}\)',
-                r'await self.bot.db_manager.get_guild(guild_id)',
-                content
-            )
-            
+            for pattern, replacement in patterns:
+                new_content = re.sub(pattern, replacement, content)
+                if new_content != content:
+                    self.fixes_applied += 1
+                content = new_content
+                
             if content != original_content:
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write(content)
-                self.fixed_files.append(filepath)
-                print(f"✅ Fixed premium validation in {filepath}")
+                print(f"  ✓ Updated premium validation patterns in {filepath}")
+                self.files_processed += 1
                 
         except Exception as e:
-            self.errors.append(f"Error fixing premium validation in {filepath}: {e}")
-            print(f"❌ Error fixing premium validation in {filepath}: {e}")
-    
+            print(f"  ✗ Error fixing {filepath}: {e}")
+            
     def remove_duplicate_casino_files(self):
         """Remove duplicate casino implementations"""
         duplicate_files = [
-            'bot/cogs/gambling.py',
-            'bot/cogs/gambling_advanced.py', 
-            'bot/cogs/gambling_ultra.py',
-            'bot/cogs/gambling_ultra_v2.py',
-            'bot/cogs/casino_redesign.py',
-            'bot/cogs/ultra_casino_clean.py',
-            'bot/cogs/ultra_casino_v3.py'
+            "bot/cogs/casino.py",
+            "bot/cogs/gambling.py",
+            "bot/cogs/roulette.py",
+            "bot/cogs/blackjack.py"
         ]
         
         for filepath in duplicate_files:
             if os.path.exists(filepath):
                 try:
                     os.remove(filepath)
-                    print(f"🗑️ Removed duplicate casino file: {filepath}")
+                    print(f"  ✓ Removed duplicate file: {filepath}")
                 except Exception as e:
-                    self.errors.append(f"Error removing {filepath}: {e}")
+                    print(f"  ✗ Error removing {filepath}: {e}")
                     
     def fix_economy_data_consistency(self):
         """Fix economy system data consistency issues"""
         economy_files = [
-            'bot/cogs/economy.py',
-            'bot/cogs/bounties.py',
-            'bot/cogs/admin_batch.py',
-            'bot/cogs/stats.py'
+            "bot/cogs/economy.py",
+            "bot/cogs/professional_casino.py"
         ]
         
         for filepath in economy_files:
             if os.path.exists(filepath):
+                print(f"Fixing economy consistency in {filepath}")
                 self._fix_economy_wallet_access(filepath)
                 
     def _fix_economy_wallet_access(self, filepath):
@@ -190,106 +160,100 @@ class DatabaseStandardizationFixer:
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
+                
             original_content = content
             
-            # Ensure all wallet operations use db_manager
-            content = re.sub(
-                r'self\.bot\.db\.economy\.',
-                r'self.bot.db_manager.',
-                content
-            )
+            # Fix wallet access patterns
+            patterns = [
+                # Ensure proper guild_id and user_id validation
+                (r'if not guild_id:', 'if not guild_id or guild_id == 0:'),
+                (r'if not user_id:', 'if not user_id or user_id == 0:'),
+                
+                # Fix wallet collection access
+                (r'self\.economy\.find_one', 'self.db_manager.economy.find_one'),
+                (r'self\.economy\.update_one', 'self.db_manager.economy.update_one'),
+                (r'self\.economy\.insert_one', 'self.db_manager.economy.insert_one'),
+                
+                # Ensure proper error handling
+                (r'return \{\}', 'return {"balance": 0, "guild_id": guild_id, "user_id": user_id}')
+            ]
             
-            # Fix direct balance access to use get_wallet
-            content = re.sub(
-                r'balance\s*=\s*await\s+self\.bot\.db\.economy\.find_one\([^)]+\)',
-                r'wallet = await self.bot.db_manager.get_wallet(guild_id, user_id)\nbalance = wallet.get("balance", 0)',
-                content
-            )
-            
+            for pattern, replacement in patterns:
+                new_content = re.sub(pattern, replacement, content)
+                if new_content != content:
+                    self.fixes_applied += 1
+                content = new_content
+                
             if content != original_content:
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write(content)
-                self.fixed_files.append(filepath)
-                print(f"✅ Fixed economy wallet access in {filepath}")
+                print(f"  ✓ Updated economy patterns in {filepath}")
+                self.files_processed += 1
                 
         except Exception as e:
-            self.errors.append(f"Error fixing economy in {filepath}: {e}")
-            print(f"❌ Error fixing economy in {filepath}: {e}")
-    
+            print(f"  ✗ Error fixing {filepath}: {e}")
+            
     def validate_database_consistency(self):
         """Validate that all database access is now consistent"""
-        print("\n🔍 Validating database access consistency...")
+        print("\n=== Database Consistency Validation ===")
         
-        # Check for remaining direct database access
-        problematic_patterns = [
-            r'self\.bot\.db\.[a-zA-Z_]+\.find_one\(',
-            r'self\.bot\.db\.[a-zA-Z_]+\.update_one\(',
-            r'self\.bot\.database\.',
-            r'self\.mongo_client\.'
-        ]
+        # Check all Python files for inconsistent database access
+        inconsistent_files = []
         
-        issues_found = 0
-        
-        for pattern in problematic_patterns:
-            for root, dirs, files in os.walk('bot'):
-                for file in files:
-                    if file.endswith('.py'):
-                        filepath = os.path.join(root, file)
-                        try:
-                            with open(filepath, 'r', encoding='utf-8') as f:
-                                content = f.read()
-                            
-                            matches = re.findall(pattern, content)
-                            if matches:
-                                print(f"⚠️ Found {len(matches)} problematic database access patterns in {filepath}")
-                                issues_found += len(matches)
-                        except:
-                            pass
-        
-        if issues_found == 0:
-            print("✅ All database access patterns are now consistent!")
+        for filepath in Path('.').rglob('*.py'):
+            if 'bot/' in str(filepath):
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        
+                    # Look for problematic patterns
+                    problems = []
+                    
+                    if re.search(r'client\[[\'"]((?!' + self.target_database + r')[^\'\"]+)[\'"]\]', content):
+                        problems.append("Direct client database access")
+                        
+                    if re.search(r'mongo_client\[[\'"]((?!' + self.target_database + r')[^\'\"]+)[\'"]\]', content):
+                        problems.append("Direct mongo_client database access")
+                        
+                    if re.search(r'server_id = None', content):
+                        problems.append("server_id defaults to None")
+                        
+                    if problems:
+                        inconsistent_files.append((str(filepath), problems))
+                        
+                except Exception:
+                    pass
+                    
+        if inconsistent_files:
+            print("⚠️ Found inconsistent database access:")
+            for filepath, problems in inconsistent_files:
+                print(f"  {filepath}: {', '.join(problems)}")
         else:
-            print(f"⚠️ Found {issues_found} remaining issues that need manual review")
-    
+            print("✅ All database access patterns are consistent")
+            
     def execute_comprehensive_fixes(self):
         """Execute all database standardization fixes"""
-        print("🚀 Starting comprehensive database access standardization...")
+        print("=== Comprehensive Database Standardization ===")
         
-        # Phase 1: Fix casino database access
-        print("\n📊 Phase 1: Fixing casino database access patterns...")
+        print("\n1. Fixing casino database access...")
         self.fix_all_casino_database_access()
         
-        # Phase 2: Fix premium validation
-        print("\n🔒 Phase 2: Standardizing premium validation...")
+        print("\n2. Fixing premium validation...")
         self.fix_all_premium_validation()
         
-        # Phase 3: Fix economy data consistency  
-        print("\n💰 Phase 3: Fixing economy data consistency...")
-        self.fix_economy_data_consistency()
-        
-        # Phase 4: Remove duplicate casino files
-        print("\n🗑️ Phase 4: Removing duplicate casino implementations...")
+        print("\n3. Removing duplicate casino files...")
         self.remove_duplicate_casino_files()
         
-        # Phase 5: Validate consistency
-        print("\n✅ Phase 5: Validating fixes...")
+        print("\n4. Fixing economy data consistency...")
+        self.fix_economy_data_consistency()
+        
+        print("\n5. Validating database consistency...")
         self.validate_database_consistency()
         
-        # Summary
-        print(f"\n📋 SUMMARY:")
-        print(f"✅ Fixed files: {len(self.fixed_files)}")
-        print(f"❌ Errors: {len(self.errors)}")
-        
-        if self.fixed_files:
-            print(f"\n📁 Fixed files:")
-            for filepath in self.fixed_files:
-                print(f"  • {filepath}")
-        
-        if self.errors:
-            print(f"\n⚠️ Errors encountered:")
-            for error in self.errors:
-                print(f"  • {error}")
+        print(f"\n=== Summary ===")
+        print(f"Files processed: {self.files_processed}")
+        print(f"Fixes applied: {self.fixes_applied}")
+        print(f"Target database: {self.target_database}")
 
 def main():
     """Execute comprehensive database standardization"""

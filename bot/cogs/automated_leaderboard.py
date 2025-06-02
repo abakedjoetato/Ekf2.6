@@ -199,7 +199,7 @@ class AutomatedLeaderboard(discord.Cog):
             try:
                 # Create consolidated leaderboard for the entire guild (all servers combined)
                 embed, file_attachment = await self.create_consolidated_leaderboard(
-                    guild_id, None, "All Servers"
+                    guild_id, "default", "All Servers"
                 )
 
                 if embed:

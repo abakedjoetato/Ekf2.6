@@ -25,6 +25,17 @@ class UnifiedLogParser:
         self.connections: Dict[str, Any] = {}
         self.parser_states: Dict[str, Dict] = {}
         
+    async def check_for_unregistered_servers(self, guild_id: int):
+        """Check for unregistered servers for a guild - placeholder for auto-detection"""
+        try:
+            # For now, this is a placeholder since we cleaned all server configurations
+            # In the future, this could implement auto-detection of game servers
+            logger.info(f"Checking for unregistered servers for guild {guild_id}")
+            return
+        except Exception as e:
+            logger.error(f"Error checking unregistered servers for guild {guild_id}: {e}")
+            return
+        
     async def run_log_parser(self):
         """Main parser execution method with automatic server detection"""
         try:

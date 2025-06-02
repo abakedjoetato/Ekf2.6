@@ -876,7 +876,7 @@ class DatabaseManager:
                     server_id, 
                     kill_data.get('killer', ''), 
                     distance, 
-                    kill_data.get('timestamp')
+                    kill_data.get('timestamp', datetime.now(timezone.utc))
                 )
             
             # Update victim death count
@@ -884,7 +884,7 @@ class DatabaseManager:
                 guild_id, 
                 server_id, 
                 kill_data.get('victim', ''), 
-                kill_data.get('timestamp')
+                kill_data.get('timestamp', datetime.now(timezone.utc))
             )
 
         except Exception as e:

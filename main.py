@@ -364,13 +364,11 @@ class EmeraldKillfeedBot(commands.Bot):
 
             # Clear any remaining parser state
             if hasattr(self, 'unified_log_parser') and self.unified_log_parser:
-                # Clear internal state without requiring guild_id/server_id
-                if hasattr(self.unified_log_parser, 'file_states'):
-                    self.unified_log_parser.file_states.clear()
-                if hasattr(self.unified_log_parser, 'player_sessions'):
-                    self.unified_log_parser.player_sessions.clear()
-                if hasattr(self.unified_log_parser, 'player_lifecycle'):
-                    self.unified_log_parser.player_lifecycle.clear()
+                # Clear internal state dictionaries that actually exist
+                if hasattr(self.unified_log_parser, 'parser_states'):
+                    self.unified_log_parser.parser_states.clear()
+                if hasattr(self.unified_log_parser, 'connections'):
+                    self.unified_log_parser.connections.clear()
 
             # Force garbage collection
             gc.collect()
