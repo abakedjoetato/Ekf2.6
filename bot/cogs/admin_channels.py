@@ -66,7 +66,7 @@ class AdminChannels(discord.Cog):
         await ctx.defer(ephemeral=True)
         
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             channel_config = self.channel_types[channel_type]
             
             # Check if channel type requires premium
@@ -202,7 +202,7 @@ class AdminChannels(discord.Cog):
                           server_id: discord.Option(str, "Server to configure channels for", required=False, default="default")):
         """Configure multiple channel types for a specific server at once"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             
             # Map provided channels to types
             channel_updates = {}
@@ -314,10 +314,10 @@ class AdminChannels(discord.Cog):
                            server_id: discord.Option(str, "Server to clear channels for", required=False, default="default")):
         """Clear all channel configurations for a specific server"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else 0
             
             # Get current configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             server_channels = guild_config.get('server_channels', {}).get(server_id, {}) if guild_config else {}
             
             if not any(server_channels.get(channel_type) for channel_type in self.channel_types.keys()):
@@ -387,8 +387,8 @@ class AdminChannels(discord.Cog):
                           server_id: discord.Option(str, "Server to view channels for", required=False, default="default")):
         """View current channel configuration for a specific server"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_id = ctx.guild.id if ctx.guild else 0
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
             server_channels = guild_config.get('server_channels', {}).get(server_id, {}) if guild_config else {}
             
             embed = discord.Embed(
