@@ -317,11 +317,13 @@ class AutomatedLeaderboard(discord.Cog):
                 'thumbnail_url': 'attachment://Leaderboard.png'
             }
 
-            # Get actual data for consolidated leaderboard with more comprehensive rankings
+            # Get actual data for consolidated leaderboard with specific counts
             top_killers = await self.get_top_kills(guild_id or 0, 5, server_id)
-            top_kdr = await self.get_top_kdr(guild_id or 0, 5, server_id)
-            top_distance = await self.get_top_distance(guild_id or 0, 5, server_id)
-            top_streaks = await self.get_top_streaks(guild_id or 0, 5, server_id)
+            top_kdr = await self.get_top_kdr(guild_id or 0, 3, server_id)
+            top_distance = await self.get_top_distance(guild_id or 0, 3, server_id)
+            top_streaks = await self.get_top_streaks(guild_id or 0, 3, server_id)
+            top_weapons = await self.get_top_weapons(guild_id or 0, server_id=server_id)
+            top_faction = await self.get_top_factions(guild_id or 0, server_id=server_id)
 
             # Build sections with real data
             sections = []
@@ -369,6 +371,23 @@ class AutomatedLeaderboard(discord.Cog):
                     faction_tag = f" [{faction}]" if faction else ""
                     streak_lines.append(f"**{i}.** {name}{faction_tag} — {streak} Kill Streak")
                 sections.append(f"**BEST STREAKS**\n" + "\n".join(streak_lines))
+
+            if top_weapons:
+                weapon_lines = []
+                for i, weapon in enumerate(top_weapons, 1):
+                    weapon_name = weapon.get('weapon_name', 'Unknown Weapon')
+                    kills = weapon.get('kills', 0)
+                    top_user = weapon.get('top_user', 'Unknown')
+                    weapon_lines.append(f"**{i}.** {weapon_name} — {kills:,} Kills | Top: {top_user}")
+                sections.append(f"**TOP WEAPONS**\n" + "\n".join(weapon_lines))
+
+            if top_faction:
+                faction = top_faction[0] if top_faction else None
+                if faction:
+                    faction_name = faction.get('faction_name', 'Unknown Faction')
+                    kills = faction.get('kills', 0)
+                    members = faction.get('members', 0)
+                    sections.append(f"**TOP FACTION**\n**1.** [{faction_name}] — {kills:,} Kills | {members} Members")
 
             if not sections:
                 # No data available
@@ -451,6 +470,68 @@ class AutomatedLeaderboard(discord.Cog):
             return await cursor.to_list(length=None)
         except Exception as e:
             logger.error(f"Failed to get top streaks: {e}")
+            return []
+
+    async def get_top_weapons(self, guild_id: int, limit: int = 3, server_id: str = None) -> List[Dict[str, Any]]:
+        """Get top weapons by kill count"""
+        try:
+            query = {
+                "guild_id": guild_id,
+                "kills": {"$gt": 0}
+            }
+
+            # Add server filter if specified
+            if server_id:
+                query["server_id"] = server_id
+
+            # Aggregate weapons from kill events
+            pipeline = [
+                {"$match": query},
+                {"$group": {
+                    "_id": "$weapon",
+                    "kills": {"$sum": 1},
+                    "top_user": {"$first": "$killer"}
+                }},
+                {"$sort": {"kills": -1}},
+                {"$limit": limit},
+                {"$project": {
+                    "weapon_name": "$_id",
+                    "kills": 1,
+                    "top_user": 1,
+                    "_id": 0
+                }}
+            ]
+
+            cursor = self.bot.db_manager.kill_events.aggregate(pipeline)
+            return await cursor.to_list(length=None)
+        except Exception as e:
+            logger.error(f"Failed to get top weapons: {e}")
+            return []
+
+    async def get_top_factions(self, guild_id: int, limit: int = 1, server_id: str = None) -> List[Dict[str, Any]]:
+        """Get top factions by total kills"""
+        try:
+            query = {"guild_id": guild_id}
+            
+            # Add server filter if specified
+            if server_id:
+                query["server_id"] = server_id
+
+            cursor = self.bot.db_manager.factions.find(query).sort("kills", -1).limit(limit)
+            factions = await cursor.to_list(length=None)
+            
+            # Add member count for each faction
+            for faction in factions:
+                faction_name = faction.get('faction_name', '')
+                members_count = await self.bot.db_manager.faction_members.count_documents({
+                    "guild_id": guild_id,
+                    "faction_name": faction_name
+                })
+                faction['members'] = members_count
+                
+            return factions
+        except Exception as e:
+            logger.error(f"Failed to get top factions: {e}")
             return []
 
     async def get_player_faction(self, guild_id: int, player_name: str) -> Optional[str]:

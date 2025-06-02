@@ -840,7 +840,7 @@ class EmbedFactory:
 
             server_name = embed_data.get('server_name', 'All Servers')
             embed.add_field(name="**THEATER OF OPERATIONS**", value=f"**{server_name}**", inline=should_use_inline(f"**{server_name}**"))
-            embed.add_field(name="**LIVE RANKINGS** • Real-time", value="Dynamic continuous updates for elite tier champions", inline=False)
+
 
             thumbnail_url = embed_data.get('thumbnail_url', 'attachment://Leaderboard.png')
             if 'WeaponStats.png' in thumbnail_url:
