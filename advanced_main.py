@@ -11,8 +11,8 @@ from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
-# Import advanced database manager
-from bot.models.advanced_database_v2 import AdvancedDatabaseManager
+# Import database manager
+from bot.models.database import DatabaseManager
 
 # Setup logging
 logging.basicConfig(
@@ -106,11 +106,11 @@ class AdvancedEmeraldBot(discord.Bot):
             await self.mongo_client.admin.command('ping')
             logger.info("✅ MongoDB connection established")
             
-            # Initialize advanced database manager
-            self.db_manager = AdvancedDatabaseManager(self.mongo_client)
+            # Initialize database manager
+            self.db_manager = DatabaseManager(self.mongo_client)
             
-            # Initialize complete schema
-            await self.db_manager.initialize_complete_schema()
+            # Initialize database schema
+            await self.db_manager.initialize_database()
             
             logger.info("✅ Advanced database manager initialized")
             
