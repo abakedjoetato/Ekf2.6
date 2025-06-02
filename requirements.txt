@@ -100,11 +100,9 @@ asyncssh
 paramiko
 python-dotenv
 motor
-py-cord
 pymongo
 asyncssh
 motor
-py-cord
 pymongo
 aiofiles
 apscheduler
@@ -112,12 +110,11 @@ asyncssh
 flask
 motor
 paramiko
-py-cord
 pymongo
 python-dotenv
 apscheduler
 asyncssh
 motor
-py-cord
 python-dotenv
+discord-py
 py-cord==2.6.1
