@@ -75,39 +75,8 @@ class AutomatedLeaderboard(discord.Cog):
         await self.bot.wait_until_ready()
 
     async def initial_leaderboard_check(self):
-        """Check for missing leaderboards immediately on startup"""
-        try:
-            await self.bot.wait_until_ready()
-            await asyncio.sleep(10)  # Give bot time to fully initialize
-            
-            logger.info("Running initial leaderboard check for missing embeds...")
-            
-            # Get all guilds with leaderboard channels configured
-            guilds_cursor = self.bot.db_manager.guilds.find({
-                "$or": [
-                    {"channels.leaderboard": {"$exists": True, "$ne": None}},
-                    {"server_channels.default.leaderboard": {"$exists": True, "$ne": None}}
-                ],
-                "leaderboard_enabled": True
-            })
-
-            guilds_with_leaderboard = await guilds_cursor.to_list(length=None)
-            
-            for guild_config in guilds_with_leaderboard:
-                try:
-                    guild_id = guild_config['guild_id']
-                    
-                    # Check if leaderboard messages exist in the channel
-                    if await self.check_missing_leaderboards(guild_config):
-                        logger.info(f"Creating missing leaderboards for guild {guild_id}")
-                        await self.update_guild_leaderboard(guild_config, force_create=True)
-                    
-                except Exception as e:
-                    guild_id = guild_config.get('guild_id', 'Unknown')
-                    logger.error(f"Failed initial leaderboard check for guild {guild_id}: {e}")
-                    
-        except Exception as e:
-            logger.error(f"Error in initial leaderboard check: {e}")
+        """Disabled to prevent duplicate postings"""
+        logger.info("Initial leaderboard check disabled to prevent multiple postings")
 
     async def check_missing_leaderboards(self, guild_config: Dict[str, Any]) -> bool:
         """Check if leaderboard messages are missing in the channel"""
@@ -519,11 +488,9 @@ class AutomatedLeaderboard(discord.Cog):
             # Add member count for each faction
             for faction in factions:
                 faction_name = faction.get('faction_name', '')
-                members_count = await self.bot.db_manager.faction_members.count_documents({
-                    "guild_id": guild_id,
-                    "faction_name": faction_name
-                })
-                faction['members'] = members_count
+                # Get members from the faction document itself
+                members = faction.get('members', [])
+                faction['members'] = len(members) if isinstance(members, list) else 0
                 
             return factions
         except Exception as e:
