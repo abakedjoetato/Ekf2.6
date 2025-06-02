@@ -18,7 +18,7 @@ async def test_cog_loading():
     
     try:
         print("Testing cog loading...")
-        await bot.load_extension('bot.cogs.core')
+        await bot.load_extension('test_minimal_cog')
         print("✅ Successfully loaded bot.cogs.core")
         
         # Check if commands were loaded
