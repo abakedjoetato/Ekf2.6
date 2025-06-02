@@ -883,8 +883,7 @@ class DatabaseManager:
             await self.increment_player_death(
                 guild_id, 
                 server_id, 
-                kill_data.get('victim', ''), 
-                kill_data.get('timestamp', datetime.now(timezone.utc))
+                kill_data.get('victim', '')
             )
 
         except Exception as e:

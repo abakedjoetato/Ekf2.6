@@ -737,39 +737,8 @@ class HistoricalParser:
                 # Process batch sequentially to maintain chronological order
                 for i, (timestamp, kill_data) in enumerate(batch):
                     try:
-                        # Add to database without sending embeds
+                        # Add to database (this handles all stat updates automatically)
                         await self.bot.db_manager.add_kill_event(guild_id, server_id, kill_data)
-
-                        # Update stats using proper MongoDB update syntax
-                        if not kill_data['is_suicide']:
-                            # Update killer stats atomically
-                            await self.bot.db_manager.pvp_data.update_one(
-                                {
-                                    "guild_id": guild_id,
-                                    "server_id": server_id,
-                                    "player_name": kill_data['killer']
-                                },
-                                {
-                                    "$inc": {"kills": 1},
-                                    "$setOnInsert": {"deaths": 0, "suicides": 0}
-                                },
-                                upsert=True
-                            )
-
-                        # Update victim stats atomically
-                        update_field = "suicides" if kill_data['is_suicide'] else "deaths"
-                        await self.bot.db_manager.pvp_data.update_one(
-                            {
-                                "guild_id": guild_id,
-                                "server_id": server_id,
-                                "player_name": kill_data['victim']
-                            },
-                            {
-                                "$inc": {update_field: 1},
-                                "$setOnInsert": {"kills": 0}
-                            },
-                            upsert=True
-                        )
 
                         processed_count += 1
 
