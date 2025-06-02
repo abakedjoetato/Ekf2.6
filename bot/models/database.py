@@ -663,7 +663,7 @@ class DatabaseManager:
                 return False
 
             if not isinstance(player_name, str) or not player_name.strip():
-                logger.error(f"Invalid player_name: {player_name}")
+                logger.debug(f"Skipping stats update for empty player name: '{player_name}'")
                 return False
 
             if not isinstance(stats_update, dict) or not stats_update:

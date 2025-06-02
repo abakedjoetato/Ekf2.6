@@ -274,27 +274,39 @@ class ChronologicalProcessor:
     
     async def _process_kill_batch(self, kill_batch: List[KillRecord]):
         """Process a batch of chronologically ordered kills"""
+        valid_records = 0
+        skipped_records = 0
+        
         try:
             for kill_record in kill_batch:
+                # Validate player names before processing
+                killer_valid = kill_record.killer and kill_record.killer.strip()
+                victim_valid = kill_record.victim and kill_record.victim.strip()
+                
+                if not killer_valid or not victim_valid:
+                    skipped_records += 1
+                    continue  # Skip records with empty player names
+                
                 # Store kill event in database
                 kill_event = {
                     'guild_id': self.guild_id,
                     'server_id': self.server_id,
-                    'killer': kill_record.killer,
-                    'victim': kill_record.victim,
-                    'weapon': kill_record.weapon,
+                    'killer': kill_record.killer.strip(),
+                    'victim': kill_record.victim.strip(),
+                    'weapon': kill_record.weapon or 'Unknown',
                     'distance': kill_record.distance,
-                    'killer_platform': kill_record.killer_platform,
-                    'victim_platform': kill_record.victim_platform,
+                    'killer_platform': kill_record.killer_platform or 'Unknown',
+                    'victim_platform': kill_record.victim_platform or 'Unknown',
                     'timestamp': kill_record.timestamp,
                     'file_source': kill_record.file_source,
-                    'is_suicide': kill_record.killer == kill_record.victim,
+                    'is_suicide': kill_record.killer.strip().lower() == kill_record.victim.strip().lower(),
                     'processed_at': datetime.now(timezone.utc)
                 }
                 
                 # Insert kill event if database manager is available
                 if self.db_manager:
                     await self.db_manager.kill_events.insert_one(kill_event)
+                    valid_records += 1
                     
                     # Update player stats (kills for killer, deaths for victim)
                     if not kill_event['is_suicide']:
@@ -302,7 +314,7 @@ class ChronologicalProcessor:
                         await self.db_manager.increment_player_kill(
                             self.guild_id, 
                             self.server_id, 
-                            kill_record.killer, 
+                            kill_record.killer.strip(), 
                             kill_record.distance,
                             kill_record.timestamp
                         )
@@ -311,8 +323,13 @@ class ChronologicalProcessor:
                         await self.db_manager.increment_player_death(
                             self.guild_id,
                             self.server_id, 
-                            kill_record.victim
+                            kill_record.victim.strip()
                         )
+            
+            if valid_records > 0:
+                logger.info(f"Processed {valid_records} valid kill records for server {self.server_id}")
+            if skipped_records > 0:
+                logger.debug(f"Skipped {skipped_records} records with invalid player names")
                 
         except Exception as e:
             logger.error(f"Failed to process kill batch: {e}")
