@@ -698,7 +698,7 @@ class HistoricalParser:
 
                 try:
                     # Parse kill event to extract timestamp
-                    kill_data = await self.killfeed_parser.parse_csv_line(line)
+                    kill_data = self.killfeed_parser.parse_csv_line(line)
                     if kill_data:
                         # Validate kill data
                         if not kill_data.get('killer') or not kill_data.get('victim'):
