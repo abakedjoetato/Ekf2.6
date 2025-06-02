@@ -130,10 +130,18 @@ class ScalableUnifiedProcessor:
         server_name = server_config.get('name', server_config.get('server_name', 'default'))
         
         try:
-            async with connection_manager.get_connection(self.guild_id, server_config) as conn:
-                if not conn:
-                    return None
-                
+            # Use direct SFTP connection instead of connection pool to avoid SSH attribute issues
+            import asyncssh
+            
+            conn = await asyncssh.connect(
+                server_config.get('host', 'localhost'),
+                port=server_config.get('port', 22),
+                username=server_config.get('username', 'root'),
+                password=server_config.get('password'),
+                known_hosts=None
+            )
+            
+            try:
                 sftp = await conn.start_sftp_client()
                 log_path = server_config.get('log_path', '/path/to/logs/')
                 deadside_log_path = f"{log_path.rstrip('/')}/Deadside.log"
@@ -141,43 +149,45 @@ class ScalableUnifiedProcessor:
                 # Read first line for hash calculation
                 try:
                     async with sftp.open(deadside_log_path, 'rb') as file:
-                        first_line_bytes = await file.read(1024)  # Read first 1024 bytes
-                        first_line = first_line_bytes.decode('utf-8', errors='ignore').split('\n')[0].strip()
-                        
-                        # Calculate hash of first line
-                        current_hash = hashlib.md5(first_line.encode()).hexdigest()
-                        
-                        # Get stored state
-                        stored_state = await self.state_manager.get_parser_state(self.guild_id, server_name) if self.state_manager else None
-                        
-                        rotation_detected = False
-                        last_position = 0
-                        last_line = 0
-                        
-                        if stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
-                            if stored_state.file_timestamp != current_hash:
-                                rotation_detected = True
-                                logger.info(f"File rotation detected for {server_name} - resetting state")
-                            else:
-                                last_position = stored_state.last_byte_position
-                                last_line = stored_state.last_line
-                        else:
-                            # First time processing or no stored state
+                    first_line_bytes = await file.read(1024)  # Read first 1024 bytes
+                    first_line = first_line_bytes.decode('utf-8', errors='ignore').split('\n')[0].strip()
+                    
+                    # Calculate hash of first line
+                    current_hash = hashlib.md5(first_line.encode()).hexdigest()
+                    
+                    # Get stored state
+                    stored_state = await self.state_manager.get_parser_state(self.guild_id, server_name) if self.state_manager else None
+                    
+                    rotation_detected = False
+                    last_position = 0
+                    last_line = 0
+                    
+                    if stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
+                        if stored_state.file_timestamp != current_hash:
                             rotation_detected = True
-                        
-                        return ServerFileState(
-                            server_name=server_name,
-                            guild_id=self.guild_id,
-                            file_hash=current_hash,
-                            last_position=last_position,
-                            last_line=last_line,
-                            last_processed=datetime.now(timezone.utc),
-                            rotation_detected=rotation_detected
-                        )
+                            logger.info(f"File rotation detected for {server_name} - resetting state")
+                        else:
+                            last_position = stored_state.last_byte_position
+                            last_line = stored_state.last_line
+                    else:
+                        # First time processing or no stored state
+                        rotation_detected = True
+                    
+                    return ServerFileState(
+                        server_name=server_name,
+                        guild_id=self.guild_id,
+                        file_hash=current_hash,
+                        last_position=last_position,
+                        last_line=last_line,
+                        last_processed=datetime.now(timezone.utc),
+                        rotation_detected=rotation_detected
+                    )
+            finally:
+                conn.close()
                 
-                except FileNotFoundError:
-                    logger.warning(f"Deadside.log not found for {server_name}")
-                    return None
+        except FileNotFoundError:
+            logger.warning(f"Deadside.log not found for {server_name}")
+            return None
                 
         except Exception as e:
             logger.error(f"Failed to check rotation for {server_name}: {e}")
