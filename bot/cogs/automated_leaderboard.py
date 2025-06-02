@@ -22,9 +22,13 @@ class AutomatedLeaderboard(discord.Cog):
         self.bot = bot
         self.message_cache = {}  # Store {guild_id: message_id}
         logger.info("🤖 Automated leaderboard cog initialized")
+        
+        # Start tasks after bot is ready
+        self.bot.loop.create_task(self.start_after_ready())
 
-    async def cog_load(self):
-        """Start the automated leaderboard task when cog loads"""
+    async def start_after_ready(self):
+        """Start automated leaderboard after bot is ready"""
+        await self.bot.wait_until_ready()
         logger.info("🔄 Starting automated leaderboard task...")
         self.automated_leaderboard_task.start()
         
@@ -313,10 +317,11 @@ class AutomatedLeaderboard(discord.Cog):
                 'thumbnail_url': 'attachment://Leaderboard.png'
             }
 
-            # Get actual data for consolidated leaderboard
-            top_killers = await self.get_top_kills(guild_id or 0, 3, server_id)
-            top_kdr = await self.get_top_kdr(guild_id or 0, 3, server_id)
-            top_distance = await self.get_top_distance(guild_id or 0, 3, server_id)
+            # Get actual data for consolidated leaderboard with more comprehensive rankings
+            top_killers = await self.get_top_kills(guild_id or 0, 5, server_id)
+            top_kdr = await self.get_top_kdr(guild_id or 0, 5, server_id)
+            top_distance = await self.get_top_distance(guild_id or 0, 5, server_id)
+            top_streaks = await self.get_top_streaks(guild_id or 0, 5, server_id)
 
             # Build sections with real data
             sections = []
@@ -354,6 +359,16 @@ class AutomatedLeaderboard(discord.Cog):
                         dist_str = f"{distance:.0f}m"
                     distance_lines.append(f"**{i}.** {name}{faction_tag} — {dist_str}")
                 sections.append(f"**LONGEST SHOTS**\n" + "\n".join(distance_lines))
+
+            if top_streaks:
+                streak_lines = []
+                for i, player in enumerate(top_streaks, 1):
+                    name = player.get('player_name', 'Unknown')
+                    streak = player.get('longest_streak', 0)
+                    faction = await self.get_player_faction(guild_id or 0, name)
+                    faction_tag = f" [{faction}]" if faction else ""
+                    streak_lines.append(f"**{i}.** {name}{faction_tag} — {streak} Kill Streak")
+                sections.append(f"**BEST STREAKS**\n" + "\n".join(streak_lines))
 
             if not sections:
                 # No data available
@@ -418,6 +433,24 @@ class AutomatedLeaderboard(discord.Cog):
             return await cursor.to_list(length=None)
         except Exception as e:
             logger.error(f"Failed to get top distance: {e}")
+            return []
+
+    async def get_top_streaks(self, guild_id: int, limit: int, server_id: str = None) -> List[Dict[str, Any]]:
+        """Get top streak players"""
+        try:
+            query = {
+                "guild_id": guild_id,
+                "longest_streak": {"$gt": 0}
+            }
+
+            # Add server filter if specified
+            if server_id:
+                query["server_id"] = server_id
+
+            cursor = self.bot.db_manager.pvp_data.find(query).sort("longest_streak", -1).limit(limit)
+            return await cursor.to_list(length=None)
+        except Exception as e:
+            logger.error(f"Failed to get top streaks: {e}")
             return []
 
     async def get_player_faction(self, guild_id: int, player_name: str) -> Optional[str]:
