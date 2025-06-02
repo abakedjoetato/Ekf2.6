@@ -296,39 +296,29 @@ class Premium(discord.Cog):
                 })
 
                 if premium_doc and premium_doc.get('expires_at'):
-                        expires_text = f"<t:{int(premium_doc['expires_at'].timestamp())}:R>"
-                    else:
-                        expires_text = "Never"
-
-                    premium_servers.append(f"**{server_name}** - Expires {expires_text}")
+                    expires_text = f"<t:{int(premium_doc['expires_at'].timestamp())}:R>"
                 else:
-                    free_servers.append(f"**{server_name}** - Free tier")
+                    expires_text = "Never"
 
-            # Create status embed
-            embed = discord.Embed(
-                title="Premium Status",
-                description=f"Premium status for **{ctx.guild.name}**",
-                color=0xFFD700 if premium_servers else 0x808080,
-                timestamp=datetime.now(timezone.utc)
-            )
-
-            if premium_servers:
-                embed.add_field(
-                    name="Premium Servers",
-                    value="\n".join(premium_servers),
-                    inline=False
+                embed = discord.Embed(
+                    title="✅ Premium Active",
+                    description=f"This server has premium access",
+                    color=0x00FF00,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                embed.add_field(name="Expires", value=expires_text, inline=True)
+            else:
+                embed = discord.Embed(
+                    title="❌ Premium Not Active", 
+                    description="This server does not have premium access",
+                    color=0xFF0000,
+                    timestamp=datetime.now(timezone.utc)
                 )
 
-            if free_servers:
-                embed.add_field(
-                    name="🆓 Free Servers",
-                    value="\n".join(free_servers),
-                    inline=False
-                )
-
-            # Check if user can manage premium
-            is_owner = self.is_bot_owner(ctx.user.id)
-            home_guild = has_premium = self.check_premium_access(guild_id)}")
+            await ctx.respond(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"Premium status check failed: {e}")
             await ctx.respond("Failed to check premium status.", ephemeral=True)
 
     gameserver = discord.SlashCommandGroup("gameserver", "Game server management commands")
