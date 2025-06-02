@@ -1068,6 +1068,24 @@ class ProfessionalCasino(discord.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+        # Premium cache to avoid database calls during commands
+        self.premium_cache = {}
+    
+    @discord.Cog.listener()
+    async def on_ready(self):
+        """Initialize premium cache when bot is ready"""
+        for guild in self.bot.guilds:
+            await self.refresh_premium_cache(guild.id)
+    
+    async def refresh_premium_cache(self, guild_id: int):
+        """Refresh premium status from database and cache it"""
+        try:
+            guild_config = has_premium = self.check_premium_access(guild_id)}")
+            self.premium_cache[guild_id] = False
+
+    def check_premium_access(self, guild_id: int) -> bool:
+        """Check premium access from cache (no database calls)"""
+        return self.premium_cache.get(guild_id, False)
     
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
@@ -1079,23 +1097,7 @@ class ProfessionalCasino(discord.Cog):
                 return await self.bot.db_manager.has_premium_access(guild_id)
             else:
                 # Fallback to standard database check
-                guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
-                if not guild_config:
-                    return False
-                    
-                # Check if guild has premium_enabled flag
-                if guild_config and guild_config.get('premium_enabled', False):
-                    return True
-                
-                # Check if any servers have premium status
-                servers = guild_config.get('servers', [])
-                for server in servers:
-                    if server and server.get('premium', False):
-                        return True
-                
-                return False
-        except Exception as e:
-            logger.error(f"Premium access check failed: {e}")
+                guild_config = has_premium = self.check_premium_access(guild_id)}")
             return False
     
     @discord.slash_command(name="casino", description="Enter the Emerald Elite Casino - Professional Gaming Experience")

@@ -24,6 +24,24 @@ class SubscriptionManagement(discord.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+        # Premium cache to avoid database calls during commands
+        self.premium_cache = {}
+    
+    @discord.Cog.listener()
+    async def on_ready(self):
+        """Initialize premium cache when bot is ready"""
+        for guild in self.bot.guilds:
+            await self.refresh_premium_cache(guild.id)
+    
+    async def refresh_premium_cache(self, guild_id: int):
+        """Refresh premium status from database and cache it"""
+        try:
+            guild_config = has_premium = self.check_premium_access(guild_id)}")
+            self.premium_cache[guild_id] = False
+
+    def check_premium_access(self, guild_id: int) -> bool:
+        """Check premium access from cache (no database calls)"""
+        return self.premium_cache.get(guild_id, False)
         # Initialize with fallback to bot's db_manager if premium_manager_v2 not ready
         self.premium_manager = getattr(bot, 'premium_manager_v2', None) or getattr(bot, 'premium_manager', None)
     
@@ -417,30 +435,7 @@ class SubscriptionManagement(discord.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
-            if guild_config and "servers" in guild_config:
-                servers = guild_config["servers"]
-                actual_server_id = ServerAutocomplete.get_server_id_from_name(server_id, servers)
-                if actual_server_id:
-                    server_id = actual_server_id
-            
-            # Get server name for display
-            server_name = server_id
-            if guild_config and "servers" in guild_config:
-                for server in guild_config["servers"]:
-                    if server["server_id"] == server_id:
-                        server_name = server.get("name", server_id)
-                        break
-            
-            # Activate premium
-            success, message = await self.premium_manager.activate_server_premium(
-                guild_id, server_id, ctx.author.id, "Manual activation by guild admin"
-            )
-            
-            if success:
-                embed = discord.Embed(
-                    title="✅ Server Premium Activated",
-                    description=f"**{server_name}** (`{server_id}`) is now premium",
+            guild_config = has_premium = self.check_premium_access(guild_id)}** (`{server_id}`) is now premium",
                     color=discord.Color.green()
                 )
                 embed.add_field(name="Status", value=message, inline=False)
@@ -471,30 +466,7 @@ class SubscriptionManagement(discord.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
-            if guild_config and "servers" in guild_config:
-                servers = guild_config["servers"]
-                actual_server_id = ServerAutocomplete.get_server_id_from_name(server_id, servers)
-                if actual_server_id:
-                    server_id = actual_server_id
-            
-            # Get server name for display
-            server_name = server_id
-            if guild_config and "servers" in guild_config:
-                for server in guild_config["servers"]:
-                    if server["server_id"] == server_id:
-                        server_name = server.get("name", server_id)
-                        break
-            
-            # Deactivate premium
-            success, message = await self.premium_manager.deactivate_server_premium(
-                guild_id, server_id, ctx.author.id, "Manual deactivation by guild admin"
-            )
-            
-            if success:
-                embed = discord.Embed(
-                    title="🔴 Server Premium Deactivated",
-                    description=f"**{server_name}** (`{server_id}`) is no longer premium",
+            guild_config = has_premium = self.check_premium_access(guild_id)}** (`{server_id}`) is no longer premium",
                     color=discord.Color.orange()
                 )
                 embed.add_field(name="Status", value=message, inline=False)
@@ -524,40 +496,7 @@ class SubscriptionManagement(discord.Cog):
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Get guild config for server names
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
-            
-            if not guild_config or "servers" not in guild_config:
-                await ctx.respond("❌ No servers configured for this guild", ephemeral=True)
-                return
-            
-            servers = guild_config["servers"]
-            
-            if server_id:
-                # Show specific server status
-                actual_server_id = ServerAutocomplete.get_server_id_from_name(server_id, servers)
-                if actual_server_id:
-                    server_id = actual_server_id
-                
-                # Find server info
-                server_info = None
-                for server in servers:
-                    if server["server_id"] == server_id:
-                        server_info = server
-                        break
-                
-                if not server_info:
-                    await ctx.respond("❌ Server not found", ephemeral=True)
-                    return
-                
-                if not self.premium_manager:
-                    await ctx.respond("❌ Premium system not available", ephemeral=True)
-                    return
-                
-                is_premium = await self.premium_manager.is_server_premium(guild_id, server_id)
-                server_name = server_info.get("name", server_id)
-                
-                embed = discord.Embed(
-                    title=f"📊 Server Status - {server_name}",
+            guild_config = has_premium = self.check_premium_access(guild_id)}",
                     color=discord.Color.green() if is_premium else discord.Color.red()
                 )
                 embed.add_field(

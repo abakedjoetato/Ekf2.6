@@ -21,6 +21,24 @@ class AutomatedLeaderboard(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        # Premium cache to avoid database calls during commands
+        self.premium_cache = {}
+    
+    @discord.Cog.listener()
+    async def on_ready(self):
+        """Initialize premium cache when bot is ready"""
+        for guild in self.bot.guilds:
+            await self.refresh_premium_cache(guild.id)
+    
+    async def refresh_premium_cache(self, guild_id: int):
+        """Refresh premium status from database and cache it"""
+        try:
+            guild_config = has_premium = self.check_premium_access(guild_id)}")
+            self.premium_cache[guild_id] = False
+
+    def check_premium_access(self, guild_id: int) -> bool:
+        """Check premium access from cache (no database calls)"""
+        return self.premium_cache.get(guild_id, False)
         self.message_cache = {}  # Store {guild_id: message_id}
         logger.info("🤖 Automated leaderboard cog initialized")
         
@@ -337,18 +355,7 @@ class AutomatedLeaderboard(discord.Cog):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
                 # Fallback to old method
-                guild_doc = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
-                if not guild_doc:
-                    return False
-
-                servers = guild_doc.get('servers', [])
-                for server_config in servers:
-                    server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                    if await self.check_premium_access(guild_id):
-                        return True
-                return False
-        except Exception as e:
-            logger.error(f"Failed to check premium access for leaderboards: {e}")
+                guild_doc = has_premium = self.check_premium_access(guild_id)}")
             return False
 
     async def create_consolidated_leaderboard(self, guild_id: int, server_id: str, server_name: str):

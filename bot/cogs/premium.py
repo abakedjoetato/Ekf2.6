@@ -29,7 +29,32 @@ class Premium(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot_owner_id = int(os.getenv('BOT_OWNER_ID', 0))
+        # Premium cache to avoid database calls during commands
+        self.premium_cache = {}
+    
+    @discord.Cog.listener()
+    async def on_ready(self):
+        """Initialize premium cache when bot is ready"""
+        for guild in self.bot.guilds:
+            await self.refresh_premium_cache(guild.id)
+    
+    async def refresh_premium_cache(self, guild_id: int):
+        """Refresh premium status from database and cache it"""
+        try:
+            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
+            if guild_config:
+                has_premium_access = guild_config.get('premium_access', False)
+                has_premium_servers = bool(guild_config.get('premium_servers', []))
+                self.premium_cache[guild_id] = has_premium_access or has_premium_servers
+            else:
+                self.premium_cache[guild_id] = False
+        except Exception as e:
+            logger.error(f"Failed to refresh premium cache: {e}")
+            self.premium_cache[guild_id] = False
+
+    def check_premium_access(self, guild_id: int) -> bool:
+        """Check premium access from cache (no database calls)"""
+        return self.premium_cache.get(guild_id, False)
 
     def is_bot_owner(self, user_id: int) -> bool:
         """Check if user is the bot owner"""
@@ -261,37 +286,7 @@ class Premium(discord.Cog):
             guild_id = ctx.guild.id if ctx.guild else 0
 
             # Get guild configuration
-            guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
-
-            if not guild_config:
-                await ctx.respond("This guild is not configured!", ephemeral=True)
-                return
-
-            servers = guild_config.get('servers', [])
-
-            if not servers:
-                embed = discord.Embed(
-                    title="Premium Status",
-                    description="No game servers configured for this guild.",
-                    color=0x808080,
-                    timestamp=datetime.now(timezone.utc)
-                )
-                embed.add_field(
-                    name="Next Steps",
-                    value="Use `/server add` to add game servers first.",
-                    inline=False
-                )
-                embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-                await ctx.respond(embed=embed)
-                return
-
-            # Check premium status for each server
-            premium_servers = []
-            free_servers = []
-
-            for server_config in servers:
-                server_id = str(server_config.get('_id', 'unknown'))
-                server_name = server_config.get('name', f'Server {server_id}')
+            guild_config = has_premium = self.check_premium_access(guild_id)}')
                 is_premium = await self.check_premium_access(guild_id)
 
                 if is_premium:
@@ -334,28 +329,7 @@ class Premium(discord.Cog):
 
             # Check if user can manage premium
             is_owner = self.is_bot_owner(ctx.user.id)
-            home_guild = await self.bot.db_manager.guilds.find_one({
-                "guild_id": guild_id,
-                "is_home_server": True
-            })
-
-            if is_owner or home_guild:
-                embed.add_field(
-                    name="🛠️ Management",
-                    value="Use `/premium assign` and `/premium revoke` to manage premium status.",
-                    inline=False
-                )
-
-            main_file = discord.File("./assets/main.png", filename="main.png")
-
-
-            embed.set_thumbnail(url="attachment://main.png")
-            embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
-            await ctx.respond(embed=embed, file=main_file)
-
-        except Exception as e:
-            logger.error(f"Failed to check premium status: {e}")
+            home_guild = has_premium = self.check_premium_access(guild_id)}")
             await ctx.respond("Failed to check premium status.", ephemeral=True)
 
     gameserver = discord.SlashCommandGroup("gameserver", "Game server management commands")

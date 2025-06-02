@@ -28,6 +28,24 @@ class Bounties(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        # Premium cache to avoid database calls during commands
+        self.premium_cache = {}
+    
+    @discord.Cog.listener()
+    async def on_ready(self):
+        """Initialize premium cache when bot is ready"""
+        for guild in self.bot.guilds:
+            await self.refresh_premium_cache(guild.id)
+    
+    async def refresh_premium_cache(self, guild_id: int):
+        """Refresh premium status from database and cache it"""
+        try:
+            guild_config = has_premium = self.check_premium_access(guild_id)}")
+            self.premium_cache[guild_id] = False
+
+    def check_premium_access(self, guild_id: int) -> bool:
+        """Check premium access from cache (no database calls)"""
+        return self.premium_cache.get(guild_id, False)
     
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
