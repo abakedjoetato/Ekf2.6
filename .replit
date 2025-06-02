@@ -13,15 +13,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Advanced Discord Bot"
+args = "Simple Bot"
 
 [[workflows.workflow]]
-name = "Advanced Discord Bot"
+name = "Simple Bot"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python advanced_main.py"
+args = "python main.py"
 
 [deployment]
 run = ["sh", "-c", "python advanced_main.py"]
