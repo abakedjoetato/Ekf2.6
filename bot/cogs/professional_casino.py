@@ -117,7 +117,7 @@ class GameSelectionMenu(discord.ui.Select):
         )
     
     async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.casino_view.user_id:
+        if interaction.user and interaction.user.id != self.casino_view.user_id:
             await interaction.response.send_message("This session belongs to another player.", ephemeral=True)
             return
         
@@ -274,7 +274,7 @@ class CustomBetModal(discord.ui.Modal):
             placeholder=f"Amount between $1 and ${max_balance:,}",
             min_length=1,
             max_length=10,
-            style=discord.TextStyle.short
+            style=discord.TextInputStyle.short
         )
         self.add_item(self.bet_input)
     
