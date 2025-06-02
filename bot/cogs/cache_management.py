@@ -6,7 +6,7 @@ Provides commands for cache monitoring and management
 import discord
 import discord
 from discord.ext import commands
-# SlashCommandGroup will be available after cog loads
+from discord import SlashCommandGroup
 import asyncio
 import logging
 from datetime import datetime

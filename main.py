@@ -146,7 +146,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
         for cog in cog_files:
             try:
-                await self.load_extension(cog)
+                self.load_extension(cog)
                 logger.info(f"✅ Successfully loaded cog: {cog}")
                 loaded_count += 1
             except Exception as e:
@@ -156,18 +156,14 @@ class EmeraldKillfeedBot(commands.Bot):
 
         logger.info(f"📊 Loaded {loaded_count}/{len(cog_files)} cogs successfully")
 
-        # Log command count safely
-        try:
-            if hasattr(self, 'pending_application_commands') and self.pending_application_commands:
-                total_commands = len(self.pending_application_commands)
-                logger.info(f"📊 Total slash commands registered: {total_commands}")
-                # Log command names (first 10)
-                command_names = [cmd.name for cmd in self.pending_application_commands[:10]]
-                logger.info(f"🔍 Commands found: {', '.join(command_names)}...")
-            else:
-                logger.info(f"📊 Cogs loaded successfully - commands will be available after sync")
-        except Exception as e:
-            logger.debug(f"Command counting skipped: {e}")
+        # Log command count
+        total_commands = len(self.pending_application_commands)
+        logger.info(f"📊 Total slash commands registered: {total_commands} (via pending_application_commands)")
+
+        # Log command names (first 10)
+        if self.pending_application_commands:
+            command_names = [cmd.name for cmd in self.pending_application_commands[:10]]
+            logger.info(f"🔍 Commands found: {', '.join(command_names)}...")
 
         if failed_cogs:
             logger.error(f"❌ Failed cogs: {failed_cogs}")
