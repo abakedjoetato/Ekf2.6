@@ -101,6 +101,22 @@ class ScalableHistoricalParser:
             servers = guild_config.get('servers', [])
             logger.info(f"Starting scalable processing for {len(servers)} servers in guild {guild_id}")
             
+            # Send initial progress message to Discord
+            if target_channel:
+                initial_embed = discord.Embed(
+                    title="🔍 Historical Data Processing Started",
+                    description=f"Processing {len(servers)} servers for historical data...",
+                    color=0x3498DB,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                initial_embed.add_field(
+                    name="Status",
+                    value="Initializing connections...",
+                    inline=False
+                )
+                progress_msg = await target_channel.send(embed=initial_embed)
+                self.progress_messages[f"{guild_id}"] = progress_msg
+            
             # Find appropriate channel
             if not target_channel:
                 guild = self.bot.get_guild(guild_id)

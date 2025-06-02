@@ -137,10 +137,21 @@ class Parsers(discord.Cog):
             # Defer response for potentially long operation
             await ctx.defer()
 
-            # Trigger historical refresh if parser is available
+            # Trigger historical refresh with Discord progress updates
             if hasattr(self.bot, 'historical_parser') and self.bot.historical_parser:
                 try:
-                    await self.bot.historical_parser.refresh_historical_data(guild_id, server)
+                    # Get server config for the historical parser
+                    servers = guild_config.get('servers', [])
+                    server_config = None
+                    for srv in servers:
+                        if str(srv.get('_id')) == server:
+                            server_config = srv
+                            break
+                    
+                    if server_config:
+                        await self.bot.historical_parser.auto_refresh_after_server_add(guild_id, server_config, ctx.channel)
+                    else:
+                        await self.bot.historical_parser.refresh_historical_data(guild_id, server)
 
                     embed = discord.Embed(
                         title="🔄 Data Refresh Initiated",

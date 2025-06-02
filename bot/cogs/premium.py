@@ -399,11 +399,10 @@ class Premium(discord.Cog):
                 await ctx.followup.send(f"Server **{server_id}** not found in this guild!", ephemeral=True)
                 return
 
-            # Trigger refresh using the parsers cog
-            parsers_cog = self.bot.get_cog('Parsers')
-            if parsers_cog and hasattr(parsers_cog, 'historical_parser'):
+            # Trigger refresh with the bot's historical parser directly and pass target channel
+            if hasattr(self.bot, 'historical_parser') and self.bot.historical_parser:
                 try:
-                    await parsers_cog.historical_parser.auto_refresh_after_server_add(guild_id, server_config)
+                    await self.bot.historical_parser.auto_refresh_after_server_add(guild_id, server_config, ctx.channel)
                     
                     embed = discord.Embed(
                         title="Server Refresh Started",
