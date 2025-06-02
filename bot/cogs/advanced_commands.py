@@ -5,16 +5,10 @@ All commands use advanced UI components for maximum user experience
 
 import discord
 from discord.ext import commands
+from discord.ui import Modal, TextInput, Button, View, Select
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timezone
 import logging
-
-# Import UI components
-from bot.ui import (
-    PlayerLinkingModal, FactionCreationModal, EconomyConfigModal,
-    StatsNavigationView, LeaderboardView, CasinoGameView,
-    FactionManagementView, AdminControlView
-)
 
 # Import enhanced embed factory
 from bot.utils.advanced_embed_factory import AdvancedEmbedFactory

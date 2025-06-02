@@ -202,6 +202,15 @@ class AdvancedEmeraldBot(discord.Bot):
                 logger.info("🔄 Database not initialized, attempting initialization now...")
                 await self._initialize_advanced_database()
             
+            # Load cogs if they weren't loaded in setup_hook
+            if self.db_manager and len(self.cogs) == 0:
+                logger.info("🔄 Cogs not loaded, loading now...")
+                await self._load_advanced_cogs()
+                
+                # Sync commands after loading cogs
+                logger.info("🔄 Syncing slash commands...")
+                await self._sync_commands()
+            
             # Initialize guilds in database
             if self.db_manager:
                 for guild in self.guilds:
