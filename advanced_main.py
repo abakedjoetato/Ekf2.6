@@ -127,35 +127,32 @@ class AdvancedEmeraldBot(discord.Bot):
         try:
             logger.info("🔧 Loading advanced cogs...")
             
-            # Complete working cog system - 19 functional modules
+            # Streamlined cog system - no redundancies
             advanced_cogs = [
-                # Enhanced core systems
+                # Core enhanced systems
                 "bot.cogs.admin_channels_enhanced",    # Enhanced channel configuration
                 "bot.cogs.admin_server_management",    # SFTP server management
                 "bot.cogs.statistics_enhanced",        # Enhanced player statistics
+                "bot.cogs.core",                       # Core functionality
                 
-                # Administrative systems
+                # Administrative systems  
                 "bot.cogs.admin_batch",                # Batch management
                 "bot.cogs.advanced_premium",           # Premium management
-                "bot.cogs.core",                       # Core functionality
+                "bot.cogs.subscription_management_fixed", # Subscription management
                 "bot.cogs.cache_management",           # Cache management
                 
-                # Gaming and economy
-                "bot.cogs.advanced_casino",            # Casino system
-                "bot.cogs.professional_casino",        # Professional casino
+                # Gaming ecosystem
+                "bot.cogs.advanced_casino",            # Consolidated casino system
                 "bot.cogs.economy",                    # Economy system
                 "bot.cogs.bounties",                   # Bounty system
+                "bot.cogs.factions",                   # Faction management
                 
                 # Player features
-                "bot.cogs.stats",                      # Player statistics
                 "bot.cogs.linking",                    # Character linking
-                "bot.cogs.factions",                   # Faction management
-                "bot.cogs.leaderboards_fixed",         # Leaderboards
-                "bot.cogs.automated_leaderboard",      # Automated leaderboards
+                "bot.cogs.automated_leaderboard",      # Consolidated leaderboards
                 
                 # System features
                 "bot.cogs.parsers",                    # Parser management
-                "bot.cogs.subscription_management_fixed", # Subscription management
                 "bot.cogs.autocomplete",               # Enhanced autocomplete
             ]
             
