@@ -32,9 +32,8 @@ class AutomatedLeaderboard(discord.Cog):
         logger.info("🔄 Starting automated leaderboard task...")
         self.automated_leaderboard_task.start()
         
-        # Run initial check for missing leaderboards immediately
-        logger.info("🚀 Scheduling immediate leaderboard check...")
-        asyncio.create_task(self.initial_leaderboard_check())
+        # Don't run initial check to prevent duplicates - regular task will handle it
+        logger.info("🚀 Automated leaderboard will run on schedule to prevent duplicates")
 
     def cog_unload(self):
         """Stop the task when cog unloads"""
@@ -75,8 +74,34 @@ class AutomatedLeaderboard(discord.Cog):
         await self.bot.wait_until_ready()
 
     async def initial_leaderboard_check(self):
-        """Disabled to prevent duplicate postings"""
-        logger.info("Initial leaderboard check disabled to prevent multiple postings")
+        """Check if leaderboards are missing and create only if needed"""
+        try:
+            # Get all guilds with leaderboard channels configured
+            guilds_cursor = self.bot.db_manager.guilds.find({
+                "$or": [
+                    {"channels.leaderboard": {"$exists": True, "$ne": None}},
+                    {"server_channels.default.leaderboard": {"$exists": True, "$ne": None}}
+                ],
+                "leaderboard_enabled": True
+            })
+
+            guilds_with_leaderboard = await guilds_cursor.to_list(length=None)
+
+            for guild_config in guilds_with_leaderboard:
+                try:
+                    # Only create if missing
+                    missing = await self.check_missing_leaderboards(guild_config)
+                    if missing:
+                        await self.update_guild_leaderboard(guild_config, force_create=True)
+                        logger.info(f"Created missing leaderboard for guild {guild_config.get('guild_id')}")
+                    else:
+                        logger.info(f"Leaderboard already exists for guild {guild_config.get('guild_id')}")
+                except Exception as e:
+                    guild_id = guild_config.get('guild_id', 'Unknown')
+                    logger.error(f"Failed to check/create leaderboard for guild {guild_id}: {e}")
+
+        except Exception as e:
+            logger.error(f"Error in initial leaderboard check: {e}")
 
     async def check_missing_leaderboards(self, guild_config: Dict[str, Any]) -> bool:
         """Check if leaderboard messages are missing in the channel"""
@@ -410,7 +435,8 @@ class AutomatedLeaderboard(discord.Cog):
                     weapon_name = weapon.get('weapon_name', 'Unknown Weapon')
                     kills = weapon.get('kills', 0)
                     top_user = weapon.get('top_user', 'Unknown')
-                    weapon_lines.append(f"**{i}.** {weapon_name} — {kills:,} Kills | Top: {top_user}")
+                    # Shorten the format to prevent text wrapping
+                    weapon_lines.append(f"**{i}.** {weapon_name} — {kills:,} Kills\nTop: {top_user}")
                 sections.append(f"**TOP WEAPONS**\n" + "\n".join(weapon_lines))
 
             if top_faction:
@@ -541,25 +567,67 @@ class AutomatedLeaderboard(discord.Cog):
             return []
 
     async def get_top_factions(self, guild_id: int, limit: int = 1, server_id: str = None) -> List[Dict[str, Any]]:
-        """Get top factions by total kills"""
+        """Get top factions by total kills - aggregate stats from all members including alts"""
         try:
-            query = {"guild_id": guild_id}
-            
-            # Add server filter if specified
-            if server_id:
-                query["server_id"] = server_id
+            # Get all factions for this guild first
+            factions_cursor = self.bot.db_manager.factions.find({"guild_id": guild_id})
+            all_factions = await factions_cursor.to_list(length=None)
 
-            cursor = self.bot.db_manager.factions.find(query).sort("kills", -1).limit(limit)
-            factions = await cursor.to_list(length=None)
+            faction_stats = {}
+
+            # Process each faction (same logic as working leaderboard command)
+            for faction_doc in all_factions:
+                faction_name = faction_doc.get('faction_name')
+                faction_tag = faction_doc.get('faction_tag')
+                faction_display = faction_tag if faction_tag else faction_name
+
+                if not faction_display:
+                    continue
+
+                faction_stats[faction_display] = {
+                    'kills': 0, 
+                    'deaths': 0, 
+                    'members': set(),
+                    'faction_name': faction_name
+                }
+
+                # Get stats for each member and their alts
+                for discord_id in faction_doc.get('members', []):
+                    # Get player's linked characters
+                    player_link = await self.bot.db_manager.players.find_one({
+                        "guild_id": guild_id,
+                        "discord_id": discord_id
+                    })
+
+                    if not player_link:
+                        continue
+
+                    # Get stats for each character (main and alts)
+                    for character in player_link.get('linked_characters', []):
+                        player_stat = await self.bot.db_manager.pvp_data.find_one({
+                            "guild_id": guild_id,
+                            "player_name": character
+                        })
+
+                        if player_stat:
+                            faction_stats[faction_display]['kills'] += player_stat.get('kills', 0)
+                            faction_stats[faction_display]['deaths'] += player_stat.get('deaths', 0)
+                            faction_stats[faction_display]['members'].add(character)
+
+            # Convert to list format and sort by kills
+            factions_list = []
+            for faction_display, stats in faction_stats.items():
+                factions_list.append({
+                    'faction_name': faction_display,
+                    'kills': stats['kills'],
+                    'deaths': stats['deaths'],
+                    'members': len(stats['members'])
+                })
+
+            # Sort by kills and limit
+            factions_list.sort(key=lambda x: x['kills'], reverse=True)
+            return factions_list[:limit]
             
-            # Add member count for each faction
-            for faction in factions:
-                faction_name = faction.get('faction_name', '')
-                # Get members from the faction document itself
-                members = faction.get('members', [])
-                faction['members'] = len(members) if isinstance(members, list) else 0
-                
-            return factions
         except Exception as e:
             logger.error(f"Failed to get top factions: {e}")
             return []
