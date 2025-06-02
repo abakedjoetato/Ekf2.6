@@ -133,7 +133,7 @@ class ScalableHistoricalParser:
                 }
             
             # Create multi-server processor
-            processor = MultiServerProcessor(guild_id)
+            processor = MultiServerProcessor(guild_id, self.bot.db_manager)
             self.active_sessions[guild_id] = processor
             
             # Create progress UI
