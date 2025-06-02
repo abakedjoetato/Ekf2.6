@@ -140,9 +140,7 @@ class AdvancedEmeraldBot(discord.Bot):
                 "bot.cogs.admin_batch",          # Batch management
                 
                 # Gaming and economy features
-                "bot.cogs.advanced_casino",      # Advanced casino system
-                "bot.cogs.professional_casino",  # Professional casino
-                "bot.cogs.casino",               # Basic casino
+                "bot.cogs.professional_casino",  # Comprehensive casino system
                 "bot.cogs.economy",              # Economy system
                 "bot.cogs.bounties",             # Bounty system
                 
