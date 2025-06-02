@@ -268,18 +268,17 @@ class KillfeedParser:
     async def send_killfeed_embed(self, guild_id: int, server_id: str, kill_data: Dict[str, Any]):
         """Send killfeed embed to designated channel"""
         try:
-            channel_data = await self.bot.db_manager.get_channel(guild_id, server_id, 'killfeed')
-            if not channel_data:
-                return
-
-            channel = self.bot.get_channel(channel_data['channel_id'])
+            # Use channel router for proper channel lookup
+            channel = await self.bot.channel_router.get_channel(guild_id, server_id, 'killfeed')
             if not channel:
+                logger.warning(f"No killfeed channel configured for guild {guild_id}, server {server_id}")
                 return
 
             # Create killfeed embed
             embed, file = await EmbedFactory.build_killfeed_embed(kill_data)
             
             await channel.send(embed=embed, file=file)
+            logger.info(f"✅ Sent killfeed embed to {channel.name} (ID: {channel.id})")
 
         except Exception as e:
             logger.error(f"Error sending killfeed embed: {e}")
