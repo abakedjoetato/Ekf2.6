@@ -1245,7 +1245,11 @@ class HistoricalParser:
                     port=server_config.get('port', 22),
                     username=server_config.get('username', ''),
                     password=server_config.get('password', ''),
-                    known_hosts=None
+                    known_hosts=None,
+                    kex_algs=['diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256'],
+                    encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr'],
+                    mac_algs=['hmac-sha2-256', 'hmac-sha2-512'],
+                    server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512']
                 )
                 
                 sftp = await conn.start_sftp_client()
@@ -1397,7 +1401,11 @@ class HistoricalParser:
                         port=server_config.get('port', 22),
                         username=server_config.get('username', ''),
                         password=server_config.get('password', ''),
-                        known_hosts=None
+                        known_hosts=None,
+                        kex_algs=['diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256'],
+                        encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr'],
+                        mac_algs=['hmac-sha2-256', 'hmac-sha2-512'],
+                        server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512']
                     )
                     
                     sftp = await conn.start_sftp_client()
