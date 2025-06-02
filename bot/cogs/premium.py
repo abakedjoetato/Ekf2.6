@@ -213,8 +213,10 @@ class Premium(discord.Cog):
                     if parsers_cog and hasattr(parsers_cog, 'historical_parser'):
                         try:
                             logger.info(f"🔄 Triggering historical parser for server {serverid}")
-                            # Trigger background historical parsing
-                            await parsers_cog.historical_parser.auto_refresh_after_server_add(guild_id, server_config)
+                            # Trigger background historical parsing in the same channel
+                            await parsers_cog.historical_parser.auto_refresh_after_server_add(
+                                guild_id, server_config, interaction.channel
+                            )
                         except Exception as e:
                             logger.error(f"Failed to trigger historical parser: {e}")
                     else:
@@ -246,7 +248,7 @@ class Premium(discord.Cog):
                 embed.set_thumbnail(url="attachment://main.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                await interaction.followup.send(embed=embed, file=main_file, ephemeral=True)
+                await interaction.followup.send(embed=embed, file=main_file, ephemeral=False)
         
         modal = ServerAddModal()
         await ctx.send_modal(modal)

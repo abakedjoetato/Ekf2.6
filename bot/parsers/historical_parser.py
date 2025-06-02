@@ -1010,7 +1010,7 @@ class HistoricalParser:
                 self.active_refreshes[refresh_key] = False
             return False
 
-    async def auto_refresh_after_server_add(self, guild_id: int, server_config: Dict[str, Any]):
+    async def auto_refresh_after_server_add(self, guild_id: int, server_config: Dict[str, Any], target_channel=None):
         """Enhanced automatic refresh with interactive progress UI"""
         try:
             server_name = server_config.get('name', server_config.get('_id', 'Unknown'))
@@ -1033,30 +1033,31 @@ class HistoricalParser:
                 'players_found': 0
             }
             
-            # Get guild and appropriate channel
-            guild = self.bot.get_guild(guild_id)
-            if not guild:
-                logger.error(f"Guild {guild_id} not found")
-                return
-                
-            # Find appropriate channel for progress updates
-            progress_channel = None
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
-            if guild_config and guild_config.get('channels'):
-                # Try to find admin or general channel
-                channels = guild_config.get('channels', {})
-                for channel_type in ['admin', 'general', 'events']:
-                    if channel_type in channels:
-                        progress_channel = self.bot.get_channel(channels[channel_type])
-                        if progress_channel:
-                            break
-            
-            # Fallback to first available text channel
+            # Use provided channel or find appropriate channel for progress updates
+            progress_channel = target_channel
             if not progress_channel:
-                for channel in guild.text_channels:
-                    if channel.permissions_for(guild.me).send_messages:
-                        progress_channel = channel
-                        break
+                # Get guild and find appropriate channel
+                guild = self.bot.get_guild(guild_id)
+                if not guild:
+                    logger.error(f"Guild {guild_id} not found")
+                    return
+                    
+                guild_config = await self.bot.db_manager.get_guild(guild_id)
+                if guild_config and guild_config.get('channels'):
+                    # Try to find admin or general channel
+                    channels = guild_config.get('channels', {})
+                    for channel_type in ['admin', 'general', 'events']:
+                        if channel_type in channels:
+                            progress_channel = self.bot.get_channel(channels[channel_type])
+                            if progress_channel:
+                                break
+                
+                # Fallback to first available text channel
+                if not progress_channel:
+                    for channel in guild.text_channels:
+                        if channel.permissions_for(guild.me).send_messages:
+                            progress_channel = channel
+                            break
             
             if not progress_channel:
                 logger.error(f"No suitable channel found for progress updates in guild {guild_id}")
