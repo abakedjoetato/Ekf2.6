@@ -93,80 +93,142 @@ class Premium(discord.Cog):
 
     @gameserver.command(name="add", description="Add a game server with SFTP credentials to this guild")
     @discord.default_permissions(administrator=True)
-    async def server_add(self, ctx: discord.ApplicationContext, 
-                        name: str, host: str, port: int, username: str, password: str, serverid: str):
+    async def server_add(self, ctx: discord.ApplicationContext):
         """Add a game server with full SFTP credentials to the guild"""
-        try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
-
-            # Validate inputs
-            serverid = serverid.strip()
-            name = name.strip()
-            host = host.strip()
-            username = username.strip()
-            password = password.strip()
-
-            if not all([serverid, name, host, username, password]):
-                await ctx.respond("All fields are required: name, host, port, username, password, serverid", ephemeral=True)
-                return
-
-            if not (1 <= port <= 65535):
-                await ctx.respond("Port must be between 1 and 65535", ephemeral=True)
-                return
-
-            # Get or create guild
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
-            if not guild_config:
-                guild_config = await self.bot.db_manager.create_guild(guild_id, ctx.guild.name)
-
-            # Check if server already exists
-            existing_servers = guild_config.get('servers', [])
-            for server in existing_servers:
-                if server and server.get('_id') == serverid:
-                    await ctx.respond(f"Server **{serverid}** is already added!", ephemeral=True)
+        
+        class ServerAddModal(discord.ui.Modal):
+            def __init__(self):
+                super().__init__(title="Add Game Server")
+                
+                self.server_name = discord.ui.InputText(
+                    label="Server Name",
+                    placeholder="e.g., Main PvP Server",
+                    max_length=50
+                )
+                self.server_id = discord.ui.InputText(
+                    label="Server ID",
+                    placeholder="e.g., server1 (unique identifier)",
+                    max_length=20
+                )
+                self.host = discord.ui.InputText(
+                    label="Host/IP Address",
+                    placeholder="e.g., 192.168.1.100 or game.example.com",
+                    max_length=100
+                )
+                self.port = discord.ui.InputText(
+                    label="SFTP Port",
+                    placeholder="22",
+                    value="22",
+                    max_length=5
+                )
+                self.username = discord.ui.InputText(
+                    label="SFTP Username",
+                    placeholder="Username for SFTP access",
+                    max_length=50
+                )
+                self.password = discord.ui.InputText(
+                    label="SFTP Password",
+                    placeholder="Password for SFTP access",
+                    max_length=100,
+                    style=discord.InputTextStyle.short
+                )
+                
+                self.add_item(self.server_name)
+                self.add_item(self.server_id)
+                self.add_item(self.host)
+                self.add_item(self.port)
+                self.add_item(self.username)
+                self.add_item(self.password)
+            
+            async def callback(self, interaction: discord.Interaction):
+                await interaction.response.defer(ephemeral=True)
+                
+                # Extract values from modal inputs
+                name = self.server_name.value.strip()
+                serverid = self.server_id.value.strip()
+                host = self.host.value.strip()
+                username = self.username.value.strip()
+                password = self.password.value.strip()
+                
+                try:
+                    port = int(self.port.value.strip())
+                except ValueError:
+                    await interaction.followup.send("Port must be a valid number!", ephemeral=True)
+                    return
+                
+                # Process the server addition
+                guild_id = interaction.guild.id if interaction.guild else None
+                
+                # Validate inputs
+                if not all([serverid, name, host, username, password]):
+                    await interaction.followup.send("All fields are required!", ephemeral=True)
                     return
 
-            # Create server config with full SFTP credentials
-            server_config = {
-                '_id': serverid,
-                'server_id': serverid,
-                'name': name,
-                'server_name': name,
-                'host': host,
-                'hostname': host,
-                'port': port,
-                'username': username,
-                'password': password,
-                'added_at': datetime.now(timezone.utc),
-                'updated_at': datetime.now(timezone.utc)
-            }
+                if not (1 <= port <= 65535):
+                    await interaction.followup.send("Port must be between 1 and 65535", ephemeral=True)
+                    return
 
-            # Add server to guild config
-            await self.bot.db_manager.add_server_to_guild(guild_id, server_config)
+                # Get bot instance from interaction
+                bot = interaction.client
+                
+                # Get or create guild
+                guild_config = await bot.db_manager.get_guild(guild_id)
+                if not guild_config:
+                    guild_config = await bot.db_manager.create_guild(guild_id, interaction.guild.name)
 
-            # Respond with success
-            embed = discord.Embed(
-                title="Server Added",
-                description=f"Server **{name}** has been added to this guild!",
-                color=0x00FF00,
-                timestamp=datetime.now(timezone.utc)
-            )
+                # Check if server already exists
+                existing_servers = guild_config.get('servers', [])
+                for server in existing_servers:
+                    if server and server.get('_id') == serverid:
+                        await interaction.followup.send(f"Server **{serverid}** is already added!", ephemeral=True)
+                        return
 
-            embed.add_field(
-                name="🔄 Next Steps",
-                value="The system will automatically attempt to connect to this server and verify the credentials.",
-                inline=False
-            )
+                # Create server config with full SFTP credentials
+                server_config = {
+                    '_id': serverid,
+                    'server_id': serverid,
+                    'name': name,
+                    'server_name': name,
+                    'host': host,
+                    'hostname': host,
+                    'port': port,
+                    'username': username,
+                    'password': password,
+                    'added_at': datetime.now(timezone.utc),
+                    'updated_at': datetime.now(timezone.utc)
+                }
 
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
-            embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+                # Add server to guild config
+                await bot.db_manager.add_server_to_guild(guild_id, server_config)
 
-            await ctx.respond(embed=embed, file=main_file)
+                # Respond with success
+                embed = discord.Embed(
+                    title="Server Added",
+                    description=f"Server **{name}** has been added to this guild!",
+                    color=0x00FF00,
+                    timestamp=datetime.now(timezone.utc)
+                )
 
-        except Exception as e:
-            logger.error(f"Failed to add server: {e}")
-            await ctx.respond("Failed to add server. Please try again.", ephemeral=True)
+                embed.add_field(
+                    name="Server Details",
+                    value=f"**ID:** {serverid}\n**Host:** {host}:{port}\n**Username:** {username}",
+                    inline=False
+                )
+
+                embed.add_field(
+                    name="Next Steps",
+                    value="The system will automatically attempt to connect to this server and verify the credentials.",
+                    inline=False
+                )
+
+                main_file = discord.File("./assets/main.png", filename="main.png")
+                embed.set_thumbnail(url="attachment://main.png")
+                embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+
+                await interaction.followup.send(embed=embed, file=main_file, ephemeral=True)
+        
+        modal = ServerAddModal()
+        await ctx.send_modal(modal)
 
     @gameserver.command(name="list", description="List all configured servers in this guild")
     async def server_list(self, ctx: discord.ApplicationContext):
