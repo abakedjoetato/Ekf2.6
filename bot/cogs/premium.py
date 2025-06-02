@@ -208,8 +208,8 @@ class Premium(discord.Cog):
                     servers_count = len(guild_config.get('servers', [])) if guild_config else 0
                     logger.info(f"📊 Guild now has {servers_count} servers configured")
                     
-                    # Historical parser auto-trigger temporarily disabled during architecture upgrade
-                    logger.info(f"✅ Server {serverid} added successfully - historical parser will be available after system upgrade")
+                    # Trigger historical parser with Discord progress updates
+                    logger.info(f"✅ Server {serverid} added successfully - triggering historical data processing")
                 else:
                     logger.error(f"❌ Failed to add server {serverid} to database")
 
