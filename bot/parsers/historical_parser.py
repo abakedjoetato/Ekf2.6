@@ -1105,6 +1105,9 @@ class HistoricalParser:
         refresh_key = f"{guild_id}_{server_id}"
         
         try:
+            # Clear existing PVP data before processing
+            await self.clear_server_pvp_data(guild_id, server_id, progress_message)
+            
             # Get all CSV files and sort chronologically
             csv_files, discovery_report = await self.get_all_csv_files(server_config)
             if not csv_files:
@@ -1157,6 +1160,9 @@ class HistoricalParser:
             
             # Completion
             if not progress_ui.cancelled:
+                # Update killfeed parser state with newest file position
+                await self.update_killfeed_parser_state(guild_id, server_config, sorted_files)
+                
                 completion_embed = await self.create_completion_embed(server_name, stats)
                 # Disable all buttons
                 for child in progress_ui.children:
@@ -1326,6 +1332,96 @@ class HistoricalParser:
         except Exception as e:
             logger.error(f"Error processing file {csv_file}: {e}")
             stats['files_failed'] += 1
+            
+    async def clear_server_pvp_data(self, guild_id: int, server_id: str, progress_message: discord.Message):
+        """Clear all existing PVP data for a server before historical processing"""
+        try:
+            # Update progress message
+            clearing_embed = discord.Embed(
+                title="Preparing Historical Processing",
+                description=f"Clearing existing PVP data for server **{server_id}**",
+                color=0xF39C12,
+                timestamp=datetime.now(timezone.utc)
+            )
+            
+            clearing_embed.add_field(
+                name="Data Cleanup",
+                value="Removing existing kill events, streaks, and player statistics to ensure accurate historical processing.",
+                inline=False
+            )
+            
+            clearing_embed.set_footer(text="This ensures chronological accuracy and prevents data conflicts")
+            await progress_message.edit(embed=clearing_embed)
+            
+            # Clear database collections for this server
+            if hasattr(self.bot, 'db_manager'):
+                # Clear kill events
+                await self.bot.db_manager.clear_server_kill_events(guild_id, server_id)
+                
+                # Clear player streaks
+                await self.bot.db_manager.clear_server_streaks(guild_id, server_id)
+                
+                # Clear player statistics
+                await self.bot.db_manager.clear_server_player_stats(guild_id, server_id)
+                
+                # Reset player sessions for this server
+                await self.bot.db_manager.reset_server_player_sessions(guild_id, server_id)
+                
+            logger.info(f"Cleared all PVP data for server {server_id} in guild {guild_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to clear server PVP data: {e}")
+            
+    async def update_killfeed_parser_state(self, guild_id: int, server_config: Dict[str, Any], processed_files: List[str]):
+        """Update killfeed parser state to continue from the end of historical processing"""
+        try:
+            server_id = server_config.get('_id', 'unknown')
+            
+            # Get the killfeed parser from the parsers cog
+            parsers_cog = self.bot.get_cog('Parsers')
+            if not parsers_cog or not hasattr(parsers_cog, 'killfeed_parser'):
+                logger.warning("Killfeed parser not found - state update skipped")
+                return
+                
+            killfeed_parser = parsers_cog.killfeed_parser
+            
+            if processed_files:
+                # Get the newest (last) file that was processed
+                newest_file = processed_files[-1]
+                server_key = f"{guild_id}:{server_id}"
+                
+                # Connect to server to get the current line count of the newest file
+                try:
+                    conn = await asyncssh.connect(
+                        server_config.get('host', 'localhost'),
+                        port=server_config.get('port', 22),
+                        username=server_config.get('username', ''),
+                        password=server_config.get('password', ''),
+                        known_hosts=None
+                    )
+                    
+                    sftp = await conn.start_sftp_client()
+                    
+                    # Read current file to get total line count
+                    async with sftp.open(newest_file, 'r') as file:
+                        content = await file.read()
+                        lines = content.strip().split('\n')
+                        total_lines = len(lines)
+                    
+                    # Update killfeed parser state
+                    killfeed_parser.last_csv_files[server_key] = newest_file
+                    killfeed_parser.last_processed_lines[server_key] = total_lines
+                    
+                    logger.info(f"Updated killfeed parser state: {newest_file} at line {total_lines}")
+                    
+                    sftp.exit()
+                    conn.close()
+                    
+                except Exception as e:
+                    logger.error(f"Failed to update killfeed parser state: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error updating killfeed parser state: {e}")
 
     def get_processing_report(self, guild_id: int, server_id: str) -> Optional[Dict]:
         """Get the latest processing report for a server"""
