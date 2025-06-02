@@ -403,10 +403,10 @@ class SubscriptionManagement(discord.Cog):
         except Exception as e:
             await ctx.respond(f"❌ Error: {str(e)}", ephemeral=True)
     
-    # Server Premium Management Commands
-    server = discord.SlashCommandGroup("server", "Individual server premium management")
+    # Server Premium Management Commands  
+    servers = discord.SlashCommandGroup("servers", "Individual server premium management")
     
-    @server.command(name="activate", description="Activate premium for a server")
+    @servers.command(name="activate", description="Activate premium for a server")
     @guild_admin_only()
     async def activate_server_premium(self, ctx: discord.ApplicationContext,
                                     server_id: discord.Option(str, "Server ID to activate premium for", 
@@ -460,7 +460,7 @@ class SubscriptionManagement(discord.Cog):
         except Exception as e:
             await ctx.respond(f"❌ Error: {str(e)}", ephemeral=True)
     
-    @server.command(name="deactivate", description="Deactivate premium for a server")
+    @premium.command(name="deactivate", description="Deactivate premium for a server")
     @guild_admin_only()
     async def deactivate_server_premium(self, ctx: discord.ApplicationContext,
                                       server_id: discord.Option(str, "Server ID to deactivate premium for",
@@ -514,7 +514,7 @@ class SubscriptionManagement(discord.Cog):
         except Exception as e:
             await ctx.respond(f"❌ Error: {str(e)}", ephemeral=True)
     
-    @server.command(name="status", description="View premium status for servers")
+    @premium.command(name="status", description="View premium status for servers")
     async def server_premium_status(self, ctx: discord.ApplicationContext,
                                   server_id: discord.Option(str, "Specific server ID (optional)", 
                                                            autocomplete=ServerAutocomplete.autocomplete_server_name, required=False)):
