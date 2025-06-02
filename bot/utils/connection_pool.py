@@ -42,7 +42,7 @@ class ServerConnectionPool:
             try:
                 if not self.available_connections.empty():
                     conn = await asyncio.wait_for(self.available_connections.get(), timeout=0.1)
-                    if conn and not conn.is_closing():
+                    if conn and not getattr(conn, 'is_closing', False):
                         return conn
             except asyncio.TimeoutError:
                 pass
@@ -59,7 +59,7 @@ class ServerConnectionPool:
     
     async def return_connection(self, conn: asyncssh.SSHClientConnection):
         """Return a connection to the pool"""
-        if conn and not conn.is_closing():
+        if conn and not getattr(conn, 'is_closing', False):
             await self.available_connections.put(conn)
     
     async def _create_connection(self) -> Optional[asyncssh.SSHClientConnection]:
@@ -103,7 +103,7 @@ class ServerConnectionPool:
         """Close all connections in the pool"""
         async with self._lock:
             for conn in self.active_connections:
-                if not conn.is_closing():
+                if not getattr(conn, 'is_closing', False):
                     conn.close()
             
             self.active_connections.clear()
@@ -188,7 +188,7 @@ class GlobalConnectionManager:
                         async with pool._lock:
                             active_connections = []
                             for conn in pool.active_connections:
-                                if not conn.is_closing():
+                                if not getattr(conn, 'is_closing', False):
                                     active_connections.append(conn)
                                 else:
                                     pool.connection_count -= 1
