@@ -262,11 +262,10 @@ class EmeraldKillfeedBot(commands.Bot):
             # Force sync override for development
             force_sync = os.getenv('FORCE_SYNC', 'false').lower() == 'true'
 
-            # Temporarily force sync to fix missing commands
+            # Skip sync if commands haven't changed and not forced
             if current_fingerprint == old_fingerprint and not force_sync:
-                logger.info("🔄 Forcing sync to fix missing Discord commands...")
-                # Comment out the return to force sync
-                # return
+                logger.info("⏭️ Commands unchanged - skipping sync to respect rate limits")
+                return
 
             logger.info(f"🔄 Command structure changed - syncing {len(all_commands)} commands")
 
