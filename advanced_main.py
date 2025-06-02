@@ -127,13 +127,39 @@ class AdvancedEmeraldBot(discord.Bot):
         try:
             logger.info("🔧 Loading advanced cogs...")
             
-            # Advanced cogs with UI integration
+            # Complete cog system - all available features
             advanced_cogs = [
-                "bot.cogs.advanced_commands",    # Main command system with UI
+                # Core system cogs
                 "bot.cogs.advanced_premium",     # Premium management
                 "bot.cogs.admin_channels",       # Channel configuration
                 "bot.cogs.autocomplete",         # Enhanced autocomplete
                 "bot.cogs.parsers",              # Parser management (preserved)
+                
+                # Administrative features
+                "bot.cogs.admin",                # Admin commands
+                "bot.cogs.admin_batch",          # Batch management
+                
+                # Gaming and economy features
+                "bot.cogs.advanced_casino",      # Advanced casino system
+                "bot.cogs.professional_casino",  # Professional casino
+                "bot.cogs.casino",               # Basic casino
+                "bot.cogs.economy",              # Economy system
+                "bot.cogs.bounties",             # Bounty system
+                
+                # Player features
+                "bot.cogs.stats",                # Player statistics
+                "bot.cogs.linking",              # Character linking
+                "bot.cogs.factions",             # Faction management
+                "bot.cogs.leaderboards_fixed",   # Leaderboards
+                "bot.cogs.automated_leaderboard", # Automated leaderboards
+                
+                # System features
+                "bot.cogs.core",                 # Core functionality
+                "bot.cogs.cache_management",     # Cache management
+                "bot.cogs.subscription_management", # Subscription management
+                
+                # Advanced commands (fix UI imports first)
+                # "bot.cogs.advanced_commands",    # Main command system with UI
             ]
             
             loaded_count = 0

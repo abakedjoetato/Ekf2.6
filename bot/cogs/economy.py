@@ -40,7 +40,8 @@ class Economy(discord.Cog):
     async def refresh_premium_cache(self, guild_id: int):
         """Refresh premium status from database and cache it"""
         try:
-            guild_config = has_premium = self.check_premium_access(guild_id)}")
+            has_premium = await self.bot.db_manager.check_premium_access(guild_id)
+            self.premium_cache[guild_id] = has_premium
             self.premium_cache[guild_id] = False
 
     def check_premium_access(self, guild_id: int) -> bool:
