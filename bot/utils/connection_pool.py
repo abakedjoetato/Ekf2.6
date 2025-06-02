@@ -71,10 +71,11 @@ class ServerConnectionPool:
                 username=self.server_config.get('username', ''),
                 password=self.server_config.get('password', ''),
                 known_hosts=None,
-                kex_algs=['diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256'],
-                encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr'],
-                mac_algs=['hmac-sha2-256', 'hmac-sha2-512'],
-                server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512']
+                kex_algs=['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521'],
+                encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc'],
+                mac_algs=['hmac-sha1', 'hmac-sha2-256', 'hmac-sha2-512'],
+                compression_algs=['none'],
+                server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-dss']
             )
             
             self.failed_attempts = 0
