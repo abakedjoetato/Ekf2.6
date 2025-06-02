@@ -4,11 +4,10 @@ Channel setup commands with premium gating
 """
 
 import logging
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional
 
-import discord
-import discord
 import discord
 from discord.ext import commands
 from bot.cogs.autocomplete import ServerAutocomplete
@@ -29,6 +28,7 @@ class AdminChannels(discord.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+        self._premium_cache = {}  # Cache premium status to avoid repeated DB hits
         
         # Channel types and their premium requirements
         self.channel_types = {
@@ -41,15 +41,39 @@ class AdminChannels(discord.Cog):
         }
     
     async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has any premium servers"""
+        """Check if guild has any premium servers with caching"""
         try:
-            # Check premium server status in database
-            premium_count = await self.bot.db_manager.db.server_premium_status.count_documents({
-                "guild_id": guild_id,
-                "premium": True
-            })
-            return premium_count > 0
+            # Check cache first (5 minute TTL)
+            import time
+            cache_key = guild_id
+            current_time = time.time()
             
+            if cache_key in self._premium_cache:
+                cached_result, cache_time = self._premium_cache[cache_key]
+                if current_time - cache_time < 300:  # 5 minutes
+                    return cached_result
+            
+            # Query database with timeout
+            try:
+                premium_count = await asyncio.wait_for(
+                    self.bot.db_manager.server_premium_status.count_documents({
+                        "guild_id": guild_id,
+                        "premium": True
+                    }),
+                    timeout=1.5  # Reduced timeout
+                )
+                has_premium = premium_count > 0
+                
+                # Cache the result
+                self._premium_cache[cache_key] = (has_premium, current_time)
+                return has_premium
+                
+            except asyncio.TimeoutError:
+                logger.warning(f"Premium check timed out for guild {guild_id}")
+                # Cache negative result for short time to prevent spam
+                self._premium_cache[cache_key] = (False, current_time)
+                return False
+                
         except Exception as e:
             logger.error(f"Failed to check premium access: {e}")
             return False
@@ -69,7 +93,7 @@ class AdminChannels(discord.Cog):
             guild_id = ctx.guild.id if ctx.guild else 0
             channel_config = self.channel_types[channel_type]
             
-            # Check if channel type requires premium
+            # Check if channel type requires premium (skip DB query for free features)
             if channel_config['premium']:
                 has_premium = await self.check_premium_access(guild_id)
                 if not has_premium:
