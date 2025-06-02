@@ -38,23 +38,33 @@ class AdminChannels(discord.Cog):
             'connections': {'premium': True, 'description': 'Player join/leave notifications', 'type': discord.ChannelType.text},
             'bounties': {'premium': True, 'description': 'Bounty notifications', 'type': discord.ChannelType.text}
         }
+        
+        # Premium cache to avoid database calls during commands
+        self.premium_cache = {}
     
-    async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has premium access"""
+    @discord.Cog.listener()
+    async def on_ready(self):
+        """Initialize premium cache when bot is ready"""
+        for guild in self.bot.guilds:
+            await self.refresh_premium_cache(guild.id)
+    
+    async def refresh_premium_cache(self, guild_id: int):
+        """Refresh premium status from database and cache it"""
         try:
-            # Use a direct database call without awaiting in the command context
             guild_config = await self.bot.db_manager.guilds.find_one({"guild_id": guild_id})
-            if not guild_config:
-                return False
-            
-            # Check for premium access flag or premium servers
-            has_premium_access = guild_config.get('premium_access', False)
-            has_premium_servers = bool(guild_config.get('premium_servers', []))
-            
-            return has_premium_access or has_premium_servers
+            if guild_config:
+                has_premium_access = guild_config.get('premium_access', False)
+                has_premium_servers = bool(guild_config.get('premium_servers', []))
+                self.premium_cache[guild_id] = has_premium_access or has_premium_servers
+            else:
+                self.premium_cache[guild_id] = False
         except Exception as e:
-            logger.error(f"Premium check failed: {e}")
-            return False
+            logger.error(f"Failed to refresh premium cache: {e}")
+            self.premium_cache[guild_id] = False
+
+    def check_premium_access(self, guild_id: int) -> bool:
+        """Check premium access from cache (no database calls)"""
+        return self.premium_cache.get(guild_id, False)
     
     async def channel_type_autocomplete(self, ctx: discord.AutocompleteContext):
         """Autocomplete for channel types"""
@@ -81,8 +91,18 @@ class AdminChannels(discord.Cog):
                 
             channel_config = self.channel_types[channel_type]
             
-            # Skip premium check to prevent timeouts - all features available for testing
-            # Premium validation will be implemented later with proper caching
+            # Check premium access using cached data (no database calls)
+            if channel_config['premium']:
+                has_premium = self.check_premium_access(guild_id)
+                if not has_premium:
+                    embed = discord.Embed(
+                        title="Premium Feature Required",
+                        description=f"Setting **{channel_type}** channel requires premium subscription!",
+                        color=0xFF6B6B,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    await ctx.respond(embed=embed, ephemeral=True)
+                    return
             
             # Save channel configuration
             await self.bot.db_manager.guilds.update_one(
