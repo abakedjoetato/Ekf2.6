@@ -50,6 +50,7 @@ class ScalableUnifiedProcessor:
         self._cold_start_mode = False
         self._voice_channel_updates_deferred = False  # Flag to defer voice updates during cold start
         self.database = None  # Will be set when needed
+        self._cold_start_player_states = {}  # Memory storage for cold start batch processing
         
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
                                   progress_callback=None) -> Dict[str, Any]:
@@ -985,12 +986,59 @@ class ScalableUnifiedProcessor:
             
             logger.debug(f"Chronological processing complete. Entry types: {entry_types}")
             
+            # Commit cold start batch data if needed
+            if self._cold_start_mode and self._cold_start_player_states:
+                await self._commit_cold_start_player_states()
+            
             # Update voice channel after processing all entries
             await self._update_voice_channel_for_servers()
                 
         except Exception as e:
             logger.error(f"Failed to process entries chronologically: {e}")
     
+    async def _commit_cold_start_player_states(self):
+        """Commit batched player states to database after cold start processing"""
+        if not self._cold_start_player_states or not self.bot or not hasattr(self.bot, 'db_manager'):
+            return
+        
+        try:
+            batch_count = len(self._cold_start_player_states)
+            logger.info(f"🔄 Committing {batch_count} player states from cold start batch processing")
+            
+            # Use individual upserts for reliability
+            committed_count = 0
+            for player_id, session_data in self._cold_start_player_states.items():
+                try:
+                    result = await self.bot.db_manager.player_sessions.replace_one(
+                        {'guild_id': session_data['guild_id'], 'player_id': player_id},
+                        session_data,
+                        upsert=True
+                    )
+                    
+                    if result.upserted_id or result.modified_count > 0:
+                        committed_count += 1
+                        logger.debug(f"✓ Committed: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
+                    
+                except Exception as commit_error:
+                    logger.error(f"Failed to commit session for {player_id[:8]}...: {commit_error}")
+            
+            logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed")
+            
+            # Verify database state after commit
+            total_online = await self.bot.db_manager.player_sessions.count_documents({
+                'guild_id': self.guild_id,
+                'state': 'online'
+            })
+            logger.info(f"✅ Database verification: {total_online} total online sessions after batch commit")
+            
+        except Exception as e:
+            logger.error(f"Failed to commit cold start player states: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+        finally:
+            # Clear the batch storage
+            self._cold_start_player_states.clear()
+
     async def _update_voice_channel_for_servers(self):
         """Update voice channel after processing all entries"""
         try:
@@ -1137,35 +1185,50 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 try:
-                    # Update player state and check if it actually changed with explicit error handling
-                    try:
-                        state_changed = await self.bot.db_manager.update_player_state(
-                            self.guild_id,
-                            eosid,
-                            'online',
-                            entry.server_name,
-                            entry.timestamp,
-                            skip_voice_update=True
-                        )
-                        
-                        # Always log state changes for debugging
-                        if state_changed:
-                            logger.info(f"Player {eosid[:8]}... state changed to online on {entry.server_name}")
-                            # Verify database persistence immediately
-                            verification = await self.bot.db_manager.player_sessions.find_one({
-                                "guild_id": self.guild_id,
-                                "player_id": eosid
-                            })
-                            if verification:
-                                logger.info(f"✓ DB Verified: {eosid[:8]}... is {verification.get('state')} on {verification.get('server_name')}")
+                    # During cold start, store in memory for batch processing
+                    if self._cold_start_mode:
+                        # Store player state in memory for batch write later
+                        self._cold_start_player_states[eosid] = {
+                            'guild_id': self.guild_id,
+                            'player_id': eosid,
+                            'state': 'online',
+                            'server_name': entry.server_name,
+                            'last_updated': entry.timestamp,
+                            'joined_at': entry.timestamp.isoformat(),
+                            'platform': 'Unknown'
+                        }
+                        logger.info(f"Player {eosid[:8]}... queued for batch update (online on {entry.server_name})")
+                        state_changed = True  # For logging purposes
+                    else:
+                        # Normal processing - update database immediately
+                        try:
+                            state_changed = await self.bot.db_manager.update_player_state(
+                                self.guild_id,
+                                eosid,
+                                'online',
+                                entry.server_name,
+                                entry.timestamp,
+                                skip_voice_update=True
+                            )
+                            
+                            # Always log state changes for debugging
+                            if state_changed:
+                                logger.info(f"Player {eosid[:8]}... state changed to online on {entry.server_name}")
+                                # Verify database persistence immediately
+                                verification = await self.bot.db_manager.player_sessions.find_one({
+                                    "guild_id": self.guild_id,
+                                    "player_id": eosid
+                                })
+                                if verification:
+                                    logger.info(f"✓ DB Verified: {eosid[:8]}... is {verification.get('state')} on {verification.get('server_name')}")
+                                else:
+                                    logger.error(f"✗ DB Verification FAILED: No session found for {eosid[:8]}...")
                             else:
-                                logger.error(f"✗ DB Verification FAILED: No session found for {eosid[:8]}...")
-                        else:
-                            logger.debug(f"No state change for {eosid[:8]}... (already online)")
-                    except Exception as db_error:
-                        logger.error(f"Database update failed for {eosid[:8]}...: {db_error}")
-                        import traceback
-                        logger.error(f"Full traceback: {traceback.format_exc()}")
+                                logger.debug(f"No state change for {eosid[:8]}... (already online)")
+                        except Exception as db_error:
+                            logger.error(f"Database update failed for {eosid[:8]}...: {db_error}")
+                            import traceback
+                            logger.error(f"Full traceback: {traceback.format_exc()}")
                     
                     # Only send connection embed if state actually changed (offline -> online)
                     if state_changed and not self._cold_start_mode:
