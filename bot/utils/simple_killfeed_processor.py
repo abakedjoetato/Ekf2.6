@@ -426,6 +426,8 @@ class SimpleKillfeedProcessor:
         """Deliver killfeed events to Discord channels"""
         try:
             logger.info(f"Starting delivery of {len(events)} killfeed events")
+            logger.info(f"Bot instance check: {self.bot is not None} (type: {type(self.bot).__name__ if self.bot else 'None'})")
+            
             if not self.bot:
                 logger.error("CRITICAL: No bot instance available for killfeed delivery")
                 return
