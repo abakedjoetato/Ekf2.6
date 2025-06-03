@@ -393,13 +393,13 @@ class SimpleKillfeedProcessor:
                 embed = await self._create_killfeed_embed(event)
                 
                 # Get killfeed channel
-                channel_id = await channel_router.get_channel_for_type(
+                channel_id = await channel_router.get_channel_id(
                     self.guild_id, self.server_name, 'killfeed'
                 )
                 
                 if channel_id:
                     # Send via batch sender to respect rate limits
-                    await batch_sender.send_embed(channel_id, embed)
+                    await batch_sender.queue_message(channel_id, embed)
                     logger.info(f"Sent killfeed event: {event.killer} killed {event.victim}")
                 else:
                     logger.warning(f"No killfeed channel configured for {self.server_name}")
@@ -407,47 +407,50 @@ class SimpleKillfeedProcessor:
         except Exception as e:
             logger.error(f"Failed to deliver killfeed events: {e}")
     
-    async def _create_killfeed_embed(self, event: KillfeedEvent) -> Dict[str, Any]:
+    async def _create_killfeed_embed(self, event: KillfeedEvent):
         """Create Discord embed for killfeed event"""
         try:
+            import discord
+            
             # Determine embed color based on weapon or event type
             color = 0xFF0000  # Red for kills
             
-            embed = {
-                "title": "💀 Player Eliminated",
-                "color": color,
-                "timestamp": event.timestamp.isoformat(),
-                "fields": [
-                    {
-                        "name": "Killer",
-                        "value": f"**{event.killer}**\n*{event.killer_platform}*",
-                        "inline": True
-                    },
-                    {
-                        "name": "Victim", 
-                        "value": f"**{event.victim}**\n*{event.victim_platform}*",
-                        "inline": True
-                    },
-                    {
-                        "name": "Weapon",
-                        "value": f"**{event.weapon}**\n*{event.distance}m*",
-                        "inline": True
-                    }
-                ],
-                "footer": {
-                    "text": f"{self.server_name} • {event.filename}"
-                }
-            }
+            embed = discord.Embed(
+                title="💀 Player Eliminated",
+                color=color,
+                timestamp=event.timestamp
+            )
+            
+            embed.add_field(
+                name="Killer",
+                value=f"**{event.killer}**\n*{event.killer_platform}*",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="Victim", 
+                value=f"**{event.victim}**\n*{event.victim_platform}*",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="Weapon",
+                value=f"**{event.weapon}**\n*{event.distance}m*",
+                inline=True
+            )
+            
+            embed.set_footer(text=f"{self.server_name} • {event.filename}")
             
             return embed
             
         except Exception as e:
             logger.error(f"Failed to create killfeed embed: {e}")
-            return {
-                "title": "💀 Killfeed Event",
-                "description": f"{event.killer} eliminated {event.victim}",
-                "color": 0xFF0000
-            }
+            import discord
+            return discord.Embed(
+                title="💀 Killfeed Event",
+                description=f"{event.killer} eliminated {event.victim}",
+                color=0xFF0000
+            )
     
     def cancel(self):
         """Cancel the processing"""

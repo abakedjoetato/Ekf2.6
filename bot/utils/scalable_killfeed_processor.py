@@ -238,6 +238,8 @@ class ScalableKillfeedProcessor:
         
         # Then start processing new file from beginning
         file_timestamp = self._extract_timestamp_from_filename(newest_file)
+        if file_timestamp is None:
+            file_timestamp = "unknown"
         await self._process_fresh_start(newest_file, file_timestamp, progress_callback)
     
     async def _process_gap_from_previous_file(self, current_state: ParserState, progress_callback=None):
@@ -426,9 +428,9 @@ class ScalableKillfeedProcessor:
             
             # Get bot instance from the first processor in the hierarchy
             bot = None
-            if hasattr(self, 'bot'):
+            if hasattr(self, 'bot') and self.bot:
                 bot = self.bot
-            elif self.state_manager and hasattr(self.state_manager, 'bot'):
+            elif self.state_manager and hasattr(self.state_manager, 'bot') and self.state_manager.bot:
                 bot = self.state_manager.bot
             
             if not bot or not hasattr(bot, 'embed_factory') or not hasattr(bot, 'channel_router'):
