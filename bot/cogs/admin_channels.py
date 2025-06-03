@@ -41,20 +41,12 @@ class AdminChannels(discord.Cog):
         }
     
     async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has any premium servers"""
+        """Check if guild has premium access - unified validation"""
         try:
-            guild_doc = await self.bot.db_manager.get_guild(guild_id)
-            if not guild_doc:
+            if hasattr(self.bot, 'premium_manager_v2'):
+                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
+            else:
                 return False
-            
-            servers = guild_doc.get('servers', [])
-            for server_config in servers:
-                server_id = server_config.get('server_id', server_config.get('_id', 'default'))
-                if await self.check_premium_access(guild_id):
-                    return True
-            
-            return False
-            
         except Exception as e:
             logger.error(f"Failed to check premium access: {e}")
             return False
