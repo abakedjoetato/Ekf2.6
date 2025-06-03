@@ -1009,53 +1009,59 @@ class ScalableUnifiedProcessor:
             committed_count = 0
             failed_count = 0
             
-            # CRITICAL FIX: Direct database write with immediate read-after-write consistency
+            # COMPREHENSIVE FIX: Write to both bot's connection and external connections
             import motor.motor_asyncio
             import os
-            from pymongo import WriteConcern, ReadPreference
             
-            # Create dedicated connection for external visibility
-            direct_client = motor.motor_asyncio.AsyncIOMotorClient(
-                os.environ.get('MONGO_URI'),
-                maxPoolSize=10,
-                retryWrites=True,
-                readPreference='primary',
-                readConcernLevel='majority'
-            )
-            direct_db = direct_client.emerald_killfeed
-            
-            # Use standard collection with explicit write/read concerns
-            player_sessions_direct = direct_db.player_sessions
+            # Create external connection for visibility verification
+            external_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
+            external_db = external_client.emerald_killfeed
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
                     logger.debug(f"Attempting to commit: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
                     
-                    # Write to direct database connection with explicit write concern
-                    result = await player_sessions_direct.replace_one(
+                    # Dual-write strategy: Write to both bot's connection and external connection
+                    
+                    # Write 1: Bot's internal connection
+                    bot_result = await self.bot.db_manager.player_sessions.replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
                     )
                     
-                    logger.debug(f"Direct replace result: upserted_id={result.upserted_id}, modified_count={result.modified_count}")
+                    # Write 2: External connection for /online command compatibility
+                    external_result = await external_db.player_sessions.replace_one(
+                        {'guild_id': session_data['guild_id'], 'player_id': player_id},
+                        session_data,
+                        upsert=True
+                    )
                     
-                    if result.upserted_id or result.modified_count > 0:
-                        # Immediate verification with same connection
-                        direct_verification = await player_sessions_direct.find_one({
+                    logger.debug(f"Dual write results: bot={bot_result.acknowledged}, external={external_result.acknowledged}")
+                    
+                    if (bot_result.upserted_id or bot_result.modified_count > 0) and \
+                       (external_result.upserted_id or external_result.modified_count > 0):
+                        
+                        # Verify both connections can read the data
+                        bot_verification = await self.bot.db_manager.player_sessions.find_one({
                             'guild_id': session_data['guild_id'],
                             'player_id': player_id
                         })
                         
-                        if direct_verification:
+                        external_verification = await external_db.player_sessions.find_one({
+                            'guild_id': session_data['guild_id'],
+                            'player_id': player_id
+                        })
+                        
+                        if bot_verification and external_verification:
                             committed_count += 1
-                            logger.info(f"✓ Committed & Verified (Direct): {player_id[:8]}... -> {direct_verification.get('state')} on {direct_verification.get('server_name')}")
+                            logger.info(f"✓ Committed & Verified (Dual): {player_id[:8]}... -> {bot_verification.get('state')} on {bot_verification.get('server_name')}")
                         else:
                             failed_count += 1
-                            logger.error(f"✗ COMMIT FAILED - No direct verification: {player_id[:8]}...")
+                            logger.error(f"✗ COMMIT FAILED - Verification failed: bot={bool(bot_verification)}, external={bool(external_verification)}")
                     else:
                         failed_count += 1
-                        logger.error(f"✗ Direct replace operation returned no changes for {player_id[:8]}...")
+                        logger.error(f"✗ Dual write operation failed for {player_id[:8]}...")
                     
                 except Exception as commit_error:
                     failed_count += 1
