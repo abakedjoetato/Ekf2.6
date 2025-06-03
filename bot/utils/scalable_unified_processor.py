@@ -376,44 +376,52 @@ class ScalableUnifiedProcessor:
             except:
                 pass
         
-        # Deadside player lifecycle events - based on actual log format
-        if 'lognet' in content_lower:
-            # Queue state: Join request with player info
-            if 'join request:' in content_lower and 'eosid=' in content_lower:
-                player_data = self._extract_deadside_queue_data(content)
-                if player_data:
-                    return 'queue', player_data['eosid'], {
-                        'action': 'queue',
-                        'player_name': player_data.get('name'),
-                        'platform_id': player_data.get('platformid'),
-                        'native_platform': player_data.get('nativeplatform'),
-                        'log_category': log_category,
-                        'system': system_info,
-                        'message': message
-                    }
-            
-            # Offline state: Connection closed/disconnected
-            if 'uchannel::close' in content_lower and 'eosid=' in content_lower:
-                player_id = self._extract_eosid_from_disconnect(content)
-                if player_id:
-                    return 'leave', player_id, {
-                        'action': 'disconnect',
-                        'log_category': log_category,
-                        'system': system_info,
-                        'message': message
-                    }
+        # Deadside player lifecycle events - using proven regex patterns
+        import re
         
-        if 'logonline' in content_lower:
-            # Online state: Successfully registered
-            if 'player' in content_lower and 'successfully registered' in content_lower and '|' in content:
-                player_id = self._extract_eosid_from_registration(content)
-                if player_id:
-                    return 'join', player_id, {
-                        'action': 'registered',
-                        'log_category': log_category,
-                        'system': system_info,
-                        'message': message
-                    }
+        # Player queue/join request
+        queue_match = re.search(
+            r'LogNet: Join request: /Game/Maps/world_\d+/World_\d+\?.*?eosid=\|([a-f0-9]+).*?Name=([^&\?\s]+).*?(?:platformid=([^&\?\s]+))?',
+            content, re.IGNORECASE
+        )
+        if queue_match:
+            eosid, name, platform_id = queue_match.groups()
+            return 'queue', eosid, {
+                'action': 'queue',
+                'player_name': name,
+                'platform_id': platform_id,
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        # Player successfully registered (online)
+        registered_match = re.search(
+            r'LogOnline: Warning: Player \|([a-f0-9]+) successfully registered!',
+            content, re.IGNORECASE
+        )
+        if registered_match:
+            eosid = registered_match.group(1)
+            return 'join', eosid, {
+                'action': 'registered',
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        # Player disconnect
+        disconnect_match = re.search(
+            r'LogNet: UChannel::Close: Sending CloseBunch.*?UniqueId: EOS:\|([a-f0-9]+)',
+            content, re.IGNORECASE
+        )
+        if disconnect_match:
+            eosid = disconnect_match.group(1)
+            return 'leave', eosid, {
+                'action': 'disconnect',
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
         
         # Deadside kill/death events
         if ('logsfps' in content_lower and 'kill' in content_lower) or ('damage' in content_lower and 'death' in content_lower):
@@ -425,23 +433,97 @@ class ScalableUnifiedProcessor:
                     'system': system_info
                 }
         
-        # Vehicle and gameplay events
-        if 'logsfps' in content_lower:
-            if 'vehicle' in content_lower:
-                return 'vehicle', None, {
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message,
-                    'event_type': 'vehicle'
-                }
-            
-            if 'spawn' in content_lower or 'respawn' in content_lower:
-                return 'spawn', None, {
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message,
-                    'event_type': 'spawn'
-                }
+        # Mission events - using proven patterns
+        mission_respawn_match = re.search(r'LogSFPS: Mission (GA_[A-Za-z0-9_]+) will respawn in (\d+)', content, re.IGNORECASE)
+        if mission_respawn_match:
+            mission_id, respawn_time = mission_respawn_match.groups()
+            return 'mission', None, {
+                'mission_id': mission_id,
+                'respawn_time': int(respawn_time),
+                'state': 'respawn',
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        mission_state_match = re.search(r'LogSFPS: Mission (GA_[A-Za-z0-9_]+) switched to ([A-Z_]+)', content, re.IGNORECASE)
+        if mission_state_match:
+            mission_id, state = mission_state_match.groups()
+            return 'mission', None, {
+                'mission_id': mission_id,
+                'state': state.lower(),
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        # Vehicle events - using proven patterns
+        vehicle_spawn_match = re.search(r'LogSFPS: \[ASFPSGameMode::NewVehicle_Add\] Add vehicle (BP_SFPSVehicle_[A-Za-z0-9_]+)', content, re.IGNORECASE)
+        if vehicle_spawn_match:
+            vehicle_type = vehicle_spawn_match.group(1)
+            return 'vehicle', None, {
+                'vehicle_type': vehicle_type,
+                'action': 'spawn',
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        vehicle_delete_match = re.search(r'LogSFPS: \[ASFPSGameMode::NewVehicle_Del\] Del vehicle (BP_SFPSVehicle_[A-Za-z0-9_]+)', content, re.IGNORECASE)
+        if vehicle_delete_match:
+            vehicle_type = vehicle_delete_match.group(1)
+            return 'vehicle', None, {
+                'vehicle_type': vehicle_type,
+                'action': 'delete',
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        # Airdrop events - using proven patterns
+        airdrop_match = re.search(r'Event_AirDrop.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+        if airdrop_match:
+            x_coord, y_coord = airdrop_match.groups()
+            return 'airdrop', None, {
+                'x_coordinate': float(x_coord),
+                'y_coordinate': float(y_coord),
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        # Helicrash events - using proven patterns  
+        helicrash_match = re.search(r'Helicrash.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+        if helicrash_match:
+            x_coord, y_coord = helicrash_match.groups()
+            return 'helicrash', None, {
+                'x_coordinate': float(x_coord),
+                'y_coordinate': float(y_coord),
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        # Trader events - using proven patterns
+        trader_match = re.search(r'Trader.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+        if trader_match:
+            x_coord, y_coord = trader_match.groups()
+            return 'trader', None, {
+                'x_coordinate': float(x_coord),
+                'y_coordinate': float(y_coord),
+                'log_category': log_category,
+                'system': system_info,
+                'message': message
+            }
+        
+        # Generic spawn events
+        if 'spawn' in content_lower or 'respawn' in content_lower:
+            return 'spawn', None, {
+                'log_category': log_category,
+                'system': system_info,
+                'message': message,
+                'event_type': 'spawn'
+            }
         
         # Server status events
         if 'logcore' in content_lower or 'logengine' in content_lower:
@@ -589,12 +671,17 @@ class ScalableUnifiedProcessor:
             logger.info(f"Handling server restart for {server_name} - resetting player states")
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # End all active sessions for this server
-                await self.bot.db_manager.end_all_sessions_for_server(
-                    self.guild_id, 
-                    server_name
-                )
-                logger.info(f"Reset all player sessions for {server_name}")
+                # End all active sessions for this server during cold start
+                try:
+                    # Use existing database method to reset sessions
+                    await self.bot.db_manager.reset_server_sessions(
+                        self.guild_id, 
+                        server_name
+                    )
+                    logger.info(f"Reset all player sessions for {server_name}")
+                except AttributeError:
+                    # Fallback: manually reset sessions if method doesn't exist
+                    logger.warning(f"reset_server_sessions method not available - cold start will rebuild states chronologically")
             else:
                 logger.warning(f"No database manager available to reset player states for {server_name}")
             
@@ -625,7 +712,7 @@ class ScalableUnifiedProcessor:
     async def _process_single_entry(self, entry: LogEntry):
         """Process a single log entry"""
         try:
-            # Handle Deadside player lifecycle events (queue, join, leave)
+            # Handle player lifecycle events (always process for state tracking)
             if entry.entry_type == 'queue' and entry.player_name:
                 await self._handle_player_queue(entry)
             elif entry.entry_type == 'join' and entry.player_name:
@@ -634,6 +721,18 @@ class ScalableUnifiedProcessor:
                 await self._handle_player_leave(entry)
             elif entry.entry_type == 'kill':
                 await self._handle_kill_event(entry)
+            
+            # Handle embed-worthy events only
+            elif entry.entry_type == 'mission':
+                await self._handle_mission_event(entry)
+            elif entry.entry_type == 'airdrop':
+                await self._handle_airdrop_event(entry)
+            elif entry.entry_type == 'helicrash':
+                await self._handle_helicrash_event(entry)
+            elif entry.entry_type == 'trader':
+                await self._handle_trader_event(entry)
+            
+            # Note: vehicle and spawn events are classified but not processed for embeds
             
         except Exception as e:
             logger.error(f"Failed to process log entry: {e}")
@@ -742,7 +841,6 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"Kill event: {killer} killed {victim} with {weapon} on {entry.server_name}")
             
-            # Get bot's database manager
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Record the kill
                 await self.bot.db_manager.record_kill(
@@ -760,6 +858,74 @@ class ScalableUnifiedProcessor:
             
         except Exception as e:
             logger.error(f"Failed to handle kill event: {e}")
+    
+    async def _handle_mission_event(self, entry: LogEntry):
+        """Handle mission events - only send embeds for READY status"""
+        try:
+            additional_data = entry.additional_data or {}
+            mission_id = additional_data.get('mission_id')
+            state = additional_data.get('state')
+            
+            if not mission_id or state != 'ready':
+                return  # Only process READY missions for embeds
+            
+            logger.info(f"Mission {mission_id} is ready on {entry.server_name}")
+            
+            # TODO: Send mission ready embed via channel delivery system
+            
+        except Exception as e:
+            logger.error(f"Failed to handle mission event: {e}")
+    
+    async def _handle_airdrop_event(self, entry: LogEntry):
+        """Handle airdrop events - only for flying/active airdrops"""
+        try:
+            additional_data = entry.additional_data or {}
+            x_coord = additional_data.get('x_coordinate')
+            y_coord = additional_data.get('y_coordinate')
+            
+            if x_coord is None or y_coord is None:
+                return
+            
+            logger.info(f"Airdrop flying at ({x_coord}, {y_coord}) on {entry.server_name}")
+            
+            # TODO: Send airdrop embed via channel delivery system
+            
+        except Exception as e:
+            logger.error(f"Failed to handle airdrop event: {e}")
+    
+    async def _handle_helicrash_event(self, entry: LogEntry):
+        """Handle helicrash events - only for ready/active crashes"""
+        try:
+            additional_data = entry.additional_data or {}
+            x_coord = additional_data.get('x_coordinate')
+            y_coord = additional_data.get('y_coordinate')
+            
+            if x_coord is None or y_coord is None:
+                return
+            
+            logger.info(f"Helicrash ready at ({x_coord}, {y_coord}) on {entry.server_name}")
+            
+            # TODO: Send helicrash embed via channel delivery system
+            
+        except Exception as e:
+            logger.error(f"Failed to handle helicrash event: {e}")
+    
+    async def _handle_trader_event(self, entry: LogEntry):
+        """Handle trader events - only for ready/active traders"""
+        try:
+            additional_data = entry.additional_data or {}
+            x_coord = additional_data.get('x_coordinate')
+            y_coord = additional_data.get('y_coordinate')
+            
+            if x_coord is None or y_coord is None:
+                return
+            
+            logger.info(f"Trader ready at ({x_coord}, {y_coord}) on {entry.server_name}")
+            
+            # TODO: Send trader embed via channel delivery system
+            
+        except Exception as e:
+            logger.error(f"Failed to handle trader event: {e}")
     
     def cancel(self):
         """Cancel the processing"""
