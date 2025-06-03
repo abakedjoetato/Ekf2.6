@@ -33,11 +33,12 @@ class KillfeedEvent:
 class SimpleKillfeedProcessor:
     """Simple killfeed processor that copies historical parser's working approach"""
     
-    def __init__(self, guild_id: int, server_config: Dict[str, Any]):
+    def __init__(self, guild_id: int, server_config: Dict[str, Any], bot=None):
         self.guild_id = guild_id
         self.server_config = server_config
         self.server_name = server_config.get('name', 'Unknown')
         self.state_manager = get_shared_state_manager()
+        self.bot = bot
         self.cancelled = False
         
     def _get_killfeed_path(self) -> str:
@@ -66,7 +67,7 @@ class SimpleKillfeedProcessor:
             current_state = None
             if self.state_manager:
                 current_state = await self.state_manager.get_parser_state(
-                    self.guild_id, self.server_name, 'killfeed'
+                    self.guild_id, self.server_name
                 )
             
             # Discover newest CSV file using historical parser's proven method
@@ -380,8 +381,12 @@ class SimpleKillfeedProcessor:
     async def _deliver_killfeed_events(self, events: List[KillfeedEvent]):
         """Deliver killfeed events to Discord channels"""
         try:
-            from bot.utils.channel_router import channel_router
-            from bot.utils.batch_sender import batch_sender
+            from bot.utils.channel_router import ChannelRouter
+            from bot.utils.batch_sender import BatchSender
+            
+            # Initialize instances
+            channel_router = ChannelRouter(self.bot)
+            batch_sender = BatchSender(self.bot)
             
             for event in events:
                 # Create killfeed embed

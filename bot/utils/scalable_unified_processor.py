@@ -1081,8 +1081,7 @@ class ScalableUnifiedProcessor:
                 import os
                 test_client = motor.motor_asyncio.AsyncIOMotorClient(
                     os.environ.get('MONGO_URI'),
-                    w="majority",
-                    j=True
+                    w="majority"
                 )
                 test_db = test_client.emerald_killfeed
                 
