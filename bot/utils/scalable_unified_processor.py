@@ -905,9 +905,9 @@ class ScalableUnifiedProcessor:
                         logger.info(f"Player {eosid} state changed to online - embed will be sent")
                     else:
                         logger.debug(f"Player {eosid} already online - no embed needed")
-                except AttributeError as e:
+                except Exception as e:
                     logger.error(f"Database method error for join event: {e}")
-                    # Fallback: update session directly
+                    # Enhanced fallback: update session directly with better error handling
                     try:
                         await self.bot.db_manager.player_sessions.update_one(
                             {"guild_id": self.guild_id, "player_id": eosid},
@@ -915,14 +915,17 @@ class ScalableUnifiedProcessor:
                                 "$set": {
                                     "state": "online",
                                     "server_name": entry.server_name,
-                                    "last_updated": entry.timestamp
+                                    "last_updated": entry.timestamp,
+                                    "player_name": eosid[:8] + "..."
                                 }
                             },
                             upsert=True
                         )
-                        logger.info(f"Player {eosid} updated to online state (fallback)")
+                        logger.info(f"Player {eosid} updated to online state (enhanced fallback)")
                     except Exception as fallback_error:
-                        logger.error(f"Fallback update failed for {eosid}: {fallback_error}")
+                        logger.error(f"Enhanced fallback update failed for {eosid}: {fallback_error}")
+                        # Last resort: log the issue for manual review
+                        logger.critical(f"CRITICAL: Player state update completely failed for {eosid} on {entry.server_name}")
             else:
                 logger.warning(f"No database manager available for join event: {eosid}")
             
@@ -954,11 +957,11 @@ class ScalableUnifiedProcessor:
                         logger.info(f"Player {eosid} state changed to offline - embed will be sent")
                     else:
                         logger.debug(f"Player {eosid} already offline - no embed needed")
-                except AttributeError as e:
+                except Exception as e:
                     logger.error(f"Database method error for leave event: {e}")
-                    # Fallback: update session directly
+                    # Enhanced fallback: update session directly with better error handling
                     try:
-                        await self.bot.db_manager.player_sessions.update_one(
+                        result = await self.bot.db_manager.player_sessions.update_one(
                             {"guild_id": self.guild_id, "player_id": eosid},
                             {
                                 "$set": {
@@ -966,12 +969,16 @@ class ScalableUnifiedProcessor:
                                     "server_name": entry.server_name,
                                     "last_updated": entry.timestamp
                                 }
-                            },
-                            upsert=True
+                            }
                         )
-                        logger.info(f"Player {eosid} updated to offline state (fallback)")
+                        if result.modified_count > 0:
+                            logger.info(f"Player {eosid} updated to offline state (enhanced fallback)")
+                        else:
+                            logger.warning(f"No existing session found for {eosid} to update to offline")
                     except Exception as fallback_error:
-                        logger.error(f"Fallback update failed for {eosid}: {fallback_error}")
+                        logger.error(f"Enhanced fallback update failed for {eosid}: {fallback_error}")
+                        # Last resort: log the issue for manual review
+                        logger.critical(f"CRITICAL: Player disconnect state update completely failed for {eosid} on {entry.server_name}")
             else:
                 logger.warning(f"No database manager available for leave event: {eosid}")
             

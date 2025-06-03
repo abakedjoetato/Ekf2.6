@@ -1149,9 +1149,30 @@ class DatabaseManager:
             return False
 
     async def get_active_player_count(self, guild_id: int, server_name: str) -> int:
-        """Get count of active (online) players for a specific server"""
+        """Get count of active (online) players for a specific server with automatic cleanup"""
         try:
-            # Count players with 'online' state for this guild and server
+            # First, clean up stale sessions (older than 30 minutes should be considered disconnected)
+            stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+            
+            stale_cleanup = await self.player_sessions.update_many(
+                {
+                    "guild_id": guild_id,
+                    "server_name": server_name,
+                    "state": "online",
+                    "last_updated": {"$lt": stale_cutoff}
+                },
+                {
+                    "$set": {
+                        "state": "offline",
+                        "last_updated": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            if stale_cleanup.modified_count > 0:
+                logger.info(f"Auto-cleaned {stale_cleanup.modified_count} stale online sessions for {server_name}")
+            
+            # Now count actual online players
             count = await self.player_sessions.count_documents({
                 "guild_id": guild_id,
                 "server_name": server_name,
