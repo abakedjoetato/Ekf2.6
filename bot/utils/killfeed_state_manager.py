@@ -64,6 +64,10 @@ class KillfeedStateManager:
     async def get_killfeed_state(self, guild_id: int, server_name: str) -> Optional[KillfeedState]:
         """Get current killfeed state for a server"""
         try:
+            if not self.db:
+                logger.error("Database connection not available")
+                return None
+                
             # Look for killfeed-specific state document
             state_doc = await self.db.killfeed_states.find_one({
                 "guild_id": guild_id,
