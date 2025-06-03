@@ -1247,6 +1247,76 @@ class ScalableUnifiedProcessor:
                 
         except Exception as e:
             logger.error(f"Failed to handle player leave for {entry.player_name}: {e}")
+
+    async def _handle_general_entry(self, entry: LogEntry):
+        """Handle general entries that might contain player connection events"""
+        try:
+            if not entry.additional_data:
+                return
+            
+            message = entry.additional_data.get('message', '')
+            
+            # Check for player registration in general entries
+            if 'successfully registered' in message.lower():
+                # Extract EOSID from message
+                import re
+                registration_match = re.search(r'Player \|([a-f0-9]{32}) successfully registered', message, re.IGNORECASE)
+                if registration_match:
+                    eosid = registration_match.group(1)
+                    
+                    # Create synthetic join entry
+                    join_entry = LogEntry(
+                        timestamp=entry.timestamp,
+                        server_name=entry.server_name,
+                        entry_type='join',
+                        player_name=eosid,
+                        additional_data={'eosid': eosid, 'source': 'general_registration'}
+                    )
+                    
+                    await self._handle_player_join(join_entry)
+                    logger.info(f"Extracted player join from general entry: {eosid[:8]}...")
+            
+            # Check for player disconnection in general entries
+            elif 'uchannel::close' in message.lower() or 'uniqueid: eos:' in message.lower():
+                import re
+                disconnect_match = re.search(r'UniqueId: EOS:\|([a-f0-9]{32})', message, re.IGNORECASE)
+                if disconnect_match:
+                    eosid = disconnect_match.group(1)
+                    
+                    # Create synthetic leave entry
+                    leave_entry = LogEntry(
+                        timestamp=entry.timestamp,
+                        server_name=entry.server_name,
+                        entry_type='leave',
+                        player_name=eosid,
+                        additional_data={'eosid': eosid, 'source': 'general_disconnect'}
+                    )
+                    
+                    await self._handle_player_leave(leave_entry)
+                    logger.info(f"Extracted player leave from general entry: {eosid[:8]}...")
+            
+            # Check for join requests in general entries
+            elif 'join request:' in message.lower():
+                import re
+                queue_match = re.search(r'Join request:.*?eosid=\|([a-f0-9]{32}).*?Name=([^?]+)', message, re.IGNORECASE)
+                if queue_match:
+                    eosid = queue_match.group(1)
+                    player_name = queue_match.group(2).strip()
+                    
+                    # Create synthetic queue entry
+                    queue_entry = LogEntry(
+                        timestamp=entry.timestamp,
+                        server_name=entry.server_name,
+                        entry_type='queue',
+                        player_name=eosid,
+                        additional_data={'eosid': eosid, 'player_name': player_name, 'source': 'general_queue'}
+                    )
+                    
+                    await self._handle_player_queue(queue_entry)
+                    logger.info(f"Extracted player queue from general entry: {player_name} ({eosid[:8]}...)")
+                    
+        except Exception as e:
+            logger.error(f"Failed to handle general entry: {e}")
     
     async def _handle_kill_event(self, entry: LogEntry):
         """Handle kill event with proper kill tracking"""
