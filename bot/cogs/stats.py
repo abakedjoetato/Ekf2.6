@@ -536,56 +536,38 @@ class Stats(discord.Cog):
                         await ctx.followup.send(f"Server '{server_name}' not found.", ephemeral=True)
                         return
                     
-                    # Try multiple query formats for compatibility
-                    queries_to_try = [
-                        {
+                    # Direct database query with timeout protection
+                    server_players = []
+                    
+                    try:
+                        import asyncio
+                        
+                        # Set a 5-second timeout for the database query
+                        query_task = self.bot.db_manager.player_sessions.find({
                             'guild_id': guild_id,
                             'server_name': server_name,
                             'state': 'online'
-                        },
-                        {
-                            'guild_id': guild_id,
-                            'server_id': server_id,
-                            'state': 'online'
-                        }
-                    ]
-                    
-                    server_players = []
-                    
-                    # Try each query format until we find data
-                    for query in queries_to_try:
-                        # Use bot's database connection directly (same as unified parser)
-                        cursor = self.bot.db_manager.player_sessions.find(query)
-                        temp_players = []
+                        }).to_list(length=50)
                         
-                        async for session in cursor:
-                            player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
-                            joined_at = session.get('joined_at')
-                            platform = session.get('platform', 'Unknown')
-                            player_id = session.get('player_id', session.get('steam_id', ''))
+                        sessions = await asyncio.wait_for(query_task, timeout=5.0)
+                        
+                        for session in sessions:
+                            player_id = session.get('player_id', 'Unknown')
+                            player_name = player_id[:8] + '...' if len(player_id) > 8 else player_id
                             
-                            # Parse join time
-                            join_time = None
-                            if joined_at:
-                                if isinstance(joined_at, str):
-                                    try:
-                                        join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
-                                    except:
-                                        pass
-                                elif hasattr(joined_at, 'replace'):
-                                    join_time = joined_at
-                            
-                            temp_players.append({
+                            server_players.append({
                                 'name': player_name,
-                                'join_time': join_time,
-                                'platform': platform,
+                                'join_time': session.get('joined_at'),
+                                'platform': session.get('platform', 'Unknown'),
                                 'player_id': player_id,
                                 'server_id': server_id
                             })
-                        
-                        if temp_players:
-                            server_players = temp_players
-                            break
+                    except asyncio.TimeoutError:
+                        logger.error(f"Database query timed out for {server_name}")
+                        server_players = []
+                    except Exception as e:
+                        logger.error(f"Database query failed: {e}")
+                        server_players = []
                     
                     # If no players found, show empty state with voice channel data
                     if not server_players:
