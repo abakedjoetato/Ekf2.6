@@ -846,17 +846,34 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to queued state
-                await self.bot.db_manager.update_player_state(
-                    self.guild_id,
-                    eosid,
-                    'queued',
-                    entry.server_name,
-                    entry.timestamp,
-                    player_name=player_name,
-                    platform_id=additional_data.get('platform_id'),
-                    native_platform=additional_data.get('native_platform')
-                )
-                logger.debug(f"Player {player_name} set to queued state")
+                try:
+                    await self.bot.db_manager.update_player_state(
+                        self.guild_id,
+                        eosid,
+                        'queued',
+                        entry.server_name,
+                        entry.timestamp
+                    )
+                    logger.debug(f"Player {player_name} set to queued state")
+                except AttributeError as e:
+                    logger.error(f"Database method error for queue event: {e}")
+                    # Fallback: update session directly
+                    try:
+                        await self.bot.db_manager.player_sessions.update_one(
+                            {"guild_id": self.guild_id, "player_id": eosid},
+                            {
+                                "$set": {
+                                    "state": "queued",
+                                    "server_name": entry.server_name,
+                                    "last_updated": entry.timestamp,
+                                    "player_name": player_name
+                                }
+                            },
+                            upsert=True
+                        )
+                        logger.info(f"Player {player_name} updated to queued state (fallback)")
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback update failed for {player_name}: {fallback_error}")
             else:
                 logger.warning(f"No database manager available for queue event: {player_name}")
             
@@ -875,18 +892,37 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to online state - this may trigger connection embed
-                state_changed = await self.bot.db_manager.update_player_state(
-                    self.guild_id,
-                    eosid,
-                    'online',
-                    entry.server_name,
-                    entry.timestamp
-                )
-                
-                if state_changed:
-                    logger.info(f"Player {eosid} state changed to online - embed will be sent")
-                else:
-                    logger.debug(f"Player {eosid} already online - no embed needed")
+                try:
+                    state_changed = await self.bot.db_manager.update_player_state(
+                        self.guild_id,
+                        eosid,
+                        'online',
+                        entry.server_name,
+                        entry.timestamp
+                    )
+                    
+                    if state_changed:
+                        logger.info(f"Player {eosid} state changed to online - embed will be sent")
+                    else:
+                        logger.debug(f"Player {eosid} already online - no embed needed")
+                except AttributeError as e:
+                    logger.error(f"Database method error for join event: {e}")
+                    # Fallback: update session directly
+                    try:
+                        await self.bot.db_manager.player_sessions.update_one(
+                            {"guild_id": self.guild_id, "player_id": eosid},
+                            {
+                                "$set": {
+                                    "state": "online",
+                                    "server_name": entry.server_name,
+                                    "last_updated": entry.timestamp
+                                }
+                            },
+                            upsert=True
+                        )
+                        logger.info(f"Player {eosid} updated to online state (fallback)")
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback update failed for {eosid}: {fallback_error}")
             else:
                 logger.warning(f"No database manager available for join event: {eosid}")
             
@@ -905,18 +941,37 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to offline state - this may trigger disconnect embed
-                state_changed = await self.bot.db_manager.update_player_state(
-                    self.guild_id,
-                    eosid,
-                    'offline',
-                    entry.server_name,
-                    entry.timestamp
-                )
-                
-                if state_changed:
-                    logger.info(f"Player {eosid} state changed to offline - embed will be sent")
-                else:
-                    logger.debug(f"Player {eosid} already offline - no embed needed")
+                try:
+                    state_changed = await self.bot.db_manager.update_player_state(
+                        self.guild_id,
+                        eosid,
+                        'offline',
+                        entry.server_name,
+                        entry.timestamp
+                    )
+                    
+                    if state_changed:
+                        logger.info(f"Player {eosid} state changed to offline - embed will be sent")
+                    else:
+                        logger.debug(f"Player {eosid} already offline - no embed needed")
+                except AttributeError as e:
+                    logger.error(f"Database method error for leave event: {e}")
+                    # Fallback: update session directly
+                    try:
+                        await self.bot.db_manager.player_sessions.update_one(
+                            {"guild_id": self.guild_id, "player_id": eosid},
+                            {
+                                "$set": {
+                                    "state": "offline",
+                                    "server_name": entry.server_name,
+                                    "last_updated": entry.timestamp
+                                }
+                            },
+                            upsert=True
+                        )
+                        logger.info(f"Player {eosid} updated to offline state (fallback)")
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback update failed for {eosid}: {fallback_error}")
             else:
                 logger.warning(f"No database manager available for leave event: {eosid}")
             

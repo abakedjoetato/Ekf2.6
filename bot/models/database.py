@@ -1148,6 +1148,20 @@ class DatabaseManager:
             logger.error(f"Failed to update player state: {e}")
             return False
 
+    async def get_active_player_count(self, guild_id: int, server_name: str) -> int:
+        """Get count of active (online) players for a specific server"""
+        try:
+            # Count players with 'online' state for this guild and server
+            count = await self.player_sessions.count_documents({
+                "guild_id": guild_id,
+                "server_name": server_name,
+                "state": "online"
+            })
+            return count
+        except Exception as e:
+            logger.error(f"Failed to get active player count for {server_name}: {e}")
+            return 0
+
     # PREMIUM (Server-scoped)
     async def set_premium_status(self, guild_id: int, server_id: str, 
                                 expires_at: Optional[datetime] = None) -> bool:
