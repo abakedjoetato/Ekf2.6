@@ -654,11 +654,12 @@ class RouletteBetMenu(discord.ui.Select):
     
     async def update_balance(self, amount):
         try:
+            operation = "add" if amount >= 0 else "subtract"
             return await self.roulette_view.bot.db_manager.update_wallet(
                 self.roulette_view.guild_id, 
                 self.roulette_view.user_id, 
-                amount, 
-                'casino_roulette'
+                abs(amount), 
+                operation
             )
         except:
             return False
@@ -757,8 +758,12 @@ class RocketCrashGameView(discord.ui.View):
         self.rocket_running = True
         
         # Enable cash out, disable launch
-        self.cash_out.disabled = False
-        self.launch_rocket.disabled = True
+        for item in self.children:
+            if hasattr(item, 'label'):
+                if 'Cash Out' in item.label:
+                    item.disabled = False
+                elif 'Launch' in item.label:
+                    item.disabled = True
         
         # Real-time rocket flight
         import asyncio
@@ -826,9 +831,9 @@ class RocketCrashGameView(discord.ui.View):
     async def update_balance(self, amount):
         """Update user's balance"""
         try:
+            operation = "add" if amount >= 0 else "subtract"
             return await self.bot.db_manager.update_wallet(
-                self.guild_id, self.user_id, amount, 
-                'casino_rocket'
+                self.guild_id, self.user_id, abs(amount), operation
             )
         except Exception:
             return False
@@ -1058,9 +1063,9 @@ class BlackjackGameView(discord.ui.View):
     async def update_balance(self, amount):
         """Update user's balance"""
         try:
+            operation = "add" if amount >= 0 else "subtract"
             return await self.bot.db_manager.update_wallet(
-                self.guild_id, self.user_id, amount, 
-                'casino_blackjack'
+                self.guild_id, self.user_id, abs(amount), operation
             )
         except Exception:
             return False

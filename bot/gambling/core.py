@@ -52,7 +52,8 @@ class GamblingCore:
             if new_balance < 0:
                 return False
                 
-            await self.bot.db_manager.update_wallet(guild_id, user_id, amount, "add")
+            operation = "add" if amount >= 0 else "subtract"
+            await self.bot.db_manager.update_wallet(guild_id, user_id, abs(amount), operation)
             
             # Log wallet event
             await self.add_wallet_event(guild_id, user_id, amount, 'gambling', description)
