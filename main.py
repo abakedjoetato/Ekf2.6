@@ -177,10 +177,15 @@ class EmeraldKillfeedBot(commands.Bot):
         total_commands = 0
         command_names = []
         
-        # py-cord 2.6.1 command discovery
-        all_commands = self.pending_application_commands if hasattr(self, 'pending_application_commands') else []
+        # py-cord 2.6.1 command discovery - comprehensive approach
+        all_commands = []
+        if hasattr(self, 'pending_application_commands') and self.pending_application_commands:
+            all_commands = list(self.pending_application_commands)
+        elif hasattr(self, 'application_commands') and self.application_commands:
+            all_commands = list(self.application_commands)
+        
         total_commands = len(all_commands)
-        command_names = [cmd.name for cmd in all_commands[:10]]
+        command_names = [getattr(cmd, 'name', 'Unknown') for cmd in all_commands[:10]]
         
         logger.info(f"📊 Total slash commands registered: {total_commands}")
         if command_names:
@@ -239,8 +244,16 @@ class EmeraldKillfeedBot(commands.Bot):
         try:
             # Get all commands (py-cord 2.6.1 compatible)
             all_commands = []
-            if hasattr(self, 'application_commands'):
+            
+            # py-cord 2.6.1: Use the same logic as in the logging section
+            if hasattr(self, 'pending_application_commands') and self.pending_application_commands:
+                all_commands = list(self.pending_application_commands)
+                logger.debug(f"Found {len(all_commands)} pending application commands")
+            elif hasattr(self, 'application_commands') and self.application_commands:
                 all_commands = list(self.application_commands)
+                logger.debug(f"Found {len(all_commands)} application commands")
+            else:
+                logger.debug("No application commands found in bot attributes")
 
             if not all_commands:
                 logger.warning("⚠️ No commands found for syncing")
