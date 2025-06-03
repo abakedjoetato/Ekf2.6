@@ -249,7 +249,7 @@ class ScalableUnifiedProcessor:
                             # New server - cold start required
                             rotation_detected = True
                             logger.info(f"🔄 COLD START: New server detected for {server_name}")
-                        elif stored_state.get('file_hash') != current_hash:
+                        elif getattr(stored_state, 'file_timestamp', '') != current_hash:
                             # File rotation detected
                             rotation_detected = True
                             logger.info(f"🔄 COLD START: File rotation detected for {server_name}")
@@ -260,8 +260,8 @@ class ScalableUnifiedProcessor:
                         else:
                             # Hot start - continue from last position
                             rotation_detected = False
-                            last_position = stored_state.get('last_position', 0)
-                            last_line = stored_state.get('last_line', 0)
+                            last_position = getattr(stored_state, 'last_byte_position', 0)
+                            last_line = getattr(stored_state, 'last_line', 0)
                             logger.info(f"🔥 HOT START: Continuing from position {last_position}, line {last_line} for {server_name}")
                     else:
                         # Fallback: no database access - force cold start
