@@ -1138,41 +1138,10 @@ class ScalableUnifiedProcessor:
                 
                 except Exception as e:
                     logger.error(f"Database error for join event: {e}")
-                    # Continue processing without database update
-                        'online',
-                        entry.server_name,
-                        entry.timestamp,
-                        skip_voice_update=True
-                    )
                     
-                    if state_changed:
-                        logger.debug(f"Player {eosid} state changed to online - embed will be sent")
-                    else:
-                        logger.debug(f"Player {eosid} already online - no embed needed")
-                except Exception as e:
-                    logger.error(f"Database method error for join event: {e}")
-                    # Enhanced fallback: update session directly with better error handling
-                    try:
-                        await self.bot.db_manager.player_sessions.update_one(
-                            {"guild_id": self.guild_id, "player_id": eosid},
-                            {
-                                "$set": {
-                                    "state": "online",
-                                    "server_name": entry.server_name,
-                                    "last_updated": entry.timestamp,
-                                    "player_name": eosid[:8] + "..."
-                                }
-                            },
-                            upsert=True
-                        )
-                        logger.debug(f"Player {eosid} updated to online state (enhanced fallback)")
-                    except Exception as fallback_error:
-                        logger.error(f"Enhanced fallback update failed for {eosid}: {fallback_error}")
-                        # Last resort: log the issue for manual review
-                        logger.critical(f"CRITICAL: Player state update completely failed for {eosid} on {entry.server_name}")
             else:
                 logger.warning(f"No database manager available for join event: {eosid}")
-            
+                
         except Exception as e:
             logger.error(f"Failed to handle player join for {entry.player_name}: {e}")
     
@@ -1184,39 +1153,9 @@ class ScalableUnifiedProcessor:
             
             eosid = entry.player_name  # EOSID is stored in player_name field
             
-            logger.info(f"Player connection: {eosid} left {entry.server_name}")
-            
-            # Skip embed creation during cold start to prevent spam
-            if not self._cold_start_mode:
-                # Create connection embed using proper EmbedFactory theming
-                if self.bot and hasattr(self.bot, 'embed_factory'):
-                    embed_data = {
-                        'player_name': eosid[:8] + '...',  # Truncated EOSID for display
-                        'event_type': 'leave',
-                        'server_name': entry.server_name,
-                        'timestamp': entry.timestamp,
-                        'platform': 'Unknown'
-                    }
-                    
-                    try:
-                        embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
-                        
-                        if embed and hasattr(self.bot, 'channel_router'):
-                            await self.bot.channel_router.send_embed_to_channel(
-                                guild_id=self.guild_id,
-                                server_id=entry.server_name,
-                                channel_type='connections',
-                                embed=embed,
-                                file=file_attachment
-                            )
-                            logger.info(f"Sent connection embed for {eosid[:8]}... leaving {entry.server_name}")
-                    except Exception as embed_error:
-                        logger.error(f"Failed to create connection embed: {embed_error}")
-            
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # Update player to offline state
                 try:
-                    # Always skip individual voice channel updates - use batched update at end
+                    # Update player state and check if it actually changed
                     state_changed = await self.bot.db_manager.update_player_state(
                         self.guild_id,
                         eosid,
@@ -1226,35 +1165,47 @@ class ScalableUnifiedProcessor:
                         skip_voice_update=True
                     )
                     
-                    if state_changed:
-                        logger.debug(f"Player {eosid} state changed to offline - embed will be sent")
-                    else:
-                        logger.debug(f"Player {eosid} already offline - no embed needed")
-                except Exception as e:
-                    logger.error(f"Database method error for leave event: {e}")
-                    # Enhanced fallback: update session directly with better error handling
-                    try:
-                        result = await self.bot.db_manager.player_sessions.update_one(
-                            {"guild_id": self.guild_id, "player_id": eosid},
-                            {
-                                "$set": {
-                                    "state": "offline",
-                                    "server_name": entry.server_name,
-                                    "last_updated": entry.timestamp
-                                }
+                    # Only send connection embed if state actually changed (online -> offline)
+                    if state_changed and not self._cold_start_mode:
+                        # Get player name from database
+                        player_name = await self.bot.db_manager.get_player_name_from_session(self.guild_id, eosid)
+                        display_name = player_name if player_name else eosid[:8] + '...'
+                        
+                        logger.info(f"Player connection: {display_name} left {entry.server_name}")
+                        
+                        # Create connection embed using proper EmbedFactory theming
+                        if hasattr(self.bot, 'embed_factory'):
+                            embed_data = {
+                                'player_name': display_name,
+                                'event_type': 'leave',
+                                'server_name': entry.server_name,
+                                'timestamp': entry.timestamp,
+                                'platform': 'Unknown'
                             }
-                        )
-                        if result.modified_count > 0:
-                            logger.debug(f"Player {eosid} updated to offline state (enhanced fallback)")
-                        else:
-                            logger.warning(f"No existing session found for {eosid} to update to offline")
-                    except Exception as fallback_error:
-                        logger.error(f"Enhanced fallback update failed for {eosid}: {fallback_error}")
-                        # Last resort: log the issue for manual review
-                        logger.critical(f"CRITICAL: Player disconnect state update completely failed for {eosid} on {entry.server_name}")
+                            
+                            try:
+                                embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
+                                
+                                if embed and hasattr(self.bot, 'channel_router'):
+                                    await self.bot.channel_router.send_embed_to_channel(
+                                        guild_id=self.guild_id,
+                                        server_id=entry.server_name,
+                                        channel_type='connections',
+                                        embed=embed,
+                                        file=file_attachment
+                                    )
+                                    logger.info(f"Sent connection embed for {display_name} leaving {entry.server_name}")
+                            except Exception as embed_error:
+                                logger.error(f"Failed to create connection embed: {embed_error}")
+                    elif not state_changed:
+                        logger.debug(f"Player {eosid[:8]}... already offline - no embed sent")
+                
+                except Exception as e:
+                    logger.error(f"Database error for leave event: {e}")
+                    
             else:
                 logger.warning(f"No database manager available for leave event: {eosid}")
-            
+                
         except Exception as e:
             logger.error(f"Failed to handle player leave for {entry.player_name}: {e}")
     
