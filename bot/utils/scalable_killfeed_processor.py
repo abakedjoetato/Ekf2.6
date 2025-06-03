@@ -109,10 +109,12 @@ class ScalableKillfeedProcessor:
         try:
             async with connection_manager.get_connection(self.guild_id, self.server_config) as conn:
                 if not conn:
+                    logger.warning(f"No connection available for killfeed discovery on {self.server_name}")
                     return None
                 
                 sftp = await conn.start_sftp_client()
                 killfeed_path = self._get_killfeed_path()
+                logger.info(f"Killfeed discovery: Looking for CSV files in {killfeed_path}")
                 
                 # List files and find newest timestamp - use glob for wildcard support
                 try:
@@ -122,22 +124,34 @@ class ScalableKillfeedProcessor:
                         # Handle wildcard paths by finding actual directories
                         base_path = killfeed_path.split('*')[0]  # Get path before first wildcard
                         file_list = []
+                        logger.info(f"Wildcard path detected, searching base: {base_path}")
                         # Try to list files in matching subdirectories
                         try:
                             dirs = await sftp.listdir(base_path.rstrip('/'))
+                            logger.info(f"Found {len(dirs)} directories in {base_path}: {dirs}")
                             for dir_name in dirs:
                                 subdir_path = f"{base_path.rstrip('/')}/{dir_name}"
                                 try:
                                     subfiles = await sftp.listdir(subdir_path)
-                                    for subfile in subfiles:
-                                        if subfile.endswith('.csv'):
+                                    csv_files = [f for f in subfiles if f.endswith('.csv')]
+                                    if csv_files:
+                                        logger.info(f"Found {len(csv_files)} CSV files in {subdir_path}: {csv_files}")
+                                        for subfile in csv_files:
                                             file_list.append(f"{dir_name}/{subfile}")
-                                except:
+                                except Exception as e:
+                                    logger.debug(f"Could not access {subdir_path}: {e}")
                                     continue
-                        except:
+                        except Exception as e:
+                            logger.error(f"Could not list directories in {base_path}: {e}")
                             file_list = []
                     else:
-                        file_list = await sftp.listdir(killfeed_path)
+                        try:
+                            all_files = await sftp.listdir(killfeed_path)
+                            file_list = [f for f in all_files if f.endswith('.csv')]
+                            logger.info(f"Direct path search: Found {len(file_list)} CSV files in {killfeed_path}: {file_list}")
+                        except Exception as e:
+                            logger.error(f"Could not list files in {killfeed_path}: {e}")
+                            file_list = []
                 except Exception as e:
                     logger.warning(f"Could not list killfeed directory {killfeed_path}: {e}")
                     return None

@@ -1290,9 +1290,9 @@ class ScalableUnifiedProcessor:
                     
                     # Only send connection embed if state actually changed (offline -> online)
                     if state_changed and not self._cold_start_mode:
-                        # Get player name from database
-                        player_name = await self.bot.db_manager.get_player_name_from_session(self.guild_id, eosid)
-                        display_name = player_name if player_name else eosid[:8] + '...'
+                        # Use character name from cache if available, fallback to database
+                        character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
+                        display_name = character_name
                         
                         logger.info(f"Player connection: {display_name} joined {entry.server_name}")
                         
@@ -1372,9 +1372,9 @@ class ScalableUnifiedProcessor:
                     
                     # Only send connection embed if state actually changed (online -> offline)
                     if state_changed and not self._cold_start_mode:
-                        # Get player name from database
-                        player_name = await self.bot.db_manager.get_player_name_from_session(self.guild_id, eosid)
-                        display_name = player_name if player_name else eosid[:8] + '...'
+                        # Use character name from cache if available, fallback to database
+                        character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
+                        display_name = character_name
                         
                         logger.info(f"Player connection: {display_name} left {entry.server_name}")
                         
