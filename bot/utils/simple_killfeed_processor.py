@@ -12,9 +12,16 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 
 from bot.utils.connection_pool import GlobalConnectionManager, connection_manager
-from bot.utils.shared_parser_state import get_shared_state_manager, ParserState
 
 logger = logging.getLogger(__name__)
+
+@dataclass 
+class KillfeedState:
+    """Simple killfeed parser state"""
+    last_file: str = ""
+    last_line: int = 0
+    last_byte_position: int = 0
+    file_timestamp: str = ""
 
 @dataclass
 class KillfeedEvent:
@@ -37,15 +44,14 @@ class SimpleKillfeedProcessor:
         self.guild_id = guild_id
         self.server_config = server_config
         self.server_name = server_config.get('name', 'Unknown')
-        self.state_manager = get_shared_state_manager()
+        self.state = KillfeedState()
         self.bot = bot
         self.cancelled = False
         
     def _get_killfeed_path(self) -> str:
-        """Get the killfeed path for this server (same as historical parser)"""
-        host = self.server_config.get('host', 'unknown')
-        server_id = self.server_config.get('_id', 'unknown')
-        return f"./{host}_{server_id}/actual1/deathlogs/"
+        """Get the killfeed path for this server"""
+        server_id = self.server_config.get('server_id', self.server_config.get('_id', 'unknown'))
+        return f"/home/ds{server_id}/killfeed/"
     
     async def process_server_killfeed(self, progress_callback=None) -> Dict[str, Any]:
         """Main entry point for killfeed processing"""
@@ -115,14 +121,9 @@ class SimpleKillfeedProcessor:
             logger.error(f"Killfeed processing failed for {self.server_name}: {e}")
             results['error'] = str(e)
         
-        finally:
-            # Unregister session
-            if self.state_manager:
-                await self.state_manager.unregister_session(self.guild_id, self.server_name, 'killfeed')
-        
         return results
     
-    async def _finish_previous_file(self, current_state: ParserState) -> List[KillfeedEvent]:
+    async def _finish_previous_file(self, current_state: KillfeedState) -> List[KillfeedEvent]:
         """Finish processing the previous file from last known position"""
         events = []
         
