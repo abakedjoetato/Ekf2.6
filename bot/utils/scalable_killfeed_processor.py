@@ -36,6 +36,16 @@ class ScalableKillfeedProcessor:
         self.server_name = server_config.get('name', server_config.get('server_name', 'default'))
         self.cancelled = False
         self.state_manager = get_shared_state_manager()
+    
+    def _get_killfeed_path(self) -> str:
+        """Get the killfeed path for this server"""
+        if 'killfeed_path' in self.server_config:
+            return self.server_config['killfeed_path']
+        
+        # Build dynamic path based on server configuration
+        host = self.server_config.get('host', 'unknown')
+        server_id = self.server_config.get('_id', self.server_config.get('server_id', 'unknown'))
+        return f"./{host}_{server_id}/actual1/deathlogs/"
         
     async def process_server_killfeed(self, progress_callback=None) -> Dict[str, Any]:
         """Main entry point for incremental killfeed processing"""
@@ -102,10 +112,35 @@ class ScalableKillfeedProcessor:
                     return None
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
+                killfeed_path = self._get_killfeed_path()
                 
-                # List files and find newest timestamp
-                file_list = await sftp.listdir(killfeed_path)
+                # List files and find newest timestamp - use glob for wildcard support
+                try:
+                    # For paths with wildcards, we need to find matching directories first
+                    if '*' in killfeed_path:
+                        import glob
+                        # Handle wildcard paths by finding actual directories
+                        base_path = killfeed_path.split('*')[0]  # Get path before first wildcard
+                        file_list = []
+                        # Try to list files in matching subdirectories
+                        try:
+                            dirs = await sftp.listdir(base_path.rstrip('/'))
+                            for dir_name in dirs:
+                                subdir_path = f"{base_path.rstrip('/')}/{dir_name}"
+                                try:
+                                    subfiles = await sftp.listdir(subdir_path)
+                                    for subfile in subfiles:
+                                        if subfile.endswith('.csv'):
+                                            file_list.append(f"{dir_name}/{subfile}")
+                                except:
+                                    continue
+                        except:
+                            file_list = []
+                    else:
+                        file_list = await sftp.listdir(killfeed_path)
+                except Exception as e:
+                    logger.warning(f"Could not list killfeed directory {killfeed_path}: {e}")
+                    return None
                 file_attrs = []
                 for filename in file_list:
                     if filename.endswith('.csv'):
@@ -162,7 +197,7 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
+                killfeed_path = self._get_killfeed_path()
                 file_path = f"{killfeed_path.rstrip('/')}/{current_state.last_file}"
                 
                 # Read from last known position to end of file
@@ -196,7 +231,7 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
+                killfeed_path = self._get_killfeed_path()
                 file_path = f"{killfeed_path.rstrip('/')}/{current_file}"
                 
                 # Get current file size
@@ -235,7 +270,7 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
+                killfeed_path = self._get_killfeed_path()
                 file_path = f"{killfeed_path.rstrip('/')}/{newest_file}"
                 
                 # Read entire file content
