@@ -38,7 +38,7 @@ class ScalableUnifiedParser:
             logger.info(f"🔍 Scalable unified parser: Processing {len(guild_configs)} guilds with {total_servers} total servers")
             
             # Process all guilds using the multi-guild processor with activity tracking
-            processor = MultiGuildUnifiedProcessor()
+            processor = MultiGuildUnifiedProcessor(self.bot)
             results = await processor.process_all_guilds(guild_configs)
             
             # Track activity levels for smart scheduling
@@ -246,7 +246,7 @@ class ScalableUnifiedParser:
                 server['guild_id'] = guild_id
             
             # Process guild
-            processor = ScalableUnifiedProcessor(guild_id)
+            processor = ScalableUnifiedProcessor(guild_id, self.bot)
             self.active_sessions[guild_id] = processor
             
             try:

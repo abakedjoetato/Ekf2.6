@@ -41,8 +41,9 @@ class ServerFileState:
 class ScalableUnifiedProcessor:
     """Manages scalable unified log processing for a single guild"""
     
-    def __init__(self, guild_id: int):
+    def __init__(self, guild_id: int, bot=None):
         self.guild_id = guild_id
+        self.bot = bot
         self.server_states: Dict[str, ServerFileState] = {}
         self.cancelled = False
         self.state_manager = get_shared_state_manager()
@@ -553,19 +554,79 @@ class ScalableUnifiedProcessor:
             logger.error(f"Failed to process log entry: {e}")
     
     async def _handle_player_join(self, entry: LogEntry):
-        """Handle player join event"""
-        # TODO: Integrate with existing player session tracking
-        logger.debug(f"Player {entry.player_name} joined {entry.server_name}")
+        """Handle player join event with proper session tracking"""
+        try:
+            if not entry.player_name:
+                return
+            
+            logger.info(f"Player {entry.player_name} joined {entry.server_name}")
+            
+            # Get bot's database manager
+            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
+                # Update player session to online
+                await self.bot.db_manager.start_player_session(
+                    self.guild_id,
+                    entry.player_name,
+                    entry.server_name,
+                    entry.timestamp
+                )
+                logger.debug(f"Started session for {entry.player_name}")
+            else:
+                logger.warning(f"No database manager available to start session for {entry.player_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle player join for {entry.player_name}: {e}")
     
     async def _handle_player_leave(self, entry: LogEntry):
-        """Handle player leave event"""
-        # TODO: Integrate with existing player session tracking
-        logger.debug(f"Player {entry.player_name} left {entry.server_name}")
+        """Handle player leave event with proper session tracking"""
+        try:
+            if not entry.player_name:
+                return
+            
+            logger.info(f"Player {entry.player_name} left {entry.server_name}")
+            
+            # Get bot's database manager
+            if hasattr(self, 'bot') and hasattr(self.bot, 'db_manager'):
+                # End player session
+                await self.bot.db_manager.end_player_session(
+                    self.guild_id,
+                    entry.player_name,
+                    entry.timestamp
+                )
+                logger.debug(f"Ended session for {entry.player_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle player leave for {entry.player_name}: {e}")
     
     async def _handle_kill_event(self, entry: LogEntry):
-        """Handle kill event"""
-        # TODO: Integrate with existing kill tracking
-        logger.debug(f"Kill event on {entry.server_name}")
+        """Handle kill event with proper kill tracking"""
+        try:
+            kill_data = entry.additional_data
+            if not kill_data or 'killer' not in kill_data or 'victim' not in kill_data:
+                return
+            
+            killer = kill_data['killer']
+            victim = kill_data['victim']
+            weapon = kill_data.get('weapon', 'Unknown')
+            
+            logger.info(f"Kill event: {killer} killed {victim} with {weapon} on {entry.server_name}")
+            
+            # Get bot's database manager
+            if hasattr(self, 'bot') and hasattr(self.bot, 'db_manager'):
+                # Record the kill
+                await self.bot.db_manager.record_kill(
+                    guild_id=self.guild_id,
+                    killer_name=killer,
+                    victim_name=victim,
+                    weapon=weapon,
+                    server_name=entry.server_name,
+                    timestamp=entry.timestamp,
+                    distance=kill_data.get('distance', 0)
+                )
+                logger.debug(f"Recorded kill: {killer} -> {victim}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle kill event: {e}")
     
     def cancel(self):
         """Cancel the processing"""
@@ -574,8 +635,9 @@ class ScalableUnifiedProcessor:
 class MultiGuildUnifiedProcessor:
     """Manages unified processing across multiple guilds"""
     
-    def __init__(self):
+    def __init__(self, bot=None):
         self.processors: Dict[int, ScalableUnifiedProcessor] = {}
+        self.bot = bot
     
     async def process_all_guilds(self, guild_configs: Dict[int, List[Dict[str, Any]]]) -> Dict[str, Any]:
         """Process unified logs for all guilds with staggered processing for resource management"""
@@ -619,7 +681,7 @@ class MultiGuildUnifiedProcessor:
             batch_processors = {}
             
             for guild_id, batch_server_configs in guild_batch.items():
-                processor = ScalableUnifiedProcessor(guild_id)
+                processor = ScalableUnifiedProcessor(guild_id, self.bot)
                 batch_processors[guild_id] = processor
                 
                 task = processor.process_guild_servers(batch_server_configs)
