@@ -47,6 +47,8 @@ class ScalableUnifiedProcessor:
         self.server_states: Dict[str, ServerFileState] = {}
         self.cancelled = False
         self.state_manager = get_shared_state_manager()
+        self._cold_start_mode = False
+        self.database = None  # Will be set when needed
         
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
                                   progress_callback=None) -> Dict[str, Any]:
@@ -179,20 +181,43 @@ class ScalableUnifiedProcessor:
                             "last_updated": {"$gte": recent_reset_time}
                         })
                         
+                        # COLD START CONDITIONS:
+                        # 1. Bot restart detected (recent_resets > 0)
+                        # 2. File rotation detected (hash changed)
+                        # 3. New server (no stored state)
+                        # 4. More than 1500 new lines detected
+                        
                         if recent_resets > 0:
                             rotation_detected = True
-                            logger.info(f"Cold start: Bot restart detected for {server_name} - forcing state reset")
+                            logger.info(f"🔄 COLD START TRIGGER: Bot restart detected for {server_name}")
                         elif stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
                             if stored_state.file_timestamp != current_hash:
                                 rotation_detected = True
-                                logger.info(f"Cold start: File rotation detected for {server_name} - resetting state")
+                                logger.info(f"🔄 COLD START TRIGGER: File rotation detected for {server_name}")
                             else:
-                                last_position = stored_state.last_byte_position
-                                last_line = stored_state.last_line
+                                # Check for more than 1500 new lines (cold start trigger #4)
+                                try:
+                                    current_file_size = await conn.start_sftp_client()
+                                    stat_result = await current_file_size.stat(deadside_log_path)
+                                    if hasattr(stat_result, 'size'):
+                                        bytes_to_read = stat_result.size - stored_state.last_byte_position
+                                        if bytes_to_read > 150000:  # Approximately 1500 lines (100 chars per line avg)
+                                            rotation_detected = True
+                                            logger.info(f"🔄 COLD START TRIGGER: Large log growth detected for {server_name} ({bytes_to_read} new bytes)")
+                                        else:
+                                            last_position = stored_state.last_byte_position
+                                            last_line = stored_state.last_line
+                                    else:
+                                        last_position = stored_state.last_byte_position
+                                        last_line = stored_state.last_line
+                                except Exception as e:
+                                    logger.warning(f"Could not check file size for {server_name}: {e}")
+                                    last_position = stored_state.last_byte_position
+                                    last_line = stored_state.last_line
                         else:
                             # Cold start scenarios: new server, or no stored state
                             rotation_detected = True
-                            logger.info(f"Cold start: First time processing {server_name} (new server or no stored state)")
+                            logger.info(f"🔄 COLD START TRIGGER: New server or no stored state for {server_name}")
                     else:
                         # Fallback: no database access
                         rotation_detected = True
@@ -236,16 +261,30 @@ class ScalableUnifiedProcessor:
                 
                 async with sftp.open(deadside_log_path, 'rb') as file:
                     if file_state.rotation_detected:
-                        # Cold start: file rotation, bot startup, or new server - process entire file and reset player states
-                        logger.info(f"Cold start processing for {server_name} - resetting all player sessions")
-                        self._cold_start_mode = True  # Set cold start mode to skip embed sending
+                        # COLD START: Reset everything and parse from beginning
+                        logger.info(f"🔄 COLD START for {server_name} - parsing entire log from line 0, skipping embeds")
+                        self._cold_start_mode = True  # Block all embed outputs
+                        
+                        # Reset all player sessions to offline - import database manager locally
+                        try:
+                            from bot.models.database import DatabaseManager
+                            db = DatabaseManager.get_instance()
+                            if db:
+                                await db.reset_player_sessions_for_server(self.guild_id, server_id)
+                                logger.info(f"🔄 Cold start: Reset player sessions for {server_name}")
+                        except Exception as e:
+                            logger.warning(f"Could not reset player sessions for {server_name}: {e}")
+                        
+                        # Read entire file from position 0
+                        await file.seek(0)
                         content = await file.read()
-                        await self._handle_server_restart(server_name)
                         start_position = 0
                         start_line = 0
+                        
+                        logger.info(f"🔄 Cold start: Processing entire log file ({len(content)} bytes) for {server_name}")
                     else:
-                        # Hot run: continue from last position
-                        logger.info(f"Hot run processing for {server_name} - incremental from position {file_state.last_position}")
+                        # HOT RUN: Continue from last position
+                        logger.info(f"🔥 HOT RUN for {server_name} - incremental from position {file_state.last_position}")
                         self._cold_start_mode = False  # Normal mode, send embeds
                         await file.seek(file_state.last_position)
                         content = await file.read()
