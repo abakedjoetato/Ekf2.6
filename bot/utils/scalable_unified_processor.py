@@ -245,9 +245,24 @@ class ScalableUnifiedProcessor:
                         # 3. New server (no stored state)
                         # 4. More than 1500 new lines detected
                         
-                        # FORCE COLD START: Always trigger cold start for accurate player tracking
-                        rotation_detected = True
-                        logger.info(f"🔄 COLD START FORCED: Complete log reprocessing for {server_name}")
+                        if stored_state is None:
+                            # New server - cold start required
+                            rotation_detected = True
+                            logger.info(f"🔄 COLD START: New server detected for {server_name}")
+                        elif stored_state.get('file_hash') != current_hash:
+                            # File rotation detected
+                            rotation_detected = True
+                            logger.info(f"🔄 COLD START: File rotation detected for {server_name}")
+                        elif recent_resets > 5:
+                            # Bot restart detected
+                            rotation_detected = True
+                            logger.info(f"🔄 COLD START: Bot restart detected for {server_name}")
+                        else:
+                            # Hot start - continue from last position
+                            rotation_detected = False
+                            last_position = stored_state.get('last_position', 0)
+                            last_line = stored_state.get('last_line', 0)
+                            logger.info(f"🔥 HOT START: Continuing from position {last_position}, line {last_line} for {server_name}")
                     else:
                         # Fallback: no database access - force cold start
                         rotation_detected = True
