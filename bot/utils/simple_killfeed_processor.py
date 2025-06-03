@@ -273,19 +273,18 @@ class SimpleKillfeedProcessor:
                             if not line:
                                 continue
                             
-                            # Debug: Log first few lines to understand format
-                            if i < 5:
-                                logger.info(f"Line {i+1}: {line}")
+                            # Debug: Log ALL lines to understand what we're processing
+                            logger.info(f"Line {i+1}: '{line}'")
                             
                             # Parse killfeed line
                             event = self._parse_killfeed_line(line, start_line + i, filename)
                             if event:
                                 events.append(event)
-                                logger.info(f"Found killfeed event: {event.killer} killed {event.victim}")
-                            elif i < 5:
-                                parts_comma = [part.strip().strip('"') for part in line.split(',')]
-                                parts_semicolon = [part.strip().strip('"') for part in line.split(';')]
-                                logger.warning(f"Failed to parse line {i+1} - comma split: {len(parts_comma)} columns, semicolon split: {len(parts_semicolon)} columns: {line}")
+                                logger.info(f"✅ Found killfeed event: {event.killer} killed {event.victim} with {event.weapon}")
+                            else:
+                                # Show detailed parsing failure for every line
+                                parts_semicolon = line.split(';')
+                                logger.warning(f"❌ Failed to parse line {i+1} (semicolon split: {len(parts_semicolon)} parts): '{line}'")
                         
                         # Update state
                         if self.state_manager and lines:
@@ -309,28 +308,60 @@ class SimpleKillfeedProcessor:
         return events
     
     def _parse_killfeed_line(self, line: str, line_number: int, filename: str) -> Optional[KillfeedEvent]:
-        """Parse a single killfeed CSV line"""
+        """Parse a single killfeed CSV line using historical parser's exact logic"""
         try:
-            # CSV format: timestamp;killer_name;killer_id;victim_name;victim_id;weapon;distance;killer_platform;victim_platform
-            parts = [part.strip().strip('"') for part in line.split(';')]
-            
-            if len(parts) >= 9:
-                timestamp_str = parts[0]
-                timestamp = self._parse_timestamp(timestamp_str)
+            # Use historical parser's exact CSV parsing logic
+            parts = line.strip().split(';')
+            if len(parts) < 7:
+                return None
                 
-                if timestamp:
-                    return KillfeedEvent(
-                        timestamp=timestamp,
-                        killer=parts[1],  # killer_name
-                        victim=parts[3],  # victim_name  
-                        weapon=parts[5],  # weapon
-                        distance=int(parts[6]) if parts[6].isdigit() else 0,  # distance
-                        killer_platform=parts[7],  # killer_platform
-                        victim_platform=parts[8],  # victim_platform
-                        raw_line=line,
-                        line_number=line_number,
-                        filename=filename
-                    )
+            timestamp_str = parts[0].strip()
+            killer = parts[1].strip()
+            killer_id = parts[2].strip()
+            victim = parts[3].strip()
+            victim_id = parts[4].strip()
+            weapon = parts[5].strip()
+            distance = parts[6].strip() if len(parts) > 6 else '0'
+
+            killer = killer.strip()
+            victim = victim.strip()
+
+            # Parse timestamp - handle multiple formats (from historical parser)
+            try:
+                timestamp = datetime.strptime(timestamp_str, '%Y.%m.%d-%H.%M.%S')
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            except ValueError:
+                try:
+                    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    timestamp = datetime.utcnow().replace(tzinfo=timezone.utc)
+
+            # Parse distance (from historical parser)
+            try:
+                if distance and distance != '':
+                    distance_float = float(distance)
+                else:
+                    distance_float = 0.0
+            except ValueError:
+                distance_float = 0.0
+
+            # Get platform info if available (8th and 9th columns)
+            killer_platform = parts[7].strip() if len(parts) > 7 else ""
+            victim_platform = parts[8].strip() if len(parts) > 8 else ""
+
+            return KillfeedEvent(
+                timestamp=timestamp,
+                killer=killer,
+                victim=victim,
+                weapon=weapon,
+                distance=int(distance_float),
+                killer_platform=killer_platform,
+                victim_platform=victim_platform,
+                raw_line=line,
+                line_number=line_number,
+                filename=filename
+            )
             
         except Exception as e:
             logger.debug(f"Failed to parse killfeed line {line_number}: {e}")
