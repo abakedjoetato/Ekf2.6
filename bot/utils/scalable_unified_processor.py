@@ -1274,7 +1274,7 @@ class ScalableUnifiedProcessor:
                         await self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
-                            channel_type='events',
+                            channel_type='airdrops',
                             embed=embed,
                             file=file_attachment
                         )
@@ -1319,7 +1319,7 @@ class ScalableUnifiedProcessor:
                         await self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
-                            channel_type='events',
+                            channel_type='helicrashes',
                             embed=embed,
                             file=file_attachment
                         )
@@ -1364,7 +1364,7 @@ class ScalableUnifiedProcessor:
                         await self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
-                            channel_type='events',
+                            channel_type='traders',
                             embed=embed,
                             file=file_attachment
                         )

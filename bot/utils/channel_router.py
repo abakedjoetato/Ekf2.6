@@ -59,6 +59,22 @@ class ChannelRouter:
                 logger.info(f"Using legacy {channel_type} channel {legacy_channel_id} for server {server_id}")
                 return legacy_channel_id
             
+            # Ultimate fallback: Try to use guild default channel for any embed type
+            # Check if there's a general default channel configured
+            guild_default_channel = None
+            
+            # Try default server channels for 'general' or 'default' channel
+            if 'default' in server_channels:
+                guild_default_channel = server_channels['default'].get('general') or server_channels['default'].get('default')
+            
+            # Try legacy channels for 'general' or 'default'
+            if not guild_default_channel:
+                guild_default_channel = legacy_channels.get('general') or legacy_channels.get('default')
+            
+            if guild_default_channel:
+                logger.info(f"Using guild default channel {guild_default_channel} for {channel_type} (server {server_id})")
+                return guild_default_channel
+            
             logger.warning(f"No {channel_type} channel configured anywhere for guild {guild_id}, server {server_id}")
             logger.info(f"Available legacy channels: {list(legacy_channels.keys())}")
             return None
