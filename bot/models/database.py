@@ -1555,7 +1555,7 @@ class DatabaseManager:
             logger.error(f"Failed to get home guild: {e}")
             return None
 
-    async def add_premium_limit(self, guild_id: int, added_by: int, reason: str = None) -> bool:
+    async def add_premium_limit(self, guild_id: int, added_by: int, reason: Optional[str] = None) -> bool:
         """Add 1 to the premium server limit for a guild"""
         try:
             await self.premium_limits.update_one(
@@ -1567,7 +1567,7 @@ class DatabaseManager:
                             "action": "add",
                             "amount": 1,
                             "by": added_by,
-                            "reason": reason,
+                            "reason": reason or "No reason provided",
                             "timestamp": datetime.now(timezone.utc)
                         }
                     },
@@ -1580,7 +1580,7 @@ class DatabaseManager:
             logger.error(f"Failed to add premium limit: {e}")
             return False
 
-    async def remove_premium_limit(self, guild_id: int, removed_by: int, reason: str = None) -> bool:
+    async def remove_premium_limit(self, guild_id: int, removed_by: int, reason: Optional[str] = None) -> bool:
         """Remove 1 from the premium server limit for a guild"""
         try:
             # Get current limit
@@ -1600,7 +1600,7 @@ class DatabaseManager:
                             "action": "remove",
                             "amount": 1,
                             "by": removed_by,
-                            "reason": reason,
+                            "reason": reason or "No reason provided",
                             "timestamp": datetime.now(timezone.utc)
                         }
                     },

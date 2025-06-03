@@ -177,17 +177,10 @@ class EmeraldKillfeedBot(commands.Bot):
         total_commands = 0
         command_names = []
         
-        # py-cord 2.6.1 uses application_commands attribute
-        if hasattr(self, 'application_commands'):
-            total_commands = len(self.application_commands)
-            command_names = [cmd.name for cmd in self.application_commands[:10]]
-        else:
-            # Fallback: count from cogs directly
-            for cog in self.cogs.values():
-                if hasattr(cog, 'get_application_commands'):
-                    cog_commands = cog.get_application_commands()
-                    total_commands += len(cog_commands)
-                    command_names.extend([cmd.name for cmd in cog_commands[:10]])
+        # py-cord 2.6.1 command discovery
+        all_commands = self.pending_application_commands if hasattr(self, 'pending_application_commands') else []
+        total_commands = len(all_commands)
+        command_names = [cmd.name for cmd in all_commands[:10]]
         
         logger.info(f"📊 Total slash commands registered: {total_commands}")
         if command_names:
