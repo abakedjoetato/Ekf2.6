@@ -873,13 +873,14 @@ class ScalableUnifiedProcessor:
             
             # Create mission embed using EmbedFactory
             if self.bot and hasattr(self.bot, 'embed_factory'):
-                from datetime import datetime, timezone
+                mission_name = self.bot.embed_factory.normalize_mission_name(mission_id)
                 embed = self.bot.embed_factory.create_mission_embed(
+                    title="🎯 Mission Ready",
+                    description=f"**{mission_name}** is now available for deployment",
                     mission_id=mission_id,
-                    state='ready',
                     level=self.bot.embed_factory.get_mission_level(mission_id),
-                    respawn_time=None,
-                    timestamp=datetime.now(timezone.utc)
+                    state='READY',
+                    respawn_time=None
                 )
                 
                 if embed and hasattr(self.bot, 'channel_router'):

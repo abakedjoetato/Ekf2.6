@@ -324,14 +324,79 @@ class ScalableKillfeedProcessor:
         return None
     
     async def _deliver_killfeed_events(self, events: List[KillfeedEvent]):
-        """Deliver killfeed events to Discord channels"""
+        """Deliver killfeed events to Discord channels with proper routing"""
         try:
-            # This would integrate with the existing killfeed delivery system
-            # For now, just log the events processed
-            logger.info(f"Processed {len(events)} killfeed events for {self.server_name}")
+            if not events:
+                return
+                
+            logger.info(f"Delivering {len(events)} killfeed events for {self.server_name}")
             
-            # TODO: Integrate with Discord channel delivery system
-            # This should call the existing killfeed formatting and delivery logic
+            # Get bot instance from the first processor in the hierarchy
+            bot = None
+            if hasattr(self, 'bot'):
+                bot = self.bot
+            elif self.state_manager and hasattr(self.state_manager, 'bot'):
+                bot = self.state_manager.bot
+            
+            if not bot or not hasattr(bot, 'embed_factory') or not hasattr(bot, 'channel_router'):
+                logger.warning(f"Bot components not available for killfeed delivery")
+                return
+            
+            # Process each kill event
+            for event in events[:10]:  # Limit to prevent spam
+                try:
+                    # Determine if this is a suicide
+                    is_suicide = event.killer.lower() == event.victim.lower()
+                    
+                    # Normalize suicide weapons
+                    weapon = event.weapon
+                    if is_suicide and weapon.lower() in ['suicide_by_relocation', 'relocation']:
+                        weapon = 'Menu Suicide'
+                    
+                    # Create killfeed embed data
+                    embed_data = {
+                        'killer': event.killer,
+                        'victim': event.victim,
+                        'weapon': weapon,
+                        'distance': event.distance,
+                        'timestamp': event.timestamp,
+                        'is_suicide': is_suicide,
+                        'killer_platform': getattr(event, 'killer_platform', 'PC'),
+                        'victim_platform': getattr(event, 'victim_platform', 'PC')
+                    }
+                    
+                    # Build embed using EmbedFactory
+                    embed, file_attachment = await bot.embed_factory.build('killfeed', embed_data)
+                    
+                    if embed:
+                        # Send to killfeed channel with server-specific routing
+                        success = await bot.channel_router.send_embed_to_channel(
+                            guild_id=self.guild_id,
+                            server_id=self.server_name,
+                            channel_type='killfeed',
+                            embed=embed,
+                            file=file_attachment
+                        )
+                        
+                        if success:
+                            logger.debug(f"Sent killfeed embed: {event.killer} -> {event.victim}")
+                        else:
+                            logger.warning(f"Failed to send killfeed embed to channel")
+                    
+                    # Record kill in database for stats
+                    if hasattr(bot, 'db_manager') and bot.db_manager:
+                        await bot.db_manager.record_kill(
+                            guild_id=self.guild_id,
+                            killer_name=event.killer,
+                            victim_name=event.victim,
+                            weapon=weapon,
+                            server_name=self.server_name,
+                            timestamp=event.timestamp,
+                            distance=event.distance
+                        )
+                
+                except Exception as event_error:
+                    logger.error(f"Failed to process individual kill event: {event_error}")
             
         except Exception as e:
             logger.error(f"Failed to deliver killfeed events: {e}")
