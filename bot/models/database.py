@@ -1102,7 +1102,7 @@ class DatabaseManager:
             return False
 
     async def update_player_state(self, guild_id: int, player_id: str, state: str, server_name: str, timestamp: datetime, skip_voice_update: bool = False) -> bool:
-        """Update player state and return if state actually changed"""
+        """Update player state and return if state actually changed - Enhanced with transaction safety"""
         try:
             # Check current state
             current_session = await self.player_sessions.find_one({
@@ -1115,60 +1115,53 @@ class DatabaseManager:
             state_changed = current_state != state
             
             if state_changed:
-                # Update player session state with enhanced logging
-                update_result = await self.player_sessions.update_one(
+                # Prepare complete session document with all required fields
+                session_data = {
+                    "guild_id": guild_id,
+                    "player_id": player_id,
+                    "state": state,
+                    "server_name": server_name,
+                    "last_updated": timestamp,
+                    "player_name": f"Player{player_id[:8].upper()}",
+                    "joined_at": timestamp.isoformat() if state == 'online' else current_session.get('joined_at') if current_session else None,
+                    "platform": "Unknown"
+                }
+                
+                # Use replace_one with upsert for atomic operation
+                update_result = await self.player_sessions.replace_one(
                     {"guild_id": guild_id, "player_id": player_id},
-                    {
-                        "$set": {
-                            "state": state,
-                            "server_name": server_name,
-                            "last_updated": timestamp,
-                            "player_name": f"Player{player_id[:8].upper()}"  # Ensure player name is set
-                        }
-                    },
+                    session_data,
                     upsert=True
                 )
                 
-                # Log database operation result
+                # Enhanced logging with verification
                 if update_result.upserted_id:
-                    logger.debug(f"Created new session for {player_id[:8]}... -> {state}")
+                    logger.info(f"✓ Created session for {player_id[:8]}... -> {state} on {server_name}")
+                    # Verify the insertion actually worked
+                    verification = await self.player_sessions.find_one({"guild_id": guild_id, "player_id": player_id})
+                    if verification:
+                        logger.debug(f"✓ Verified session exists: {verification.get('state')} on {verification.get('server_name')}")
+                    else:
+                        logger.error(f"✗ Session verification failed for {player_id[:8]}...")
                 elif update_result.modified_count > 0:
-                    logger.debug(f"Updated session for {player_id[:8]}... -> {state}")
+                    logger.info(f"✓ Updated session for {player_id[:8]}... -> {state} on {server_name}")
                 else:
-                    logger.warning(f"Database update failed for {player_id[:8]}... -> {state}")
-                
-                # If state changed to online/offline, send connection embed
-                if hasattr(self, 'bot') and self.bot:
-                    bot = self.bot
-                    if hasattr(bot, 'embed_factory') and hasattr(bot, 'channel_router'):
-                        # Get player name from session data
-                        player_name = current_session.get('player_name', f'Player{player_id[:8].upper()}') if current_session else f'Player{player_id[:8].upper()}'
-                        
-                        embed_data = {
-                            'player_name': player_name,
-                            'server_name': server_name,
-                            'timestamp': timestamp,
-                            'action': 'join' if state == 'online' else 'leave'
-                        }
-                        
-                        try:
-                            embed, file_attachment = await bot.embed_factory.build('connection', embed_data)
-                            if embed:
-                                await bot.channel_router.send_embed_to_channel(
-                                    guild_id=guild_id,
-                                    server_id=server_name,
-                                    channel_type='connections',
-                                    embed=embed,
-                                    file=file_attachment
-                                )
-                                logger.debug(f"Sent connection embed for {player_name} {state} on {server_name}")
-                        except Exception as embed_error:
-                            logger.warning(f"Failed to send connection embed: {embed_error}")
+                    logger.warning(f"✗ Database operation returned no changes for {player_id[:8]}... -> {state}")
+                    
+                    # Force verification of current state
+                    post_update_session = await self.player_sessions.find_one({"guild_id": guild_id, "player_id": player_id})
+                    if post_update_session:
+                        current_db_state = post_update_session.get('state')
+                        logger.info(f"Post-update verification: {player_id[:8]}... is {current_db_state}")
+                    else:
+                        logger.error(f"Post-update verification: no session found for {player_id[:8]}...")
             
             return state_changed
             
         except Exception as e:
-            logger.error(f"Failed to update player state: {e}")
+            logger.error(f"Failed to update player state for {player_id[:8]}...: {e}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
             return False
 
     async def get_active_player_count(self, guild_id: int, server_name: str) -> int:
