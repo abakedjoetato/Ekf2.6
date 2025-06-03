@@ -376,36 +376,44 @@ class ScalableUnifiedProcessor:
             except:
                 pass
         
-        # Deadside player connection events - based on actual log format
-        if 'logsfps' in content_lower:
-            # Player online status updates: "InformAuthorizedCharacters Online |player_id type 1"
-            if 'informauthorizedcharacters online' in content_lower and '|' in content:
-                player_id = self._extract_deadside_player_id(content)
-                return 'join', player_id, {
-                    'action': 'online_update',
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
+        # Deadside player lifecycle events - based on actual log format
+        if 'lognet' in content_lower:
+            # Queue state: Join request with player info
+            if 'join request:' in content_lower and 'eosid=' in content_lower:
+                player_data = self._extract_deadside_queue_data(content)
+                if player_data:
+                    return 'queue', player_data['eosid'], {
+                        'action': 'queue',
+                        'player_name': player_data.get('name'),
+                        'platform_id': player_data.get('platformid'),
+                        'native_platform': player_data.get('nativeplatform'),
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
             
-            # Traditional connection patterns (fallback)
-            if 'player' in content_lower and ('connect' in content_lower or 'join' in content_lower or 'login' in content_lower):
-                player_name = self._extract_deadside_player_name(content)
-                return 'join', player_name, {
-                    'action': 'connect',
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
-            
-            if 'player' in content_lower and ('disconnect' in content_lower or 'leave' in content_lower or 'logout' in content_lower):
-                player_name = self._extract_deadside_player_name(content)
-                return 'leave', player_name, {
-                    'action': 'disconnect',
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
+            # Offline state: Connection closed/disconnected
+            if 'uchannel::close' in content_lower and 'eosid=' in content_lower:
+                player_id = self._extract_eosid_from_disconnect(content)
+                if player_id:
+                    return 'leave', player_id, {
+                        'action': 'disconnect',
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
+        
+        if 'logonline' in content_lower:
+            # Online state: Successfully registered
+            if 'player' in content_lower and 'successfully registered' in content_lower and '|' in content:
+                player_id = self._extract_eosid_from_registration(content)
+                if player_id:
+                    return 'join', player_id, {
+                        'action': 'registered',
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
         
         # Deadside kill/death events
         if ('logsfps' in content_lower and 'kill' in content_lower) or ('damage' in content_lower and 'death' in content_lower):
@@ -458,6 +466,47 @@ class ScalableUnifiedProcessor:
             'message': message
         }
     
+    def _extract_deadside_queue_data(self, content: str) -> Optional[Dict[str, str]]:
+        """Extract player data from join request queue log"""
+        import re
+        # Pattern: Join request: /Game/Maps/world_0/World_0?logintype=eos?login=ExHyper?password=*?eosid=|000240ecc1ba45d59962bc2d34e0177e?ver=1.3.2.24846c?nativeplatform=PS5?platformid=PS5:3566759921101398874?Name=ExHyper?SplitscreenCount=1
+        
+        patterns = {
+            'eosid': r'eosid=\|([a-f0-9]{32})',
+            'name': r'Name=([^?]+)',
+            'platformid': r'platformid=([^?]+)',
+            'nativeplatform': r'nativeplatform=([^?]+)',
+            'login': r'login=([^?]+)'
+        }
+        
+        data = {}
+        for key, pattern in patterns.items():
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                data[key] = match.group(1).strip()
+        
+        return data if 'eosid' in data else None
+    
+    def _extract_eosid_from_registration(self, content: str) -> Optional[str]:
+        """Extract EOSID from player registration log"""
+        import re
+        # Pattern: Player |000240ecc1ba45d59962bc2d34e0177e successfully registered!
+        pattern = r'Player \|([a-f0-9]{32}) successfully registered'
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return None
+    
+    def _extract_eosid_from_disconnect(self, content: str) -> Optional[str]:
+        """Extract EOSID from disconnect log"""
+        import re
+        # Pattern: UChannel::Close: ... UniqueId: EOS:|000240ecc1ba45d59962bc2d34e0177e
+        pattern = r'UniqueId: EOS:\|([a-f0-9]{32})'
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return None
+
     def _extract_deadside_player_name(self, content: str) -> Optional[str]:
         """Extract player name from Deadside log content"""
         # Deadside specific patterns for player names
@@ -576,10 +625,10 @@ class ScalableUnifiedProcessor:
     async def _process_single_entry(self, entry: LogEntry):
         """Process a single log entry"""
         try:
-            # This would integrate with existing unified log parser logic
-            # Handle player connections, kills, etc.
-            
-            if entry.entry_type == 'join' and entry.player_name:
+            # Handle Deadside player lifecycle events (queue, join, leave)
+            if entry.entry_type == 'queue' and entry.player_name:
+                await self._handle_player_queue(entry)
+            elif entry.entry_type == 'join' and entry.player_name:
                 await self._handle_player_join(entry)
             elif entry.entry_type == 'leave' and entry.player_name:
                 await self._handle_player_leave(entry)
@@ -589,49 +638,93 @@ class ScalableUnifiedProcessor:
         except Exception as e:
             logger.error(f"Failed to process log entry: {e}")
     
-    async def _handle_player_join(self, entry: LogEntry):
-        """Handle player join event with proper session tracking"""
+    async def _handle_player_queue(self, entry: LogEntry):
+        """Handle player queue event (join request)"""
         try:
             if not entry.player_name:
                 return
             
-            logger.info(f"Player {entry.player_name} joined {entry.server_name}")
+            eosid = entry.player_name  # EOSID is stored in player_name field
+            additional_data = entry.additional_data or {}
+            player_name = additional_data.get('player_name', f'Player{eosid[:8]}')
             
-            # Get bot's database manager
+            logger.info(f"Player {player_name} ({eosid}) queued for {entry.server_name}")
+            
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # Update player session to online
-                await self.bot.db_manager.start_player_session(
+                # Update player to queued state
+                await self.bot.db_manager.update_player_state(
                     self.guild_id,
-                    entry.player_name,
+                    eosid,
+                    'queued',
+                    entry.server_name,
+                    entry.timestamp,
+                    player_name=player_name,
+                    platform_id=additional_data.get('platform_id'),
+                    native_platform=additional_data.get('native_platform')
+                )
+                logger.debug(f"Player {player_name} set to queued state")
+            else:
+                logger.warning(f"No database manager available for queue event: {player_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to handle player queue: {e}")
+
+    async def _handle_player_join(self, entry: LogEntry):
+        """Handle player join event (successfully registered)"""
+        try:
+            if not entry.player_name:
+                return
+            
+            eosid = entry.player_name  # EOSID is stored in player_name field
+            
+            logger.info(f"Player {eosid} registered online on {entry.server_name}")
+            
+            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
+                # Update player to online state - this may trigger connection embed
+                state_changed = await self.bot.db_manager.update_player_state(
+                    self.guild_id,
+                    eosid,
+                    'online',
                     entry.server_name,
                     entry.timestamp
                 )
-                logger.debug(f"Started session for {entry.player_name}")
+                
+                if state_changed:
+                    logger.info(f"Player {eosid} state changed to online - embed will be sent")
+                else:
+                    logger.debug(f"Player {eosid} already online - no embed needed")
             else:
-                logger.warning(f"No database manager available to start session for {entry.player_name}")
+                logger.warning(f"No database manager available for join event: {eosid}")
             
         except Exception as e:
             logger.error(f"Failed to handle player join for {entry.player_name}: {e}")
     
     async def _handle_player_leave(self, entry: LogEntry):
-        """Handle player leave event with proper session tracking"""
+        """Handle player leave event (connection closed)"""
         try:
             if not entry.player_name:
                 return
             
-            logger.info(f"Player {entry.player_name} left {entry.server_name}")
+            eosid = entry.player_name  # EOSID is stored in player_name field
             
-            # Get bot's database manager
+            logger.info(f"Player {eosid} disconnected from {entry.server_name}")
+            
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # End player session
-                await self.bot.db_manager.end_player_session(
+                # Update player to offline state - this may trigger disconnect embed
+                state_changed = await self.bot.db_manager.update_player_state(
                     self.guild_id,
-                    entry.player_name,
+                    eosid,
+                    'offline',
+                    entry.server_name,
                     entry.timestamp
                 )
-                logger.debug(f"Ended session for {entry.player_name}")
+                
+                if state_changed:
+                    logger.info(f"Player {eosid} state changed to offline - embed will be sent")
+                else:
+                    logger.debug(f"Player {eosid} already offline - no embed needed")
             else:
-                logger.warning(f"No database manager available to end session for {entry.player_name}")
+                logger.warning(f"No database manager available for leave event: {eosid}")
             
         except Exception as e:
             logger.error(f"Failed to handle player leave for {entry.player_name}: {e}")
