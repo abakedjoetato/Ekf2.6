@@ -270,7 +270,7 @@ class SimpleKillfeedProcessor:
                 # Update state after processing
                 if self.state_manager and lines:
                     final_line = start_line + len(lines)
-                    final_byte = start_byte + len(content.encode('utf-8'))
+                    final_byte = start_byte + len(content)
                     
                     await self.state_manager.update_parser_state(
                         self.guild_id, self.server_name,

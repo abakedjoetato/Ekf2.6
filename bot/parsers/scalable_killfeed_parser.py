@@ -214,7 +214,7 @@ class ScalableKillfeedParser:
         try:
             # Cancel any active sessions
             for guild_id, processor in list(self.active_sessions.items()):
-                for server_processor in processor.processors.values():
+                for server_processor in processor.active_processors.values():
                     server_processor.cancel()
                 del self.active_sessions[guild_id]
             
@@ -228,7 +228,7 @@ class ScalableKillfeedParser:
         return {
             guild_id: {
                 'guild_id': guild_id,
-                'processors': len(processor.processors),
+                'processors': len(processor.active_processors),
                 'active': True
             }
             for guild_id, processor in self.active_sessions.items()
