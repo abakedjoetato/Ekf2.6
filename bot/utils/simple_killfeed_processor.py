@@ -1,6 +1,8 @@
 """
-Simple Killfeed Processor - Fixed Version
-Clean implementation without shared state manager dependencies
+Simple Killfeed Processor
+Based on historical parser's proven CSV discovery and processing approach
+Maintains state instead of clearing it like historical parser does
+Shares state system with historical parser (separate from unified parser)
 """
 
 import asyncio
@@ -10,7 +12,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 
-from bot.utils.connection_pool import connection_manager
+from bot.utils.connection_pool import GlobalConnectionManager, connection_manager
+from bot.utils.shared_parser_state import get_shared_state_manager, ParserState
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,7 @@ class SimpleKillfeedProcessor:
         self.guild_id = guild_id
         self.server_config = server_config
         self.server_name = server_config.get('name', 'Unknown')
+        self.state_manager = get_shared_state_manager()
         self.bot = bot
         self.cancelled = False
         
@@ -52,15 +56,28 @@ class SimpleKillfeedProcessor:
         }
         
         try:
-            # Find newest CSV file
-            newest_file = await self._discover_newest_csv_file()
-            if not newest_file:
-                logger.info(f"No killfeed CSV files found for {self.server_name}")
-                results['success'] = True
-                return results
+            # Register session with shared state manager
+            if self.state_manager:
+                await self.state_manager.register_session(self.guild_id, self.server_name, 'killfeed')
             
-            # Process the file
-            events = await self._process_csv_file(newest_file)
+            # Get current state from shared manager
+            current_state = None
+            if self.state_manager:
+                current_state = await self.state_manager.get_parser_state(self.guild_id, self.server_name)
+            
+            events = []
+            
+            # Finish processing previous file if state exists
+            if current_state and current_state.last_file:
+                events.extend(await self._finish_previous_file(current_state))
+            
+            # Discover and process newest CSV file
+            newest_file = await self._discover_newest_csv_file()
+            if newest_file:
+                # Check if we need to switch to a newer file
+                if not current_state or current_state.last_file != newest_file:
+                    new_events = await self._process_csv_file(newest_file, current_state)
+                    events.extend(new_events)
             
             if events:
                 # Deliver events to Discord
@@ -74,8 +91,74 @@ class SimpleKillfeedProcessor:
             logger.error(f"Killfeed processing failed for {self.server_name}: {e}")
             results['error'] = str(e)
         
+        finally:
+            # Unregister session
+            if self.state_manager:
+                await self.state_manager.unregister_session(self.guild_id, self.server_name, 'killfeed')
+        
         return results
     
+    async def _finish_previous_file(self, current_state: ParserState) -> List[KillfeedEvent]:
+        """Finish processing the previous file from last known position"""
+        events = []
+        
+        try:
+            # Construct path to previous file
+            killfeed_path = self._get_killfeed_path()
+            previous_file_path = f"{killfeed_path}world_0/{current_state.last_file}"
+            
+            logger.info(f"Finishing previous file: {current_state.last_file} from line {current_state.last_line}")
+            
+            async with connection_manager.get_connection(self.guild_id, self.server_config) as conn:
+                if not conn:
+                    return events
+                
+                sftp = await conn.start_sftp_client()
+                
+                # Check if previous file still exists
+                try:
+                    await sftp.stat(previous_file_path)
+                except:
+                    logger.warning(f"Previous file {current_state.last_file} no longer exists")
+                    return events
+                
+                # Read from last known position to end of file
+                async with sftp.open(previous_file_path, 'rb') as file:
+                    await file.seek(current_state.last_byte_position)
+                    remaining_content = await file.read()
+                    
+                    if remaining_content:
+                        lines = remaining_content.decode('utf-8', errors='ignore').splitlines()
+                        
+                        # Process remaining lines
+                        for i, line in enumerate(lines):
+                            if self.cancelled:
+                                break
+                            
+                            line = line.strip()
+                            if not line:
+                                continue
+                            
+                            event = self._parse_killfeed_line(line, current_state.last_line + i, current_state.last_file)
+                            if event:
+                                events.append(event)
+                        
+                        # Update state to reflect completion of previous file
+                        if self.state_manager and lines:
+                            final_line = current_state.last_line + len(lines)
+                            final_byte = current_state.last_byte_position + len(remaining_content)
+                            
+                            await self.state_manager.update_parser_state(
+                                self.guild_id, self.server_name,
+                                current_state.last_file, final_line, final_byte,
+                                'killfeed', current_state.file_timestamp
+                            )
+                            
+        except Exception as e:
+            logger.error(f"Failed to finish previous file: {e}")
+        
+        return events
+
     async def _discover_newest_csv_file(self) -> Optional[str]:
         """Discover newest CSV file using historical parser's proven glob method"""
         try:
@@ -108,8 +191,8 @@ class SimpleKillfeedProcessor:
             logger.error(f"Failed to discover killfeed files: {e}")
             return None
     
-    async def _process_csv_file(self, filename: str) -> List[KillfeedEvent]:
-        """Process CSV file and return events"""
+    async def _process_csv_file(self, filename: str, current_state: Optional[ParserState] = None) -> List[KillfeedEvent]:
+        """Process CSV file from last known position"""
         events = []
         
         try:
@@ -121,8 +204,17 @@ class SimpleKillfeedProcessor:
                 killfeed_path = self._get_killfeed_path()
                 file_path = f"{killfeed_path}world_0/{filename}"
                 
-                # Read file content
+                # Determine starting position
+                start_line = 0
+                start_byte = 0
+                
+                if current_state and current_state.last_file == filename:
+                    start_line = current_state.last_line
+                    start_byte = current_state.last_byte_position
+                
+                # Read file content from starting position
                 async with sftp.open(file_path, 'rb') as file:
+                    await file.seek(start_byte)
                     content = await file.read()
                     
                 if not content:
@@ -131,10 +223,10 @@ class SimpleKillfeedProcessor:
                 # Process lines
                 lines = content.decode('utf-8', errors='ignore').splitlines()
                 
-                # Only process last 10 lines to avoid spam
-                recent_lines = lines[-10:] if len(lines) > 10 else lines
+                # Extract timestamp from filename for state management
+                file_timestamp = self._extract_timestamp_from_filename(filename)
                 
-                for i, line in enumerate(recent_lines):
+                for i, line in enumerate(lines):
                     if self.cancelled:
                         break
                     
@@ -142,9 +234,20 @@ class SimpleKillfeedProcessor:
                     if not line:
                         continue
                     
-                    event = self._parse_killfeed_line(line, i + 1, filename)
+                    event = self._parse_killfeed_line(line, start_line + i + 1, filename)
                     if event:
                         events.append(event)
+                
+                # Update state after processing
+                if self.state_manager and lines:
+                    final_line = start_line + len(lines)
+                    final_byte = start_byte + len(content.encode('utf-8'))
+                    
+                    await self.state_manager.update_parser_state(
+                        self.guild_id, self.server_name,
+                        filename, final_line, final_byte,
+                        'killfeed', file_timestamp
+                    )
                 
         except Exception as e:
             logger.error(f"Failed to process CSV file {filename}: {e}")
