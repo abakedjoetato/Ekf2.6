@@ -191,7 +191,10 @@ class Premium(discord.Cog):
                         await interaction.followup.send(f"Server **{serverid}** is already added!", ephemeral=True)
                         return
 
-                # Create server config with full SFTP credentials
+                # Create server config with full SFTP credentials and enable by default
+                # Dynamic log path based on host and server ID
+                log_path = f"./{host}_{serverid}/Logs/Deadside.log"
+                
                 server_config = {
                     '_id': serverid,
                     'server_id': serverid,
@@ -202,6 +205,8 @@ class Premium(discord.Cog):
                     'port': port,
                     'username': username,
                     'password': password,
+                    'enabled': True,  # Enable server by default for immediate data collection
+                    'log_path': log_path,  # Dynamic log path based on server specifics
                     'added_at': datetime.now(timezone.utc),
                     'updated_at': datetime.now(timezone.utc)
                 }
