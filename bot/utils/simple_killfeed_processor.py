@@ -106,7 +106,10 @@ class SimpleKillfeedProcessor:
             
             # Send events to Discord
             if all_events:
+                logger.info(f"Delivering {len(all_events)} killfeed events to Discord")
                 await self._deliver_killfeed_events(all_events)
+            else:
+                logger.warning("No killfeed events found to deliver")
             
         except Exception as e:
             logger.error(f"Killfeed processing failed for {self.server_name}: {e}")
@@ -422,8 +425,9 @@ class SimpleKillfeedProcessor:
     async def _deliver_killfeed_events(self, events: List[KillfeedEvent]):
         """Deliver killfeed events to Discord channels"""
         try:
+            logger.info(f"Starting delivery of {len(events)} killfeed events")
             if not self.bot:
-                logger.warning("No bot instance available for killfeed delivery")
+                logger.error("CRITICAL: No bot instance available for killfeed delivery")
                 return
                 
             # Get killfeed channel directly from database
