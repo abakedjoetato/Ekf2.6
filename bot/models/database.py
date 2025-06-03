@@ -1115,18 +1115,27 @@ class DatabaseManager:
             state_changed = current_state != state
             
             if state_changed:
-                # Update player session state
-                await self.player_sessions.update_one(
+                # Update player session state with enhanced logging
+                update_result = await self.player_sessions.update_one(
                     {"guild_id": guild_id, "player_id": player_id},
                     {
                         "$set": {
                             "state": state,
                             "server_name": server_name,
-                            "last_updated": timestamp
+                            "last_updated": timestamp,
+                            "player_name": f"Player{player_id[:8].upper()}"  # Ensure player name is set
                         }
                     },
                     upsert=True
                 )
+                
+                # Log database operation result
+                if update_result.upserted_id:
+                    logger.debug(f"Created new session for {player_id[:8]}... -> {state}")
+                elif update_result.modified_count > 0:
+                    logger.debug(f"Updated session for {player_id[:8]}... -> {state}")
+                else:
+                    logger.warning(f"Database update failed for {player_id[:8]}... -> {state}")
                 
                 # If state changed to online/offline, send connection embed
                 if hasattr(self, 'bot') and self.bot:

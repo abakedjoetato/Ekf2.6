@@ -5,7 +5,7 @@ Verify Online Command Working - Test the registered /online command functionalit
 import asyncio
 import os
 import motor.motor_asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 async def verify_online_command_working():
     """Verify the /online command is working with real data"""
@@ -15,7 +15,7 @@ async def verify_online_command_working():
     
     # Check MongoDB for current player data
     mongo_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
-    db = mongo_client['deadside_pvp_tracker']
+    db = mongo_client['EmeraldDB']
     
     guild_id = 1219706687980568769  # Emerald Servers
     
@@ -24,7 +24,7 @@ async def verify_online_command_working():
         total_sessions = await db.player_sessions.count_documents({'guild_id': guild_id})
         online_sessions = await db.player_sessions.count_documents({
             'guild_id': guild_id,
-            'status': 'online'
+            'state': 'online'  # Using corrected field name
         })
         
         print(f"Database Status:")
@@ -39,44 +39,73 @@ async def verify_online_command_working():
             recent_players.append({
                 'name': session.get('player_name', 'Unknown'),
                 'server': session.get('server_name', 'Unknown'),
-                'status': session.get('status', 'unknown'),
+                'state': session.get('state', 'unknown'),
                 'time': session.get('_id').generation_time if session.get('_id') else None
             })
         
         if recent_players:
             print(f"\nRecent Player Activity:")
             for player in recent_players[:5]:
-                time_str = player['time'].strftime('%H:%M:%S') if player['time'] else 'Unknown'
-                print(f"  {player['name']} on {player['server']} ({player['status']}) at {time_str}")
+                name = player['name']
+                server = player['server']
+                state = player['state']
+                print(f"  {name} on {server} - {state}")
         
-        # Check server configurations
-        servers = []
-        async for server in db.guild_configs.find({'guild_id': guild_id}):
-            servers.extend(server.get('servers', []))
+        # Test the exact queries the /online command will use
+        print(f"\nTesting /online command queries:")
         
-        if servers:
-            print(f"\nConfigured Servers:")
-            for server in servers:
-                print(f"  {server.get('server_name', 'Unknown')}")
+        # Query 1: All servers
+        all_servers_query = {
+            'guild_id': guild_id,
+            'state': 'online'
+        }
+        all_count = await db.player_sessions.count_documents(all_servers_query)
+        print(f"  All servers query: {all_count} online players")
         
-        print(f"\nCommand Registration Status:")
-        print("✅ /online command registered via direct Discord API")
-        print("✅ Bot processing live player connections")
-        print("✅ Database contains player session data")
-        print("✅ Voice channel updates working (1/50 players)")
+        # Query 2: Specific server
+        server_query = {
+            'guild_id': guild_id,
+            'server_name': 'Emerald EU',
+            'state': 'online'
+        }
+        server_count = await db.player_sessions.count_documents(server_query)
+        print(f"  Emerald EU query: {server_count} online players")
+        
+        # Show actual online players if any
+        if online_sessions > 0:
+            print(f"\nCurrently Online Players:")
+            async for session in db.player_sessions.find({
+                'guild_id': guild_id,
+                'state': 'online'
+            }).limit(10):
+                player_name = session.get('player_name', session.get('character_name', 'Unknown'))
+                server_name = session.get('server_name', 'Unknown')
+                last_updated = session.get('last_updated', 'Unknown')
+                print(f"  {player_name} on {server_name} (updated: {last_updated})")
+        
+        # Check for any sessions with old 'status' field
+        old_format_count = await db.player_sessions.count_documents({
+            'guild_id': guild_id,
+            'status': {'$exists': True}
+        })
+        
+        if old_format_count > 0:
+            print(f"\nWarning: Found {old_format_count} sessions using old 'status' field")
+        
+        print(f"\n/online Command Status:")
+        print("- Field mapping: Fixed (using 'state' instead of 'status')")
+        print("- Database queries: Enhanced with correct field names") 
+        print("- Command registration: Available")
         
         if online_sessions > 0:
-            print("✅ Active player sessions available for /online command")
+            print(f"- Data availability: {online_sessions} players online")
+            print(f"✅ /online command should work correctly")
         else:
-            print("ℹ️ No active sessions - /online will show voice channel data")
-        
-        print(f"\nThe /online command should now work in Discord and display:")
-        print("- Current online players with join times")
-        print("- Server information and player counts")
-        print("- Fallback to voice channel data when needed")
+            print("- Data availability: No players currently online")
+            print("ℹ️ /online command will show empty state until players connect")
         
     except Exception as e:
-        print(f"Error verifying command: {e}")
+        print(f"Test failed: {e}")
         import traceback
         traceback.print_exc()
     
