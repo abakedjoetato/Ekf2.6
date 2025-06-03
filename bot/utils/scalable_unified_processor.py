@@ -1020,8 +1020,11 @@ class ScalableUnifiedProcessor:
                 try:
                     logger.debug(f"Attempting to commit: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
                     
-                    # Simple write using bot's database connection
-                    result = await self.bot.db_manager.player_sessions.replace_one(
+                    # Write with strong consistency to ensure immediate visibility
+                    from pymongo import WriteConcern
+                    result = await self.bot.db_manager.player_sessions.with_options(
+                        write_concern=WriteConcern(w="majority", j=True)
+                    ).replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
@@ -1245,8 +1248,11 @@ class ScalableUnifiedProcessor:
                             # Get player name from cache if available
                             character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                             
-                            # Update player session with character name
-                            result = await self.bot.db_manager.player_sessions.update_one(
+                            # Update player session with character name using strong consistency
+                            from pymongo import WriteConcern
+                            result = await self.bot.db_manager.player_sessions.with_options(
+                                write_concern=WriteConcern(w="majority", j=True)
+                            ).update_one(
                                 {"guild_id": self.guild_id, "player_id": eosid},
                                 {
                                     "$set": {
