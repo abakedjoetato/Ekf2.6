@@ -7,7 +7,7 @@ import asyncio
 import hashlib
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from bot.utils.connection_pool import connection_manager
@@ -169,17 +169,34 @@ class ScalableUnifiedProcessor:
                     last_position = 0
                     last_line = 0
                     
-                    if stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
-                        if stored_state.file_timestamp != current_hash:
+                    # Check if this is a cold start (bot restart scenario)
+                    if self.bot and hasattr(self.bot, 'db_manager'):
+                        # Check if all player sessions were recently reset (indicates bot restart)
+                        recent_reset_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+                        recent_resets = await self.bot.db_manager.player_sessions.count_documents({
+                            "guild_id": self.guild_id,
+                            "state": "offline",
+                            "last_updated": {"$gte": recent_reset_time}
+                        })
+                        
+                        if recent_resets > 0:
                             rotation_detected = True
-                            logger.info(f"Cold start: File rotation detected for {server_name} - resetting state")
+                            logger.info(f"Cold start: Bot restart detected for {server_name} - forcing state reset")
+                        elif stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
+                            if stored_state.file_timestamp != current_hash:
+                                rotation_detected = True
+                                logger.info(f"Cold start: File rotation detected for {server_name} - resetting state")
+                            else:
+                                last_position = stored_state.last_byte_position
+                                last_line = stored_state.last_line
                         else:
-                            last_position = stored_state.last_byte_position
-                            last_line = stored_state.last_line
+                            # Cold start scenarios: new server, or no stored state
+                            rotation_detected = True
+                            logger.info(f"Cold start: First time processing {server_name} (new server or no stored state)")
                     else:
-                        # Cold start scenarios: bot startup, new server, or no stored state
+                        # Fallback: no database access
                         rotation_detected = True
-                        logger.info(f"Cold start: First time processing {server_name} (bot startup or new server)")
+                        logger.info(f"Cold start: No database access for {server_name} - forcing reset")
                     
                     return ServerFileState(
                         server_name=server_name,

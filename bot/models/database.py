@@ -235,15 +235,29 @@ class DatabaseManager:
 
             logger.info("PHASE 1: Database cleanup completed")
             
-            # Reset only unified log parser states to force cold starts on bot restart
+            # Reset unified log parser states and force all players offline on bot restart
             try:
+                # Reset parser states to force cold start
                 reset_result = await self.parser_states.update_many(
                     {'parser_type': 'log_parser'},  # Only unified log parser
                     {'$unset': {'last_log_size': ''}}  # Only reset log size, not last_processed
                 )
                 logger.info(f"Reset {reset_result.modified_count} unified log parser states for cold start on restart")
+                
+                # Force all player sessions to offline on bot startup (cold start)
+                player_reset_result = await self.player_sessions.update_many(
+                    {"state": {"$in": ["online", "queued"]}},
+                    {
+                        "$set": {
+                            "state": "offline",
+                            "last_updated": datetime.now(timezone.utc)
+                        }
+                    }
+                )
+                logger.info(f"Cold start: Reset {player_reset_result.modified_count} player sessions to offline state")
+                
             except Exception as e:
-                logger.warning(f"Unified log parser state reset failed: {e}")
+                logger.warning(f"Cold start reset failed: {e}")
 
         except Exception as e:
             logger.error(f"Bulletproof cleanup failed: {e}")
