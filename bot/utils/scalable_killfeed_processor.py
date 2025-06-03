@@ -102,7 +102,7 @@ class ScalableKillfeedProcessor:
                     return None
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/path/to/killfeed/')
+                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
                 
                 # List files and find newest timestamp
                 file_list = await sftp.listdir(killfeed_path)
@@ -162,7 +162,7 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/path/to/killfeed/')
+                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
                 file_path = f"{killfeed_path.rstrip('/')}/{current_state.last_file}"
                 
                 # Read from last known position to end of file
@@ -196,7 +196,7 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/path/to/killfeed/')
+                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
                 file_path = f"{killfeed_path.rstrip('/')}/{current_file}"
                 
                 # Get current file size
@@ -235,7 +235,7 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self.server_config.get('killfeed_path', '/path/to/killfeed/')
+                killfeed_path = self.server_config.get('killfeed_path', '/home/deadside/killfeed/')
                 file_path = f"{killfeed_path.rstrip('/')}/{newest_file}"
                 
                 # Read entire file content

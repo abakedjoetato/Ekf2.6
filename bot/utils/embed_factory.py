@@ -748,18 +748,120 @@ class EmbedFactory:
 
     @staticmethod
     async def build_killfeed_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:
-        """Build elite killfeed embed - SEPARATE FALLING AND SUICIDE - MINIMALISTIC 4 FIELDS MAX"""
+        """Build elite killfeed embed with proper title pools and field structure matching screenshots"""
         try:
-            is_suicide = embed_data.get('is_suicide', False)
+            # Get bot instance for database access
+            from main import EmeraldKillfeedBot
+            bot = EmeraldKillfeedBot._instance if hasattr(EmeraldKillfeedBot, '_instance') else None
+            
+            # Extract data
+            killer = embed_data.get('killer', 'Unknown')
+            victim = embed_data.get('victim', 'Unknown')
             weapon = embed_data.get('weapon', 'Unknown')
             distance = embed_data.get('distance', 0)
-
+            is_suicide = embed_data.get('is_suicide', False)
+            
+            # Determine embed type and get appropriate pools
             if is_suicide:
-                player_name = embed_data.get('player_name') or embed_data.get('victim', 'Unknown Player')
-
-                if weapon.lower() == 'falling':
-                    # FALLING EMBED - SEPARATE
+                if weapon.lower() in ['falling', 'fall', 'gravity']:
+                    # Falling death
                     title = random.choice(EmbedFactory.FALLING_TITLES)
+                    message = random.choice(EmbedFactory.FALLING_MESSAGES)
+                    color = EmbedFactory.COLORS['falling']
+                    
+                    embed = discord.Embed(
+                        title=title,
+                        color=color,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    
+                    # Get player KDR
+                    player_kdr = await EmbedFactory._get_player_kdr(bot, embed_data.get('guild_id'), killer) if bot else None
+                    player_display = f"{killer} • {player_kdr} KDR" if player_kdr else killer
+                    
+                    embed.add_field(name="**OPERATIVE**", value=player_display, inline=False)
+                    embed.add_field(name="**KIA - FALLING**", value="Falling • Physics Lesson", inline=False)
+                    embed.add_field(name="**INCIDENT REPORT**", value=message, inline=False)
+                    
+                else:
+                    # Regular suicide
+                    title = random.choice(EmbedFactory.SUICIDE_TITLES)
+                    message = random.choice(EmbedFactory.SUICIDE_MESSAGES)
+                    color = EmbedFactory.COLORS['suicide']
+                    
+                    embed = discord.Embed(
+                        title=title,
+                        color=color,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    
+                    # Get player KDR
+                    player_kdr = await EmbedFactory._get_player_kdr(bot, embed_data.get('guild_id'), killer) if bot else None
+                    player_display = f"{killer} • {player_kdr} KDR" if player_kdr else killer
+                    
+                    embed.add_field(name="**OPERATIVE**", value=player_display, inline=False)
+                    embed.add_field(name="**KIA - INTERNAL**", value="Menu Suicide • Non-Combat Loss", inline=False)
+                    embed.add_field(name="**INCIDENT REPORT**", value=message, inline=False)
+                    
+            else:
+                # Regular kill
+                title = random.choice(EmbedFactory.KILL_TITLES)
+                message = random.choice(EmbedFactory.KILL_MESSAGES)
+                color = EmbedFactory.COLORS['killfeed']
+                
+                embed = discord.Embed(
+                    title=title,
+                    color=color,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
+                # Get player KDRs
+                killer_kdr = await EmbedFactory._get_player_kdr(bot, embed_data.get('guild_id'), killer) if bot else None
+                victim_kdr = await EmbedFactory._get_player_kdr(bot, embed_data.get('guild_id'), victim) if bot else None
+                
+                killer_display = f"{killer} • {killer_kdr} KDR" if killer_kdr else killer
+                victim_display = f"{victim} • {victim_kdr} KDR" if victim_kdr else victim
+                
+                embed.add_field(name="**ELIMINATOR**", value=killer_display, inline=False)
+                embed.add_field(name="**ELIMINATED**", value=victim_display, inline=False)
+                embed.add_field(name="**WEAPON SYSTEM**", value=f"{weapon} • {distance}m", inline=False)
+                embed.add_field(name="**COMBAT REPORT**", value=message, inline=False)
+
+            embed.set_footer(text="Powered by Emerald")
+            
+            # Get asset file
+            asset_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
+            embed.set_thumbnail(url="attachment://Killfeed.png")
+
+            return embed, asset_file
+
+        except Exception as e:
+            logger.error(f"Error building killfeed embed: {e}")
+            return await EmbedFactory.build_error_embed("Killfeed embed error")
+
+    @staticmethod
+    async def _get_player_kdr(bot, guild_id: int, player_name: str) -> Optional[str]:
+        """Get player KDR from database"""
+        try:
+            if not bot or not hasattr(bot, 'db_manager') or not bot.db_manager:
+                return None
+                
+            player_data = await bot.db_manager.pvp_data.find_one({
+                "guild_id": guild_id,
+                "player_name": player_name
+            })
+            
+            if player_data:
+                kills = player_data.get('kills', 0)
+                deaths = player_data.get('deaths', 0)
+                kdr = round(kills / deaths, 2) if deaths > 0 else float(kills)
+                return f"{kdr:.2f}"
+            
+            return "0.00"
+            
+        except Exception as e:
+            logger.error(f"Failed to get player KDR for {player_name}: {e}")
+            return None
                     color = EmbedFactory.COLORS['falling']
                     themed_description = random.choice(EmbedFactory.FALLING_MESSAGES)
                     asset_file = discord.File("./assets/Falling.png", filename="Falling.png")
