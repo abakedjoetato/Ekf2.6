@@ -17,7 +17,7 @@ class ScalableKillfeedParser:
     
     def __init__(self, bot):
         self.bot = bot
-        self.active_sessions: Dict[int, MultiServerKillfeedProcessor] = {}
+        self.active_sessions: Dict[int, MultiServerSimpleKillfeedProcessor] = {}
         self.state_manager = get_shared_state_manager()
         
     async def run_killfeed_parser(self):
