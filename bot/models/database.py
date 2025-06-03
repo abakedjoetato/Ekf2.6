@@ -1101,7 +1101,7 @@ class DatabaseManager:
             logger.error(f"Failed to add wallet event: {e}")
             return False
 
-    async def update_player_state(self, guild_id: int, player_id: str, state: str, server_name: str, timestamp: datetime) -> bool:
+    async def update_player_state(self, guild_id: int, player_id: str, state: str, server_name: str, timestamp: datetime, skip_voice_update: bool = False) -> bool:
         """Update player state and return if state actually changed"""
         try:
             # Check current state

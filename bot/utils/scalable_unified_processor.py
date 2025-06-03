@@ -101,9 +101,9 @@ class ScalableUnifiedProcessor:
                 await self._process_entries_chronologically(all_entries)
                 results['entries_processed'] = len(all_entries)
                 
-                # Phase 4: Final voice channel update after cold start processing
+                # Phase 4: Final voice channel update after processing (both cold and hot starts)
+                await self._perform_final_voice_channel_update(available_servers)
                 if self._voice_channel_updates_deferred:
-                    await self._perform_final_voice_channel_update(available_servers)
                     self._voice_channel_updates_deferred = False
             
             results['success'] = True
@@ -1033,15 +1033,14 @@ class ScalableUnifiedProcessor:
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to online state - this may trigger connection embed
                 try:
-                    # Skip voice channel updates during cold start to prevent rate limiting
-                    skip_voice_update = self._voice_channel_updates_deferred
+                    # Always skip individual voice channel updates - use batched update at end
                     state_changed = await self.bot.db_manager.update_player_state(
                         self.guild_id,
                         eosid,
                         'online',
                         entry.server_name,
                         entry.timestamp,
-                        skip_voice_update=skip_voice_update
+                        skip_voice_update=True
                     )
                     
                     if state_changed:
@@ -1088,15 +1087,14 @@ class ScalableUnifiedProcessor:
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to offline state - this may trigger disconnect embed
                 try:
-                    # Skip voice channel updates during cold start to prevent rate limiting
-                    skip_voice_update = self._voice_channel_updates_deferred
+                    # Always skip individual voice channel updates - use batched update at end
                     state_changed = await self.bot.db_manager.update_player_state(
                         self.guild_id,
                         eosid,
                         'offline',
                         entry.server_name,
                         entry.timestamp,
-                        skip_voice_update=skip_voice_update
+                        skip_voice_update=True
                     )
                     
                     if state_changed:
