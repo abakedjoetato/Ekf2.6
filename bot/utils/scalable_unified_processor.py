@@ -1043,10 +1043,37 @@ class ScalableUnifiedProcessor:
             
             eosid = entry.player_name  # EOSID is stored in player_name field
             
-            logger.debug(f"Player {eosid} registered online on {entry.server_name}")
+            logger.info(f"Player connection: {eosid} joined {entry.server_name}")
+            
+            # Skip embed creation during cold start to prevent spam
+            if not self._cold_start_mode:
+                # Create connection embed using proper EmbedFactory theming
+                if self.bot and hasattr(self.bot, 'embed_factory'):
+                    embed_data = {
+                        'player_name': eosid[:8] + '...',  # Truncated EOSID for display
+                        'event_type': 'join',
+                        'server_name': entry.server_name,
+                        'timestamp': entry.timestamp,
+                        'platform': 'Unknown'
+                    }
+                    
+                    try:
+                        embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
+                        
+                        if embed and hasattr(self.bot, 'channel_router'):
+                            await self.bot.channel_router.send_embed_to_channel(
+                                guild_id=self.guild_id,
+                                server_id=entry.server_name,
+                                channel_type='connections',
+                                embed=embed,
+                                file=file_attachment
+                            )
+                            logger.info(f"Sent connection embed for {eosid[:8]}... joining {entry.server_name}")
+                    except Exception as embed_error:
+                        logger.error(f"Failed to create connection embed: {embed_error}")
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # Update player to online state - this may trigger connection embed
+                # Update player to online state
                 try:
                     # Always skip individual voice channel updates - use batched update at end
                     state_changed = await self.bot.db_manager.update_player_state(
@@ -1331,7 +1358,7 @@ class ScalableUnifiedProcessor:
             logger.error(f"Failed to handle helicrash event: {e}")
     
     async def _handle_trader_event(self, entry: LogEntry):
-        """Handle trader events using proper EmbedFactory theming"""
+        """Handle trader events using proper EmbedFactory theming with deduplication"""
         try:
             # Skip embed creation during cold start to prevent spam
             if self._cold_start_mode:
@@ -1346,6 +1373,26 @@ class ScalableUnifiedProcessor:
             # Handle both coordinate and generic location data
             if x_coord is not None and y_coord is not None:
                 location = f"({x_coord}, {y_coord})"
+            
+            # Deduplication: Create unique key for this trader event
+            trader_key = f"trader_{entry.server_name}_{location}_{entry.timestamp.hour}_{entry.timestamp.minute}"
+            
+            # Check if we've already processed this trader event recently (within same minute)
+            if not hasattr(self, '_processed_trader_events'):
+                self._processed_trader_events = set()
+            
+            if trader_key in self._processed_trader_events:
+                logger.debug(f"Skipping duplicate trader event at {location} on {entry.server_name}")
+                return
+            
+            # Add to processed events
+            self._processed_trader_events.add(trader_key)
+            
+            # Clean up old events (keep only last 100)
+            if len(self._processed_trader_events) > 100:
+                old_events = list(self._processed_trader_events)[:50]
+                for old_event in old_events:
+                    self._processed_trader_events.discard(old_event)
             
             logger.info(f"Trader event at {location} on {entry.server_name}")
             
