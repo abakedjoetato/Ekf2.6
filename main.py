@@ -476,13 +476,7 @@ class EmeraldKillfeedBot(commands.Bot):
             await self.db_manager.initialize_indexes()
             logger.info("Database architecture initialized (PHASE 1)")
             
-            # Initialize premium sync manager
-            self.premium_sync = PremiumSyncManager(self.db_manager)
-            
-            # Validate and sync all guild premium flags
-            updated_guilds = await self.premium_sync.validate_all_guilds()
-            if updated_guilds > 0:
-                logger.info(f"Premium flag sync: {updated_guilds} guilds updated")
+            # Premium system initialization handled by premium_manager_v2
 
             # Initialize batch sender for rate limit management
             from bot.utils.batch_sender import BatchSender

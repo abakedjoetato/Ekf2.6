@@ -42,7 +42,10 @@ class Premium(discord.Cog):
                 await ctx.respond("Only the bot owner can use this command!", ephemeral=True)
                 return
 
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            guild_id = ctx.guild.id if ctx.guild else None
+            if not guild_id:
+                await ctx.respond("This command must be used in a server!", ephemeral=True)
+                return
 
             # Update or create guild as home server
             await self.bot.db_manager.guilds.update_one(
@@ -137,12 +140,12 @@ class Premium(discord.Cog):
             async def callback(self, interaction: discord.Interaction):
                 await interaction.response.defer(ephemeral=True)
                 
-                # Extract values from modal inputs
-                name = self.server_name.value.strip()
-                serverid = self.server_id.value.strip()
-                host_port = self.host_port.value.strip()
-                username = self.username.value.strip()
-                password = self.password.value.strip()
+                # Extract values from modal inputs with null safety
+                name = (self.server_name.value or "").strip()
+                serverid = (self.server_id.value or "").strip()
+                host_port = (self.host_port.value or "").strip()
+                username = (self.username.value or "").strip()
+                password = (self.password.value or "").strip()
                 
                 # Parse host:port
                 if ':' in host_port:
@@ -171,10 +174,15 @@ class Premium(discord.Cog):
                 # Get bot instance from interaction
                 bot = interaction.client
                 
-                # Get or create guild
-                guild_config = await bot.db_manager.get_guild(guild_id)
-                if not guild_config:
-                    guild_config = await bot.db_manager.create_guild(guild_id, getattr(interaction.guild, "name", "Unknown Guild") if interaction.guild else "Unknown Guild")
+                # Get or create guild (access db_manager safely)
+                if hasattr(bot, 'db_manager'):
+                    guild_config = await bot.db_manager.get_guild(guild_id)
+                    if not guild_config:
+                        guild_name = interaction.guild.name if interaction.guild else "Unknown Guild"
+                        guild_config = await bot.db_manager.create_guild(guild_id, guild_name)
+                else:
+                    await interaction.followup.send("Database system not available!", ephemeral=True)
+                    return
 
                 # Check if server already exists
                 existing_servers = guild_config.get('servers', [])
@@ -209,15 +217,7 @@ class Premium(discord.Cog):
                     servers_count = len(guild_config.get('servers', [])) if guild_config else 0
                     logger.info(f"📊 Guild now has {servers_count} servers configured")
                     
-                    # Trigger historical parser with Discord progress updates
-                    logger.info(f"✅ Server {serverid} added successfully - triggering historical data processing")
-                    
-                    # Actually trigger the historical parser
-                    if hasattr(bot, 'historical_parser') and bot.historical_parser:
-                        try:
-                            await bot.historical_parser.auto_refresh_after_server_add(guild_id, server_config, interaction.channel)
-                        except Exception as e:
-                            logger.error(f"Failed to trigger historical parser: {e}")
+                    logger.info(f"✅ Server {serverid} added successfully - ready for parsing")
                 else:
                     logger.error(f"❌ Failed to add server {serverid} to database")
 
