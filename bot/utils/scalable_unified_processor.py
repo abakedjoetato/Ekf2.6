@@ -982,7 +982,7 @@ class ScalableUnifiedProcessor:
             additional_data = entry.additional_data or {}
             player_name = additional_data.get('player_name', f'Player{eosid[:8]}')
             
-            logger.info(f"Player {player_name} ({eosid}) queued for {entry.server_name}")
+            logger.debug(f"Player {player_name} ({eosid}) queued for {entry.server_name}")
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to queued state
@@ -1028,7 +1028,7 @@ class ScalableUnifiedProcessor:
             
             eosid = entry.player_name  # EOSID is stored in player_name field
             
-            logger.info(f"Player {eosid} registered online on {entry.server_name}")
+            logger.debug(f"Player {eosid} registered online on {entry.server_name}")
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to online state - this may trigger connection embed
@@ -1044,7 +1044,7 @@ class ScalableUnifiedProcessor:
                     )
                     
                     if state_changed:
-                        logger.info(f"Player {eosid} state changed to online - embed will be sent")
+                        logger.debug(f"Player {eosid} state changed to online - embed will be sent")
                     else:
                         logger.debug(f"Player {eosid} already online - no embed needed")
                 except Exception as e:
@@ -1063,7 +1063,7 @@ class ScalableUnifiedProcessor:
                             },
                             upsert=True
                         )
-                        logger.info(f"Player {eosid} updated to online state (enhanced fallback)")
+                        logger.debug(f"Player {eosid} updated to online state (enhanced fallback)")
                     except Exception as fallback_error:
                         logger.error(f"Enhanced fallback update failed for {eosid}: {fallback_error}")
                         # Last resort: log the issue for manual review
@@ -1082,7 +1082,7 @@ class ScalableUnifiedProcessor:
             
             eosid = entry.player_name  # EOSID is stored in player_name field
             
-            logger.info(f"Player {eosid} disconnected from {entry.server_name}")
+            logger.debug(f"Player {eosid} disconnected from {entry.server_name}")
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to offline state - this may trigger disconnect embed
@@ -1098,7 +1098,7 @@ class ScalableUnifiedProcessor:
                     )
                     
                     if state_changed:
-                        logger.info(f"Player {eosid} state changed to offline - embed will be sent")
+                        logger.debug(f"Player {eosid} state changed to offline - embed will be sent")
                     else:
                         logger.debug(f"Player {eosid} already offline - no embed needed")
                 except Exception as e:
@@ -1116,7 +1116,7 @@ class ScalableUnifiedProcessor:
                             }
                         )
                         if result.modified_count > 0:
-                            logger.info(f"Player {eosid} updated to offline state (enhanced fallback)")
+                            logger.debug(f"Player {eosid} updated to offline state (enhanced fallback)")
                         else:
                             logger.warning(f"No existing session found for {eosid} to update to offline")
                     except Exception as fallback_error:
