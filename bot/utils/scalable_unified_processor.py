@@ -1009,11 +1009,18 @@ class ScalableUnifiedProcessor:
             committed_count = 0
             failed_count = 0
             
+            # CRITICAL FIX: Use direct database connection to bypass cache isolation
+            import motor.motor_asyncio
+            import os
+            direct_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
+            direct_db = direct_client.emerald_killfeed
+            
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
                     logger.debug(f"Attempting to commit: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
                     
-                    result = await self.bot.db_manager.player_sessions.replace_one(
+                    # Write to direct database connection for external visibility
+                    result = await direct_db.player_sessions.replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
@@ -1022,18 +1029,18 @@ class ScalableUnifiedProcessor:
                     logger.debug(f"Replace result: upserted_id={result.upserted_id}, modified_count={result.modified_count}")
                     
                     if result.upserted_id or result.modified_count > 0:
-                        # Immediate verification
-                        verification = await self.bot.db_manager.player_sessions.find_one({
+                        # Verify with direct connection (external visibility test)
+                        direct_verification = await direct_db.player_sessions.find_one({
                             'guild_id': session_data['guild_id'],
                             'player_id': player_id
                         })
                         
-                        if verification:
+                        if direct_verification:
                             committed_count += 1
-                            logger.info(f"✓ Committed & Verified: {player_id[:8]}... -> {verification.get('state')} on {verification.get('server_name')}")
+                            logger.info(f"✓ Committed & Verified (Direct): {player_id[:8]}... -> {direct_verification.get('state')} on {direct_verification.get('server_name')}")
                         else:
                             failed_count += 1
-                            logger.error(f"✗ COMMIT FAILED - No verification: {player_id[:8]}...")
+                            logger.error(f"✗ COMMIT FAILED - No direct verification: {player_id[:8]}...")
                     else:
                         failed_count += 1
                         logger.error(f"✗ Replace operation returned no changes for {player_id[:8]}...")
@@ -1043,6 +1050,9 @@ class ScalableUnifiedProcessor:
                     logger.error(f"Exception during commit for {player_id[:8]}...: {commit_error}")
                     import traceback
                     logger.error(f"Full traceback: {traceback.format_exc()}")
+            
+            # Close direct connection
+            direct_client.close()
             
             logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed, {failed_count} failed")
             
