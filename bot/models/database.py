@@ -1638,7 +1638,7 @@ class DatabaseManager:
             logger.error(f"Failed to count premium servers: {e}")
             return 0
 
-    async def activate_server_premium(self, guild_id: int, server_id: str, activated_by: int, reason: str = None) -> bool:
+    async def activate_server_premium(self, guild_id: int, server_id: str, activated_by: int, reason: Optional[str] = None) -> bool:
         """Activate premium for a server"""
         try:
             await self.server_premium_status.replace_one(
@@ -1649,7 +1649,7 @@ class DatabaseManager:
                     "is_active": True,
                     "activated_by": activated_by,
                     "activated_at": datetime.now(timezone.utc),
-                    "reason": reason,
+                    "reason": reason or "No reason provided",
                     "expires_at": None  # No expiration for now
                 },
                 upsert=True
@@ -1659,7 +1659,7 @@ class DatabaseManager:
             logger.error(f"Failed to activate server premium: {e}")
             return False
 
-    async def deactivate_server_premium(self, guild_id: int, server_id: str, deactivated_by: int, reason: str = None) -> bool:
+    async def deactivate_server_premium(self, guild_id: int, server_id: str, deactivated_by: int, reason: Optional[str] = None) -> bool:
         """Deactivate premium for a server"""
         try:
             await self.server_premium_status.update_one(
@@ -1669,7 +1669,7 @@ class DatabaseManager:
                         "is_active": False,
                         "deactivated_by": deactivated_by,
                         "deactivated_at": datetime.now(timezone.utc),
-                        "deactivation_reason": reason
+                        "deactivation_reason": reason or "No reason provided"
                     }
                 }
             )
