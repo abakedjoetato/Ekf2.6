@@ -51,6 +51,7 @@ class ScalableUnifiedProcessor:
         self._voice_channel_updates_deferred = False  # Flag to defer voice updates during cold start
         self.database = None  # Will be set when needed
         self._cold_start_player_states = {}  # Memory storage for cold start batch processing
+        self._hot_start_state_changes = set()  # Track servers with state changes during hot starts
         
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
                                   progress_callback=None) -> Dict[str, Any]:
@@ -991,7 +992,12 @@ class ScalableUnifiedProcessor:
                 await self._commit_cold_start_player_states()
             
             # Update voice channel after processing all entries
-            await self._update_voice_channel_for_servers()
+            if self._cold_start_mode or self._hot_start_state_changes:
+                await self._update_voice_channel_for_servers()
+                
+            # Clear hot start state changes after processing
+            if not self._cold_start_mode:
+                self._hot_start_state_changes.clear()
                 
         except Exception as e:
             logger.error(f"Failed to process entries chronologically: {e}")
@@ -1259,7 +1265,7 @@ class ScalableUnifiedProcessor:
                         logger.info(f"Player {eosid[:8]}... queued for batch update (online on {entry.server_name})")
                         state_changed = True  # For logging purposes
                     else:
-                        # Normal processing - update database immediately
+                        # Hot start processing - update database immediately and track for voice updates
                         try:
                             state_changed = await self.bot.db_manager.update_player_state(
                                 self.guild_id,
@@ -1270,18 +1276,10 @@ class ScalableUnifiedProcessor:
                                 skip_voice_update=True
                             )
                             
-                            # Always log state changes for debugging
+                            # Track servers with state changes for voice channel updates
                             if state_changed:
-                                logger.info(f"Player {eosid[:8]}... state changed to online on {entry.server_name}")
-                                # Verify database persistence immediately
-                                verification = await self.bot.db_manager.player_sessions.find_one({
-                                    "guild_id": self.guild_id,
-                                    "player_id": eosid
-                                })
-                                if verification:
-                                    logger.info(f"✓ DB Verified: {eosid[:8]}... is {verification.get('state')} on {verification.get('server_name')}")
-                                else:
-                                    logger.error(f"✗ DB Verification FAILED: No session found for {eosid[:8]}...")
+                                self._hot_start_state_changes.add(entry.server_name)
+                                logger.info(f"Hot start: Player {eosid[:8]}... joined {entry.server_name}")
                             else:
                                 logger.debug(f"No state change for {eosid[:8]}... (already online)")
                         except Exception as db_error:
@@ -1350,7 +1348,7 @@ class ScalableUnifiedProcessor:
                             logger.info(f"Player {eosid[:8]}... removed from batch update (disconnected from {entry.server_name})")
                         state_changed = True  # For logging purposes
                     else:
-                        # Normal processing - update database immediately
+                        # Hot start processing - update database immediately and track for voice updates
                         state_changed = await self.bot.db_manager.update_player_state(
                             self.guild_id,
                             eosid,
@@ -1359,6 +1357,11 @@ class ScalableUnifiedProcessor:
                             entry.timestamp,
                             skip_voice_update=True
                         )
+                        
+                        # Track servers with state changes for voice channel updates
+                        if state_changed:
+                            self._hot_start_state_changes.add(entry.server_name)
+                            logger.info(f"Hot start: Player {eosid[:8]}... left {entry.server_name}")
                     
                     # Only send connection embed if state actually changed (online -> offline)
                     if state_changed and not self._cold_start_mode:
