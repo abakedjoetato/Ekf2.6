@@ -187,46 +187,13 @@ class ScalableUnifiedProcessor:
                         # 3. New server (no stored state)
                         # 4. More than 1500 new lines detected
                         
-                        # Force cold start on any bot restart or no stored state
-                        if recent_resets > 0 or not stored_state:
-                            rotation_detected = True
-                            logger.info(f"🔄 COLD START TRIGGER: Bot restart or no state for {server_name}")
-                        # Also force cold start if last position is 0 (first run scenario)
-                        elif stored_state and stored_state.last_byte_position == 0:
-                            rotation_detected = True
-                            logger.info(f"🔄 COLD START TRIGGER: First run scenario for {server_name}")
-                        elif stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
-                            if stored_state.file_timestamp != current_hash:
-                                rotation_detected = True
-                                logger.info(f"🔄 COLD START TRIGGER: File rotation detected for {server_name}")
-                            else:
-                                # Check for more than 1500 new lines (cold start trigger #4)
-                                try:
-                                    current_file_size = await conn.start_sftp_client()
-                                    stat_result = await current_file_size.stat(deadside_log_path)
-                                    if hasattr(stat_result, 'size'):
-                                        bytes_to_read = stat_result.size - stored_state.last_byte_position
-                                        if bytes_to_read > 150000:  # Approximately 1500 lines (100 chars per line avg)
-                                            rotation_detected = True
-                                            logger.info(f"🔄 COLD START TRIGGER: Large log growth detected for {server_name} ({bytes_to_read} new bytes)")
-                                        else:
-                                            last_position = stored_state.last_byte_position
-                                            last_line = stored_state.last_line
-                                    else:
-                                        last_position = stored_state.last_byte_position
-                                        last_line = stored_state.last_line
-                                except Exception as e:
-                                    logger.warning(f"Could not check file size for {server_name}: {e}")
-                                    last_position = stored_state.last_byte_position
-                                    last_line = stored_state.last_line
-                        else:
-                            # Cold start scenarios: new server, or no stored state
-                            rotation_detected = True
-                            logger.info(f"🔄 COLD START TRIGGER: New server or no stored state for {server_name}")
-                    else:
-                        # Fallback: no database access
+                        # FORCE COLD START: Always trigger cold start for accurate player tracking
                         rotation_detected = True
-                        logger.info(f"Cold start: No database access for {server_name} - forcing reset")
+                        logger.info(f"🔄 COLD START FORCED: Complete log reprocessing for {server_name}")
+                    else:
+                        # Fallback: no database access - force cold start
+                        rotation_detected = True
+                        logger.info(f"🔄 Cold start: No database access for {server_name} - forcing reset")
                     
                     return ServerFileState(
                         server_name=server_name,
@@ -543,38 +510,42 @@ class ScalableUnifiedProcessor:
                 'message': message
             }
         
-        # Airdrop events - broader pattern matching with debug logging
-        if 'airdrop' in content_lower:
-            print(f"DEBUG: Found airdrop keyword in: {content[:100]}...")
-            # Try specific pattern first
-            airdrop_match = re.search(r'X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
-            if airdrop_match:
-                x_coord, y_coord = airdrop_match.groups()
-                print(f"DEBUG: Airdrop coordinates detected: {x_coord}, {y_coord}")
-                return 'airdrop', None, {
-                    'x_coordinate': float(x_coord),
-                    'y_coordinate': float(y_coord),
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
-            else:
-                # Generic airdrop event without coordinates
-                print(f"DEBUG: Generic airdrop event detected")
-                return 'airdrop', None, {
-                    'location': 'Unknown',
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
+        # Airdrop events - precise regex patterns for SFPS system
+        airdrop_patterns = [
+            r'LogSFPS.*?airdrop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?AirDrop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?air.*?drop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Supply.*?Drop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Cargo.*?Drop.*?X=([\d\.-]+).*?Y=([\d\.-]+)'
+        ]
         
-        # Helicrash events - enhanced pattern matching
+        for pattern in airdrop_patterns:
+            airdrop_match = re.search(pattern, content, re.IGNORECASE)
+            if airdrop_match:
+                if len(airdrop_match.groups()) >= 2:
+                    x_coord, y_coord = airdrop_match.groups()[:2]
+                    return 'airdrop', None, {
+                        'x_coordinate': float(x_coord),
+                        'y_coordinate': float(y_coord),
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
+                else:
+                    return 'airdrop', None, {
+                        'location': 'Unknown',
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
+        
+        # Helicrash events - precise SFPS system patterns
         helicrash_patterns = [
-            r'helicrash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
-            r'helicopter.*?crash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
-            r'heli.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
-            r'LogSFPS.*?helicrash',
-            r'LogSFPS.*?helicopter.*?crash'
+            r'LogSFPS.*?helicrash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?helicopter.*?crash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?heli.*?crash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Helicopter.*?Crash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?HeliCrash.*?X=([\d\.-]+).*?Y=([\d\.-]+)'
         ]
         
         for pattern in helicrash_patterns:
@@ -590,25 +561,19 @@ class ScalableUnifiedProcessor:
                         'message': message
                     }
                 else:
-                    # Generic helicrash without coordinates
                     return 'helicrash', None, {
                         'location': 'Unknown',
                         'log_category': log_category,
                         'system': system_info,
-                    'message': message
-                }
-            else:
-                # Generic helicrash event without coordinates
-                return 'helicrash', None, {
-                    'location': 'Unknown',
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
+                        'message': message
+                    }
         
-        # Trader events - enhanced pattern matching
+        # Trader events - precise SFPS system patterns
         trader_patterns = [
-            r'trader.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?trader.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Trader.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?trading.*?post.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Trade.*?Zone.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
             r'merchant.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
             r'shop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
             r'LogSFPS.*?trader',
