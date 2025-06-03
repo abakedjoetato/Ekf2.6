@@ -422,28 +422,54 @@ class SimpleKillfeedProcessor:
     async def _deliver_killfeed_events(self, events: List[KillfeedEvent]):
         """Deliver killfeed events to Discord channels"""
         try:
-            from bot.utils.channel_router import ChannelRouter
-            from bot.utils.batch_sender import BatchSender
+            if not self.bot:
+                logger.warning("No bot instance available for killfeed delivery")
+                return
+                
+            # Get killfeed channel directly from database
+            guild_config = await self.bot.db_manager.get_guild(self.guild_id)
+            if not guild_config:
+                logger.warning(f"No guild config found for guild {self.guild_id}")
+                return
+
+            server_channels = guild_config.get('server_channels', {})
+            channel_id = None
             
-            # Initialize instances
-            channel_router = ChannelRouter(self.bot)
-            batch_sender = BatchSender(self.bot)
+            # Try server-specific channel first
+            if self.server_name in server_channels:
+                channel_id = server_channels[self.server_name].get('killfeed')
             
+            # Fall back to default server channel
+            if not channel_id and 'default' in server_channels:
+                channel_id = server_channels['default'].get('killfeed')
+            
+            # Legacy fallback to old channel structure
+            if not channel_id:
+                legacy_channels = guild_config.get('channels', {})
+                channel_id = legacy_channels.get('killfeed')
+            
+            if not channel_id:
+                logger.warning(f"No killfeed channel configured for {self.server_name}")
+                return
+            
+            # Get Discord channel
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                logger.warning(f"Killfeed channel {channel_id} not found")
+                return
+            
+            # Send events to channel
             for event in events:
-                # Create killfeed embed
-                embed = await self._create_killfeed_embed(event)
-                
-                # Get killfeed channel
-                channel_id = await channel_router.get_channel_id(
-                    self.guild_id, self.server_name, 'killfeed'
-                )
-                
-                if channel_id:
-                    # Send via batch sender to respect rate limits
-                    await batch_sender.queue_message(channel_id, embed)
-                    logger.info(f"Sent killfeed event: {event.killer} killed {event.victim}")
-                else:
-                    logger.warning(f"No killfeed channel configured for {self.server_name}")
+                try:
+                    # Create killfeed embed
+                    embed = await self._create_killfeed_embed(event)
+                    
+                    # Send directly to channel
+                    await channel.send(embed=embed)
+                    logger.info(f"✅ Delivered killfeed event: {event.killer} killed {event.victim} with {event.weapon}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to send killfeed event: {e}")
                     
         except Exception as e:
             logger.error(f"Failed to deliver killfeed events: {e}")
@@ -500,8 +526,9 @@ class SimpleKillfeedProcessor:
 class MultiServerSimpleKillfeedProcessor:
     """Process killfeed for multiple servers using simple approach"""
     
-    def __init__(self, guild_id: int):
+    def __init__(self, guild_id: int, bot=None):
         self.guild_id = guild_id
+        self.bot = bot
     
     async def process_available_servers(self, server_configs: List[Dict[str, Any]], 
                                       progress_callback=None) -> Dict[str, Any]:
@@ -518,7 +545,7 @@ class MultiServerSimpleKillfeedProcessor:
             server_name = server_config.get('name', 'Unknown')
             
             try:
-                processor = SimpleKillfeedProcessor(self.guild_id, server_config)
+                processor = SimpleKillfeedProcessor(self.guild_id, server_config, self.bot)
                 server_result = await processor.process_server_killfeed(progress_callback)
                 
                 results['server_results'][server_name] = server_result

@@ -102,7 +102,7 @@ class ScalableKillfeedParser:
             logger.debug(f"Processing killfeed for guild {guild_id} with {len(servers)} servers")
             
             # Create multi-server processor using simplified approach
-            processor = MultiServerSimpleKillfeedProcessor(guild_id)
+            processor = MultiServerSimpleKillfeedProcessor(guild_id, self.bot)
             self.active_sessions[guild_id] = processor
             
             # Process available servers (excluding those under historical processing)
@@ -156,7 +156,7 @@ class ScalableKillfeedParser:
                 }
             
             # Process single server using simplified approach
-            processor = MultiServerSimpleKillfeedProcessor(guild_id)
+            processor = MultiServerSimpleKillfeedProcessor(guild_id, self.bot)
             results = await processor.process_available_servers([target_server])
             
             return {
