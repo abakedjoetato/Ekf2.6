@@ -183,7 +183,7 @@ class SimpleKillfeedProcessor:
                     entries = await sftp.listdir(killfeed_path)
                     
                     for entry in entries:
-                        entry_path = f"{killfeed_path}{entry}"
+                        entry_path = f"{killfeed_path}{entry}/"
                         
                         try:
                             # Check if it's a directory
@@ -195,7 +195,7 @@ class SimpleKillfeedProcessor:
                                     if file.endswith('.csv'):
                                         all_csv_files.append((file, entry))  # Store filename and subdirectory
                         except:
-                            # Skip if can't access
+                            # Skip if can't access or not a directory
                             continue
                     
                     if not all_csv_files:
