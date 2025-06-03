@@ -6,6 +6,7 @@ Enterprise-grade unified log processing with connection pooling, file rotation d
 import asyncio
 import hashlib
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
@@ -230,7 +231,9 @@ class ScalableUnifiedProcessor:
                     
                     if content:
                         lines = content.decode('utf-8', errors='ignore').splitlines()
+                        logger.info(f"Processing {len(lines)} lines for {server_name} from position {start_position}")
                         
+                        processed_entries = 0
                         for i, line in enumerate(lines):
                             if self.cancelled:
                                 break
@@ -238,17 +241,26 @@ class ScalableUnifiedProcessor:
                             entry = self._parse_log_line(line, server_name, start_line + i)
                             if entry:
                                 entries.append(entry)
+                                processed_entries += 1
+                        
+                        logger.info(f"Found {processed_entries} valid entries out of {len(lines)} lines for {server_name}")
                         
                         # Update state
                         if self.state_manager:
                             new_position = start_position + len(content)
                             new_line = start_line + len(lines)
                             
+                            logger.info(f"Updating parser state: position {start_position} -> {new_position}, line {start_line} -> {new_line}")
+                            
                             await self.state_manager.update_parser_state(
                                 self.guild_id, server_name,
                                 'Deadside.log', new_line, new_position,
                                 'unified', file_state.file_hash
                             )
+                        else:
+                            logger.warning(f"No state manager available to update parser state for {server_name}")
+                    else:
+                        logger.warning(f"No content read from log file for {server_name}")
                 
         except Exception as e:
             logger.error(f"Failed to process Deadside.log for {server_name}: {e}")
@@ -430,7 +442,6 @@ class ScalableUnifiedProcessor:
         """Extract player name from Deadside log content"""
         # Deadside specific patterns for player names
         # Look for patterns like: Player "PlayerName" connected
-        import re
         
         patterns = [
             r'Player "([^"]+)"',
@@ -450,7 +461,6 @@ class ScalableUnifiedProcessor:
     
     def _parse_deadside_kill_event(self, content: str) -> Optional[Dict[str, Any]]:
         """Parse Deadside kill event from log content"""
-        import re
         
         # Deadside kill patterns
         # Look for patterns like: Player "Killer" killed Player "Victim" with WeaponName
