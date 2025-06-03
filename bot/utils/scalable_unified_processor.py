@@ -602,32 +602,28 @@ class ScalableUnifiedProcessor:
                         'message': message
                     }
         
-        # Generic spawn events
-        if 'spawn' in content_lower or 'respawn' in content_lower:
-            return 'spawn', None, {
-                'log_category': log_category,
-                'system': system_info,
-                'message': message,
-                'event_type': 'spawn'
-            }
+        # Zone events - precise SFPS system patterns
+        zone_patterns = [
+            r'LogSFPS.*?zone.*?enter.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?zone.*?exit.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?safezone.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?pvp.*?zone.*?X=([\d\.-]+).*?Y=([\d\.-]+)'
+        ]
         
-        # Server status events
-        if 'logcore' in content_lower or 'logengine' in content_lower:
-            if 'init' in content_lower or 'start' in content_lower:
-                return 'server_start', None, {
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
-            
-            if 'shutdown' in content_lower or 'exit' in content_lower:
-                return 'server_stop', None, {
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
+        for pattern in zone_patterns:
+            zone_match = re.search(pattern, content, re.IGNORECASE)
+            if zone_match:
+                if len(zone_match.groups()) >= 2:
+                    x_coord, y_coord = zone_match.groups()[:2]
+                    return 'zone', None, {
+                        'x_coordinate': float(x_coord),
+                        'y_coordinate': float(y_coord),
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
         
-        # General Deadside events
+        # No specific patterns matched - return general event for unclassified entries
         return 'general', None, {
             'log_category': log_category,
             'system': system_info,
