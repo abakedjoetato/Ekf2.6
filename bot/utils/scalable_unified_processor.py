@@ -221,6 +221,7 @@ class ScalableUnifiedProcessor:
                     if file_state.rotation_detected:
                         # Cold start: file rotation, bot startup, or new server - process entire file and reset player states
                         logger.info(f"Cold start processing for {server_name} - resetting all player sessions")
+                        self._cold_start_mode = True  # Set cold start mode to skip embed sending
                         content = await file.read()
                         await self._handle_server_restart(server_name)
                         start_position = 0
@@ -228,6 +229,7 @@ class ScalableUnifiedProcessor:
                     else:
                         # Hot run: continue from last position
                         logger.info(f"Hot run processing for {server_name} - incremental from position {file_state.last_position}")
+                        self._cold_start_mode = False  # Normal mode, send embeds
                         await file.seek(file_state.last_position)
                         content = await file.read()
                         start_position = file_state.last_position
@@ -705,13 +707,65 @@ class ScalableUnifiedProcessor:
                 await self._process_single_entry(entry)
             
             logger.info(f"Chronological processing complete. Entry types: {entry_types}")
+            
+            # Update voice channel after processing all entries
+            await self._update_voice_channel_for_servers()
                 
         except Exception as e:
             logger.error(f"Failed to process entries chronologically: {e}")
     
+    async def _update_voice_channel_for_servers(self):
+        """Update voice channel after processing all entries"""
+        try:
+            if not self.bot or not hasattr(self.bot, 'voice_channel_batcher'):
+                return
+            
+            # Get guild config to find servers
+            guild_config = await self.bot.db_manager.get_guild(self.guild_id)
+            if not guild_config:
+                return
+            
+            servers = guild_config.get('servers', [])
+            for server in servers:
+                server_name = server.get('name', 'Unknown Server')
+                server_id = str(server.get('_id', ''))
+                
+                # Get current player count from lifecycle manager
+                if hasattr(self.bot, 'lifecycle_manager'):
+                    active_players = self.bot.lifecycle_manager.get_active_players(self.guild_id)
+                    server_players = [p for p in active_players.values() if p and p.get('server_id') == server_id]
+                    player_count = len(server_players)
+                else:
+                    player_count = 0
+                
+                # Get max players from config
+                max_players = server.get('max_players', 50)
+                
+                # Find voice channel ID
+                server_channels_config = guild_config.get('server_channels', {})
+                server_specific = server_channels_config.get(server_id, {})
+                default_server = server_channels_config.get('default', {})
+                legacy_channels = guild_config.get('channels', {})
+                
+                vc_id = (server_specific.get('playercountvc') or 
+                        default_server.get('playercountvc') or 
+                        legacy_channels.get('playercountvc'))
+                
+                if vc_id:
+                    await self.bot.voice_channel_batcher.queue_voice_channel_update(
+                        int(vc_id), server_name, player_count, max_players
+                    )
+                    logger.debug(f"Queued voice channel update for {server_name}: {player_count}/{max_players}")
+        
+        except Exception as e:
+            logger.error(f"Failed to update voice channels: {e}")
+
     async def _process_single_entry(self, entry: LogEntry):
         """Process a single log entry"""
         try:
+            # Check if this is a cold start (rotation detected) to avoid sending embeds
+            is_cold_start = getattr(self, '_cold_start_mode', False)
+            
             # Handle player lifecycle events (always process for state tracking)
             if entry.entry_type == 'queue' and entry.player_name:
                 await self._handle_player_queue(entry)
@@ -722,15 +776,16 @@ class ScalableUnifiedProcessor:
             elif entry.entry_type == 'kill':
                 await self._handle_kill_event(entry)
             
-            # Handle embed-worthy events only
-            elif entry.entry_type == 'mission':
-                await self._handle_mission_event(entry)
-            elif entry.entry_type == 'airdrop':
-                await self._handle_airdrop_event(entry)
-            elif entry.entry_type == 'helicrash':
-                await self._handle_helicrash_event(entry)
-            elif entry.entry_type == 'trader':
-                await self._handle_trader_event(entry)
+            # Handle embed-worthy events only if NOT in cold start mode
+            if not is_cold_start:
+                if entry.entry_type == 'mission':
+                    await self._handle_mission_event(entry)
+                elif entry.entry_type == 'airdrop':
+                    await self._handle_airdrop_event(entry)
+                elif entry.entry_type == 'helicrash':
+                    await self._handle_helicrash_event(entry)
+                elif entry.entry_type == 'trader':
+                    await self._handle_trader_event(entry)
             
             # Note: vehicle and spawn events are classified but not processed for embeds
             
