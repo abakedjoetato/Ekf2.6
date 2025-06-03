@@ -122,20 +122,24 @@ class ScalableKillfeedProcessor:
                     pattern = f"{killfeed_path}**/*.csv"
                     logger.info(f"Killfeed discovery using glob pattern: {pattern}")
                     
+                    paths = []
+                    file_list = []
+                    
                     try:
                         # Use glob for recursive file discovery (same as historical parser)
                         paths = await sftp.glob(pattern)
                         logger.info(f"Glob discovery: Found {len(paths)} CSV files")
                         
-                        file_list = []
                         for path in paths:
                             # Extract just the filename portion for compatibility
-                            filename = path.split('/')[-1]
+                            import os
+                            filename = os.path.basename(str(path))
                             file_list.append(filename)
                             logger.info(f"Found CSV file: {filename} (full path: {path})")
                             
                     except Exception as e:
                         logger.warning(f"Glob pattern failed, falling back to directory listing: {e}")
+                        paths = []  # Clear paths since glob failed
                         
                         # Fallback to directory listing if glob fails
                         try:
@@ -155,16 +159,37 @@ class ScalableKillfeedProcessor:
                     logger.warning(f"Could not list killfeed directory {killfeed_path}: {e}")
                     return None
                 file_attrs = []
-                for filename in file_list:
-                    if filename.endswith('.csv'):
-                        attrs = await sftp.stat(f"{killfeed_path.rstrip('/')}/{filename}")
-                        # Create a simple object with needed attributes
-                        file_info = type('FileInfo', (), {
-                            'filename': filename,
-                            'size': getattr(attrs, 'size', 0),
-                            'mtime': getattr(attrs, 'mtime', 0)
-                        })()
-                        file_attrs.append(file_info)
+                
+                # If using glob results, we have full paths already
+                if paths:
+                    for full_path in paths:
+                        try:
+                            attrs = await sftp.stat(full_path)
+                            import os
+                            filename = os.path.basename(str(full_path))
+                            file_info = type('FileInfo', (), {
+                                'filename': filename,
+                                'size': getattr(attrs, 'size', 0),
+                                'mtime': getattr(attrs, 'mtime', 0)
+                            })()
+                            file_attrs.append(file_info)
+                        except Exception as e:
+                            logger.warning(f"Failed to get stats for {full_path}: {e}")
+                else:
+                    # If using directory listing, construct paths manually
+                    for filename in file_list:
+                        if filename.endswith('.csv'):
+                            try:
+                                file_path = f"{killfeed_path.rstrip('/')}/{filename}"
+                                attrs = await sftp.stat(file_path)
+                                file_info = type('FileInfo', (), {
+                                    'filename': filename,
+                                    'size': getattr(attrs, 'size', 0),
+                                    'mtime': getattr(attrs, 'mtime', 0)
+                                })()
+                                file_attrs.append(file_info)
+                            except Exception as e:
+                                logger.warning(f"Failed to get stats for {filename}: {e}")
                 csv_files = []
                 
                 for attr in file_attrs:
@@ -187,9 +212,15 @@ class ScalableKillfeedProcessor:
     
     def _extract_timestamp_from_filename(self, filename: str) -> Optional[str]:
         """Extract timestamp from killfeed filename"""
-        # Match patterns like: killfeed_2024-06-02_21-45-30.csv
-        timestamp_pattern = r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})'
-        match = re.search(timestamp_pattern, filename)
+        # Match patterns like: 2025.06.03-00.00.00.csv (current format)
+        current_pattern = r'(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2})'
+        match = re.search(current_pattern, filename)
+        if match:
+            return match.group(1)
+        
+        # Fallback to legacy pattern: killfeed_2024-06-02_21-45-30.csv
+        legacy_pattern = r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})'
+        match = re.search(legacy_pattern, filename)
         return match.group(1) if match else None
     
     async def _process_file_transition(self, current_state: ParserState, newest_file: str, progress_callback=None):
