@@ -235,6 +235,7 @@ class ScalableUnifiedProcessor:
                         logger.info(f"Processing {len(lines)} lines for {server_name} from position {start_position}")
                         
                         processed_entries = 0
+                        entry_types_found = {}
                         for i, line in enumerate(lines):
                             if self.cancelled:
                                 break
@@ -243,8 +244,12 @@ class ScalableUnifiedProcessor:
                             if entry:
                                 entries.append(entry)
                                 processed_entries += 1
+                                # Track entry types
+                                entry_type = entry.entry_type
+                                entry_types_found[entry_type] = entry_types_found.get(entry_type, 0) + 1
                         
                         logger.info(f"Found {processed_entries} valid entries out of {len(lines)} lines for {server_name}")
+                        logger.info(f"Entry types found: {entry_types_found}")
                         
                         # Update state
                         if self.state_manager:
@@ -520,7 +525,15 @@ class ScalableUnifiedProcessor:
             # Reset all players for this server to offline state
             logger.info(f"Handling server restart for {server_name} - resetting player states")
             
-            # TODO: Integrate with existing player session reset logic
+            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
+                # End all active sessions for this server
+                await self.bot.db_manager.end_all_sessions_for_server(
+                    self.guild_id, 
+                    server_name
+                )
+                logger.info(f"Reset all player sessions for {server_name}")
+            else:
+                logger.warning(f"No database manager available to reset player states for {server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle server restart for {server_name}: {e}")
@@ -528,11 +541,20 @@ class ScalableUnifiedProcessor:
     async def _process_entries_chronologically(self, entries: List[LogEntry]):
         """Process log entries in chronological order"""
         try:
+            logger.info(f"Processing {len(entries)} entries chronologically")
+            
+            entry_types = {}
             for entry in entries:
                 if self.cancelled:
                     break
                 
+                # Track entry types for debugging
+                entry_type = entry.entry_type
+                entry_types[entry_type] = entry_types.get(entry_type, 0) + 1
+                
                 await self._process_single_entry(entry)
+            
+            logger.info(f"Chronological processing complete. Entry types: {entry_types}")
                 
         except Exception as e:
             logger.error(f"Failed to process entries chronologically: {e}")
@@ -586,7 +608,7 @@ class ScalableUnifiedProcessor:
             logger.info(f"Player {entry.player_name} left {entry.server_name}")
             
             # Get bot's database manager
-            if hasattr(self, 'bot') and hasattr(self.bot, 'db_manager'):
+            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # End player session
                 await self.bot.db_manager.end_player_session(
                     self.guild_id,
@@ -594,6 +616,8 @@ class ScalableUnifiedProcessor:
                     entry.timestamp
                 )
                 logger.debug(f"Ended session for {entry.player_name}")
+            else:
+                logger.warning(f"No database manager available to end session for {entry.player_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle player leave for {entry.player_name}: {e}")
@@ -612,7 +636,7 @@ class ScalableUnifiedProcessor:
             logger.info(f"Kill event: {killer} killed {victim} with {weapon} on {entry.server_name}")
             
             # Get bot's database manager
-            if hasattr(self, 'bot') and hasattr(self.bot, 'db_manager'):
+            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Record the kill
                 await self.bot.db_manager.record_kill(
                     guild_id=self.guild_id,
@@ -624,6 +648,8 @@ class ScalableUnifiedProcessor:
                     distance=kill_data.get('distance', 0)
                 )
                 logger.debug(f"Recorded kill: {killer} -> {victim}")
+            else:
+                logger.warning(f"No database manager available to record kill: {killer} -> {victim}")
             
         except Exception as e:
             logger.error(f"Failed to handle kill event: {e}")
