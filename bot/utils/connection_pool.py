@@ -63,34 +63,102 @@ class ServerConnectionPool:
             await self.available_connections.put(conn)
     
     async def _create_connection(self) -> Optional[asyncssh.SSHClientConnection]:
-        """Create a new SSH connection with proper error handling"""
-        try:
-            conn = await asyncssh.connect(
-                self.server_config.get('host', 'localhost'),
-                port=self.server_config.get('port', 22),
-                username=self.server_config.get('username', ''),
-                password=self.server_config.get('password', ''),
-                known_hosts=None,
-                kex_algs=['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521'],
-                encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc'],
-                mac_algs=['hmac-sha1', 'hmac-sha2-256', 'hmac-sha2-512'],
-                compression_algs=['none'],
-                server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-dss']
-            )
-            
-            self.failed_attempts = 0
-            return conn
-            
-        except Exception as e:
-            self.failed_attempts += 1
-            self.last_failure_time = datetime.now(timezone.utc)
-            
-            if self.failed_attempts >= 3:
-                self.circuit_breaker_open = True
-                logger.error(f"Circuit breaker opened for {self.server_config.get('host')} after {self.failed_attempts} failures")
-            
-            logger.error(f"Failed to create connection to {self.server_config.get('host')}: {e}")
-            return None
+        """Create a new SSH connection with robust compatibility strategies"""
+        
+        # Define multiple connection strategies for maximum compatibility
+        connection_strategies = [
+            {
+                'name': 'modern_secure',
+                'kex_algs': [
+                    'curve25519-sha256', 'curve25519-sha256@libssh.org',
+                    'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521',
+                    'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512',
+                    'diffie-hellman-group14-sha256'
+                ]
+            },
+            {
+                'name': 'legacy_compatible',
+                'kex_algs': [
+                    'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1',
+                    'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group-exchange-sha1'
+                ]
+            },
+            {
+                'name': 'ultra_legacy',
+                'kex_algs': [
+                    'diffie-hellman-group1-sha1'
+                ]
+            }
+        ]
+        
+        for strategy in connection_strategies:
+            try:
+                logger.debug(f"Trying connection strategy: {strategy['name']} for {self.server_config.get('host')}")
+                
+                options = {
+                    'username': self.server_config.get('username', ''),
+                    'password': self.server_config.get('password', ''),
+                    'known_hosts': None,
+                    'client_keys': None,
+                    'preferred_auth': 'password,keyboard-interactive',
+                    'kex_algs': strategy['kex_algs'],
+                    'encryption_algs': [
+                        'aes256-ctr', 'aes192-ctr', 'aes128-ctr',
+                        'aes256-cbc', 'aes192-cbc', 'aes128-cbc',
+                        '3des-cbc', 'blowfish-cbc'
+                    ],
+                    'mac_algs': [
+                        'hmac-sha2-256', 'hmac-sha2-512',
+                        'hmac-sha1', 'hmac-md5'
+                    ],
+                    'compression_algs': ['none'],
+                    'server_host_key_algs': ['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-dss']
+                }
+                
+                conn = await asyncio.wait_for(
+                    asyncssh.connect(
+                        self.server_config.get('host', 'localhost'),
+                        port=self.server_config.get('port', 22),
+                        **options
+                    ),
+                    timeout=30
+                )
+                
+                logger.info(f"✅ SFTP connected using {strategy['name']} to {self.server_config.get('host')}")
+                self.failed_attempts = 0
+                return conn
+                
+            except asyncio.TimeoutError:
+                logger.warning(f"Connection timeout with {strategy['name']}")
+                continue
+            except asyncssh.DisconnectError as e:
+                if 'Invalid DH parameters' in str(e):
+                    logger.warning(f"DH parameters rejected for {strategy['name']}")
+                    continue
+                else:
+                    logger.warning(f"Server disconnected: {e}")
+                    continue
+            except Exception as e:
+                if 'Invalid DH parameters' in str(e):
+                    logger.warning(f"DH validation failed for {strategy['name']}")
+                    continue
+                elif 'auth' in str(e).lower():
+                    logger.error(f"Authentication failed with provided credentials")
+                    break  # No point trying other strategies with bad auth
+                else:
+                    logger.warning(f"Connection error with {strategy['name']}: {e}")
+                    continue
+        
+        # All strategies failed
+        self.failed_attempts += 1
+        self.last_failure_time = datetime.now(timezone.utc)
+        
+        if self.failed_attempts >= 3:
+            self.circuit_breaker_open = True
+            logger.error(f"Circuit breaker opened for {self.server_config.get('host')} after {self.failed_attempts} failures")
+        
+        logger.error(f"All connection strategies failed for {self.server_config.get('host')}")
+        return None
     
     def _should_retry(self) -> bool:
         """Check if circuit breaker should allow retry"""
