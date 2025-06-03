@@ -62,30 +62,43 @@ class SimpleKillfeedProcessor:
             if self.state_manager:
                 await self.state_manager.register_session(self.guild_id, self.server_name, 'killfeed')
             
-            # Get current state from shared manager
+            # Get current killfeed-specific state from shared manager
             current_state = None
             if self.state_manager:
-                current_state = await self.state_manager.get_parser_state(self.guild_id, self.server_name)
+                # Get state but only consider it if it's for a CSV file (killfeed-specific)
+                state = await self.state_manager.get_parser_state(self.guild_id, self.server_name)
+                if state and state.last_file and state.last_file.endswith('.csv'):
+                    current_state = state
+                    logger.info(f"Found existing CSV state: {state.last_file} at line {state.last_line}")
             
             events = []
             
-            # Finish processing previous file if state exists
-            if current_state and current_state.last_file:
-                events.extend(await self._finish_previous_file(current_state))
-            
-            # Discover and process newest CSV file
+            # Discover newest CSV file
             newest_file = await self._discover_newest_csv_file()
             if newest_file:
-                # Check if we need to switch to a newer file
-                if not current_state or current_state.last_file != newest_file:
+                logger.info(f"Processing killfeed file: {newest_file}")
+                
+                # Always process the newest file - check if it's a new file or continuing existing
+                if current_state and current_state.last_file == newest_file:
+                    # Continue from last known position in same file
+                    logger.info(f"Continuing from position {current_state.last_byte_position} in {newest_file}")
                     new_events = await self._process_csv_file(newest_file, current_state)
-                    events.extend(new_events)
+                else:
+                    # New file or first run - start from beginning
+                    logger.info(f"Starting fresh processing of {newest_file}")
+                    new_events = await self._process_csv_file(newest_file, None)
+                
+                events.extend(new_events)
+            else:
+                logger.warning("No killfeed CSV files found")
             
             if events:
                 # Deliver events to Discord
                 await self._deliver_killfeed_events(events)
                 results['events_processed'] = len(events)
                 logger.info(f"✅ Processed {len(events)} killfeed events for {self.server_name}")
+            else:
+                logger.info(f"No new killfeed events found for {self.server_name}")
             
             results['success'] = True
             
@@ -222,6 +235,7 @@ class SimpleKillfeedProcessor:
         try:
             async with connection_manager.get_connection(self.guild_id, self.server_config) as conn:
                 if not conn:
+                    logger.error("No connection available for CSV processing")
                     return events
                 
                 sftp = await conn.start_sftp_client()
@@ -233,6 +247,8 @@ class SimpleKillfeedProcessor:
                 else:
                     file_path = f"{killfeed_path}{filename}"
                 
+                logger.info(f"Reading CSV file: {file_path}")
+                
                 # Determine starting position
                 start_line = 0
                 start_byte = 0
@@ -240,21 +256,44 @@ class SimpleKillfeedProcessor:
                 if current_state and current_state.last_file == filename:
                     start_line = current_state.last_line
                     start_byte = current_state.last_byte_position
+                    logger.info(f"Resuming from line {start_line}, byte {start_byte}")
+                else:
+                    logger.info(f"Starting fresh processing from beginning")
+                
+                # Get file size for debugging
+                try:
+                    stat_info = await sftp.stat(file_path)
+                    file_size = stat_info.size
+                    logger.info(f"CSV file size: {file_size} bytes")
+                except Exception as e:
+                    logger.warning(f"Could not get file size: {e}")
+                    file_size = 0
                 
                 # Read file content from starting position
                 async with sftp.open(file_path, 'rb') as file:
                     await file.seek(start_byte)
                     content = await file.read()
                     
+                logger.info(f"Read {len(content)} bytes from position {start_byte}")
+                
                 if not content:
+                    logger.warning(f"No content read from CSV file (at position {start_byte})")
                     return events
                 
                 # Process lines
                 lines = content.decode('utf-8', errors='ignore').splitlines()
+                logger.info(f"Decoded {len(lines)} lines from content")
+                
+                # Show first few lines for debugging
+                if lines:
+                    logger.info("First 3 lines of CSV content:")
+                    for i, line in enumerate(lines[:3]):
+                        logger.info(f"  Line {i+1}: '{line}'")
                 
                 # Extract timestamp from filename for state management
                 file_timestamp = self._extract_timestamp_from_filename(filename)
                 
+                valid_events_count = 0
                 for i, line in enumerate(lines):
                     if self.cancelled:
                         break
@@ -266,11 +305,16 @@ class SimpleKillfeedProcessor:
                     event = self._parse_killfeed_line(line, start_line + i + 1, filename)
                     if event:
                         events.append(event)
+                        valid_events_count += 1
+                
+                logger.info(f"Parsed {valid_events_count} valid events from {len(lines)} lines")
                 
                 # Update state after processing
                 if self.state_manager and lines:
                     final_line = start_line + len(lines)
                     final_byte = start_byte + len(content)
+                    
+                    logger.info(f"Updating state: line {start_line} -> {final_line}, byte {start_byte} -> {final_byte}")
                     
                     await self.state_manager.update_parser_state(
                         self.guild_id, self.server_name,
@@ -280,6 +324,8 @@ class SimpleKillfeedProcessor:
                 
         except Exception as e:
             logger.error(f"Failed to process CSV file {filename}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         return events
     
