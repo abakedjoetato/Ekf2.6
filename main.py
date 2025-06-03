@@ -174,21 +174,27 @@ class EmeraldKillfeedBot(commands.Bot):
         logger.info(f"📊 Loaded {loaded_count}/{len(cog_classes)} cogs successfully")
 
         # Log command count (py-cord 2.6.1 compatible)
-        try:
-            total_commands = len(getattr(self, 'pending_application_commands', []))
-            logger.info(f"📊 Total slash commands registered: {total_commands}")
-        except AttributeError:
-            # Fallback for py-cord 2.6.1
-            total_commands = len([cmd for cog in self.cogs.values() for cmd in getattr(cog, 'get_commands', lambda: [])()])
-            logger.info(f"📊 Total commands found in cogs: {total_commands}")
-
-        # Log command names (first 10)
-        try:
-            if hasattr(self, 'pending_application_commands') and self.pending_application_commands:
-                command_names = [cmd.name for cmd in self.pending_application_commands[:10]]
-                logger.info(f"🔍 Commands found: {', '.join(command_names)}...")
-        except (AttributeError, TypeError):
-            logger.info("🔍 Command names will be available after sync")
+        total_commands = 0
+        command_names = []
+        
+        # py-cord 2.6.1 uses application_commands attribute
+        if hasattr(self, 'application_commands'):
+            total_commands = len(self.application_commands)
+            command_names = [cmd.name for cmd in self.application_commands[:10]]
+        else:
+            # Fallback: count from cogs directly
+            for cog in self.cogs.values():
+                if hasattr(cog, 'get_application_commands'):
+                    cog_commands = cog.get_application_commands()
+                    total_commands += len(cog_commands)
+                    command_names.extend([cmd.name for cmd in cog_commands[:10]])
+        
+        logger.info(f"📊 Total slash commands registered: {total_commands}")
+        if command_names:
+            logger.info(f"🔍 Commands found: {', '.join(command_names[:10])}...")
+        
+        logger.info("✅ Cog loading: Complete")
+        logger.info(f"✅ {total_commands} commands registered and ready for sync")
 
         if failed_cogs:
             logger.error(f"❌ Failed cogs: {failed_cogs}")
@@ -238,12 +244,10 @@ class EmeraldKillfeedBot(commands.Bot):
         - Applies intelligent rate limit cooldowns
         """
         try:
-            # Get all commands
+            # Get all commands (py-cord 2.6.1 compatible)
             all_commands = []
-            if hasattr(self, 'application_commands') and self.application_commands:
+            if hasattr(self, 'application_commands'):
                 all_commands = list(self.application_commands)
-            elif hasattr(self, 'pending_application_commands') and self.pending_application_commands:
-                all_commands = list(self.pending_application_commands)
 
             if not all_commands:
                 logger.warning("⚠️ No commands found for syncing")

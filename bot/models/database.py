@@ -892,21 +892,20 @@ class DatabaseManager:
                     server_id, 
                     kill_data.get('killer', ''), 
                     distance, 
-                    kill_data.get('timestamp')
+                    kill_data.get('timestamp') or datetime.utcnow()
                 )
             
             # Update victim death count
             await self.increment_player_death(
                 guild_id, 
                 server_id, 
-                kill_data.get('victim', ''), 
-                kill_data.get('timestamp')
+                kill_data.get('victim', '')
             )
 
         except Exception as e:
             logger.error(f"Failed to add kill event: {e}")
 
-    async def increment_player_kill(self, guild_id: int, server_id: str, player_name: str, distance: float = 0.0, event_timestamp: datetime = None):
+    async def increment_player_kill(self, guild_id: int, server_id: str, player_name: str, distance: float = 0.0, event_timestamp: Optional[datetime] = None):
         """Increment player kill count and update streak/distance stats with chronological validation"""
         try:
             # Ensure consistent types
@@ -1116,8 +1115,8 @@ class DatabaseManager:
                 )
                 
                 # If state changed to online/offline, send connection embed
-                if hasattr(self, '_bot_instance') and self._bot_instance:
-                    bot = self._bot_instance
+                if hasattr(self, 'bot') and self.bot:
+                    bot = self.bot
                     if hasattr(bot, 'embed_factory') and hasattr(bot, 'channel_router'):
                         # Get player name from session data
                         player_name = current_session.get('player_name', f'Player{player_id[:8].upper()}') if current_session else f'Player{player_id[:8].upper()}'
