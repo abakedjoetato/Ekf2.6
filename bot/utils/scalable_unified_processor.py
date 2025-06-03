@@ -187,9 +187,14 @@ class ScalableUnifiedProcessor:
                         # 3. New server (no stored state)
                         # 4. More than 1500 new lines detected
                         
-                        if recent_resets > 0:
+                        # Force cold start on any bot restart or no stored state
+                        if recent_resets > 0 or not stored_state:
                             rotation_detected = True
-                            logger.info(f"🔄 COLD START TRIGGER: Bot restart detected for {server_name}")
+                            logger.info(f"🔄 COLD START TRIGGER: Bot restart or no state for {server_name}")
+                        # Also force cold start if last position is 0 (first run scenario)
+                        elif stored_state and stored_state.last_byte_position == 0:
+                            rotation_detected = True
+                            logger.info(f"🔄 COLD START TRIGGER: First run scenario for {server_name}")
                         elif stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
                             if stored_state.file_timestamp != current_hash:
                                 rotation_detected = True
