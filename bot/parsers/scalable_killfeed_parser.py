@@ -7,7 +7,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-from bot.utils.scalable_killfeed_processor import MultiServerKillfeedProcessor
+from bot.utils.simple_killfeed_processor import MultiServerSimpleKillfeedProcessor
 from bot.utils.shared_parser_state import get_shared_state_manager
 
 logger = logging.getLogger(__name__)
@@ -101,8 +101,8 @@ class ScalableKillfeedParser:
         try:
             logger.debug(f"Processing killfeed for guild {guild_id} with {len(servers)} servers")
             
-            # Create multi-server processor
-            processor = MultiServerKillfeedProcessor(guild_id)
+            # Create multi-server processor using simplified approach
+            processor = MultiServerSimpleKillfeedProcessor(guild_id)
             self.active_sessions[guild_id] = processor
             
             # Process available servers (excluding those under historical processing)

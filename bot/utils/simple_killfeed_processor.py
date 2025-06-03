@@ -381,6 +381,7 @@ class SimpleKillfeedProcessor:
         """Deliver killfeed events to Discord channels"""
         try:
             from bot.utils.channel_router import channel_router
+            from bot.utils.batch_sender import batch_sender
             
             for event in events:
                 # Create killfeed embed
