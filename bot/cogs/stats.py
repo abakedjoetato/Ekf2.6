@@ -522,40 +522,109 @@ class Stats(discord.Cog):
                 'state': 'online'
             }).to_list(length=50)
             
-            # Create embed
-            embed = discord.Embed(
-                title="🌐 Online Players",
-                description=f"**{len(sessions)}** players currently online",
-                color=0x32CD32
+            # Load thumbnail asset
+            file_path = "./assets/Connections.png"
+            try:
+                file = discord.File(file_path, filename="Connections.png")
+            except FileNotFoundError:
+                file = None
+            
+            # Group players by server
+            servers_with_players = {}
+            for session in sessions:
+                server_name = session.get('server_name', 'Unknown')
+                if server_name not in servers_with_players:
+                    servers_with_players[server_name] = []
+                
+                # Get player name from character_name field
+                player_name = session.get('character_name', session.get('player_name', 'Unknown Player'))
+                joined_at = session.get('joined_at')
+                
+                # Calculate session time
+                session_time = ""
+                if joined_at:
+                    try:
+                        if isinstance(joined_at, str):
+                            join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
+                        else:
+                            join_time = joined_at
+                        
+                        time_diff = datetime.now(timezone.utc) - join_time
+                        hours = int(time_diff.total_seconds() // 3600)
+                        minutes = int((time_diff.total_seconds() % 3600) // 60)
+                        
+                        if hours > 0:
+                            session_time = f" ({hours}h {minutes}m)"
+                        else:
+                            session_time = f" ({minutes}m)"
+                    except:
+                        session_time = ""
+                
+                servers_with_players[server_name].append({
+                    'name': player_name,
+                    'session_time': session_time
+                })
+            
+            # Create embed based on server count
+            if len(servers_with_players) == 1:
+                # Single server - show server name in title
+                server_name = list(servers_with_players.keys())[0]
+                players = servers_with_players[server_name]
+                
+                embed = discord.Embed(
+                    title=f"🌐 {server_name} ({len(players)} online)",
+                    color=0x00FF00,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
+                if players:
+                    player_lines = []
+                    for i, player in enumerate(players[:20], 1):
+                        player_lines.append(f"`{i:2d}.` **{player['name']}**{player['session_time']}")
+                    
+                    embed.description = "\n".join(player_lines)
+                else:
+                    embed.description = "No players currently online"
+                    
+            else:
+                # Multiple servers - show all servers
+                total_players = sum(len(players) for players in servers_with_players.values())
+                
+                embed = discord.Embed(
+                    title="🌐 Online Players - All Servers",
+                    description=f"**{total_players}** players currently online across all servers",
+                    color=0x00FF00,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
+                for server_name, players in servers_with_players.items():
+                    if players:
+                        player_lines = []
+                        for i, player in enumerate(players[:10], 1):
+                            player_lines.append(f"`{i:2d}.` **{player['name']}**{player['session_time']}")
+                        
+                        embed.add_field(
+                            name=f"🌐 {server_name} ({len(players)} online)",
+                            value="\n".join(player_lines),
+                            inline=False
+                        )
+            
+            # Set thumbnail and footer
+            embed.set_thumbnail(url="attachment://Connections.png")
+            embed.set_footer(
+                text="Updated every 3 minutes • Use /online <server> for detailed view",
+                icon_url="attachment://Connections.png"
             )
             
-            if sessions:
-                player_lines = []
-                for i, session in enumerate(sessions[:20], 1):
-                    player_id = session.get('player_id', 'Unknown')
-                    player_name = player_id[:8] + '...' if len(player_id) > 8 else player_id
-                    server_name = session.get('server_name', 'Unknown')
-                    player_lines.append(f"`{i:2d}.` **{player_name}** ({server_name})")
-                
-                embed.add_field(
-                    name="📋 Players Online",
-                    value="
-".join(player_lines),
-                    inline=False
-                )
+            if file:
+                await ctx.respond(embed=embed, file=file)
             else:
-                embed.add_field(
-                    name="📭 No Players Online",
-                    value="No players are currently online.",
-                    inline=False
-                )
-            
-            await ctx.respond(embed=embed)
+                await ctx.respond(embed=embed)
             
         except Exception as e:
             await ctx.respond("Failed to fetch online players.", ephemeral=True)
 
-(self, ctx, server_name: str, server_players: list):
+    async def _display_single_server_players(self, ctx, server_name: str, server_players: list):
         """Display players for a single specific server"""
         # Sort by join time (most recent first)
         server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
