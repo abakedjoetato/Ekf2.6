@@ -1137,19 +1137,35 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 try:
-                    # Update player state and check if it actually changed
-                    state_changed = await self.bot.db_manager.update_player_state(
-                        self.guild_id,
-                        eosid,
-                        'online',
-                        entry.server_name,
-                        entry.timestamp,
-                        skip_voice_update=True
-                    )
-                    
-                    # Always log state changes for debugging
-                    if state_changed:
-                        logger.info(f"Player {eosid[:8]}... state changed to online on {entry.server_name}")
+                    # Update player state and check if it actually changed with explicit error handling
+                    try:
+                        state_changed = await self.bot.db_manager.update_player_state(
+                            self.guild_id,
+                            eosid,
+                            'online',
+                            entry.server_name,
+                            entry.timestamp,
+                            skip_voice_update=True
+                        )
+                        
+                        # Always log state changes for debugging
+                        if state_changed:
+                            logger.info(f"Player {eosid[:8]}... state changed to online on {entry.server_name}")
+                            # Verify database persistence immediately
+                            verification = await self.bot.db_manager.player_sessions.find_one({
+                                "guild_id": self.guild_id,
+                                "player_id": eosid
+                            })
+                            if verification:
+                                logger.info(f"✓ DB Verified: {eosid[:8]}... is {verification.get('state')} on {verification.get('server_name')}")
+                            else:
+                                logger.error(f"✗ DB Verification FAILED: No session found for {eosid[:8]}...")
+                        else:
+                            logger.debug(f"No state change for {eosid[:8]}... (already online)")
+                    except Exception as db_error:
+                        logger.error(f"Database update failed for {eosid[:8]}...: {db_error}")
+                        import traceback
+                        logger.error(f"Full traceback: {traceback.format_exc()}")
                     
                     # Only send connection embed if state actually changed (offline -> online)
                     if state_changed and not self._cold_start_mode:
