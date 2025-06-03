@@ -1005,24 +1005,46 @@ class ScalableUnifiedProcessor:
             batch_count = len(self._cold_start_player_states)
             logger.info(f"🔄 Committing {batch_count} player states from cold start batch processing")
             
-            # Use individual upserts for reliability
+            # Use individual upserts with enhanced verification
             committed_count = 0
+            failed_count = 0
+            
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
+                    logger.debug(f"Attempting to commit: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
+                    
                     result = await self.bot.db_manager.player_sessions.replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
                     )
                     
+                    logger.debug(f"Replace result: upserted_id={result.upserted_id}, modified_count={result.modified_count}")
+                    
                     if result.upserted_id or result.modified_count > 0:
-                        committed_count += 1
-                        logger.debug(f"✓ Committed: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
+                        # Immediate verification
+                        verification = await self.bot.db_manager.player_sessions.find_one({
+                            'guild_id': session_data['guild_id'],
+                            'player_id': player_id
+                        })
+                        
+                        if verification:
+                            committed_count += 1
+                            logger.info(f"✓ Committed & Verified: {player_id[:8]}... -> {verification.get('state')} on {verification.get('server_name')}")
+                        else:
+                            failed_count += 1
+                            logger.error(f"✗ COMMIT FAILED - No verification: {player_id[:8]}...")
+                    else:
+                        failed_count += 1
+                        logger.error(f"✗ Replace operation returned no changes for {player_id[:8]}...")
                     
                 except Exception as commit_error:
-                    logger.error(f"Failed to commit session for {player_id[:8]}...: {commit_error}")
+                    failed_count += 1
+                    logger.error(f"Exception during commit for {player_id[:8]}...: {commit_error}")
+                    import traceback
+                    logger.error(f"Full traceback: {traceback.format_exc()}")
             
-            logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed")
+            logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed, {failed_count} failed")
             
             # Verify database state after commit
             total_online = await self.bot.db_manager.player_sessions.count_documents({
