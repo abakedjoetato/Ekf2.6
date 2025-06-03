@@ -104,8 +104,8 @@ class ScalableUnifiedProcessor:
                 await self._process_entries_chronologically(all_entries)
                 results['entries_processed'] = len(all_entries)
                 
-                # Phase 4: Final voice channel update after processing (both cold and hot starts)
-                await self._perform_final_voice_channel_update(available_servers)
+                # Phase 4: Single voice channel update after all processing to prevent rate limiting
+                await self._perform_consolidated_voice_channel_update(available_servers)
                 if self._voice_channel_updates_deferred:
                     self._voice_channel_updates_deferred = False
             
@@ -117,8 +117,8 @@ class ScalableUnifiedProcessor:
         
         return results
     
-    async def _perform_final_voice_channel_update(self, server_configs: List[Dict[str, Any]]):
-        """Perform final voice channel update after cold start processing to prevent rate limiting"""
+    async def _perform_consolidated_voice_channel_update(self, server_configs: List[Dict[str, Any]]):
+        """Perform a single consolidated voice channel update per run to prevent rate limiting"""
         try:
             if not self.bot or not hasattr(self.bot, 'db_manager') or not self.bot.db_manager:
                 return
@@ -128,7 +128,9 @@ class ScalableUnifiedProcessor:
             if not guild_config:
                 return
             
-            # Update voice channels for each server
+            # Calculate final player counts for all servers in one pass
+            server_updates = {}
+            
             for server_config in server_configs:
                 server_name = server_config.get('name', server_config.get('server_name', 'default'))
                 server_id = str(server_config.get('_id', server_config.get('server_id', '')))
@@ -159,15 +161,28 @@ class ScalableUnifiedProcessor:
                         legacy_channels.get('playercountvc'))
                 
                 if vc_id:
-                    await self.bot.voice_channel_batcher.queue_voice_channel_update(
-                        int(vc_id), server_name, player_count, max_players
-                    )
-                    logger.debug(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
+                    server_updates[int(vc_id)] = {
+                        'server_name': server_name,
+                        'player_count': player_count,
+                        'max_players': max_players
+                    }
                 else:
                     logger.warning(f"No voice channel configured for server {server_name} (ID: {server_id})")
+            
+            # Send consolidated voice channel updates (one per channel instead of batching multiple)
+            if server_updates and hasattr(self.bot, 'voice_channel_batcher'):
+                for vc_id, update_data in server_updates.items():
+                    # Only update if voice channel batcher exists and we have valid data
+                    await self.bot.voice_channel_batcher.queue_voice_channel_update(
+                        vc_id, 
+                        update_data['server_name'], 
+                        update_data['player_count'], 
+                        update_data['max_players']
+                    )
+                    logger.debug(f"Consolidated voice channel update: {update_data['server_name']} -> {update_data['player_count']}/{update_data['max_players']} players")
         
         except Exception as e:
-            logger.error(f"Failed to update voice channels after cold start: {e}")
+            logger.error(f"Failed to perform consolidated voice channel update: {e}")
     
     async def _discover_and_check_rotation(self, server_configs: List[Dict[str, Any]]) -> Dict[str, ServerFileState]:
         """Discover Deadside.log files and check for rotation"""

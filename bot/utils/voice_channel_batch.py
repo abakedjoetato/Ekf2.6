@@ -20,8 +20,24 @@ class VoiceChannelBatcher:
         self.min_update_interval = timedelta(minutes=5)  # Minimum 5 minutes between updates to reduce API calls
         
     async def queue_voice_channel_update(self, channel_id: int, server_name: str, player_count: int, max_players: int = 50):
-        """Queue a voice channel update - will be processed in batch"""
+        """Queue a voice channel update - will be processed with strict rate limiting"""
         async with self.update_lock:
+            # Check if we're within cooldown period
+            import os
+            import time
+            cooldown_file = "voice_channel_cooldown.txt"
+            if os.path.exists(cooldown_file):
+                try:
+                    with open(cooldown_file, 'r') as f:
+                        until = float(f.read().strip())
+                        if time.time() < until:
+                            # Skip this update due to rate limiting
+                            return
+                        else:
+                            os.remove(cooldown_file)
+                except Exception:
+                    pass
+            
             # Determine status
             if player_count == 0:
                 status = "OFFLINE"
@@ -46,7 +62,7 @@ class VoiceChannelBatcher:
                 'queued_at': datetime.utcnow()
             }
             
-            # Schedule immediate processing if enough time has passed
+            # Schedule processing with enhanced rate limiting
             last_update = self.last_update_times.get(channel_id)
             if not last_update or datetime.utcnow() - last_update >= self.min_update_interval:
                 asyncio.create_task(self._process_pending_update(channel_id))
