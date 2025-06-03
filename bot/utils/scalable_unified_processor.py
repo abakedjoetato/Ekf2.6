@@ -777,6 +777,42 @@ class ScalableUnifiedProcessor:
                         'message': message
                     }
         
+        # Check for player connection events that might be classified as general
+        # Pattern: Player |000240ecc1ba45d59962bc2d34e0177e successfully registered!
+        registration_match = re.search(r'Player \|([a-f0-9]{32}) successfully registered', content, re.IGNORECASE)
+        if registration_match:
+            eosid = registration_match.group(1)
+            return 'join', eosid, {
+                'log_category': log_category,
+                'system': system_info,
+                'message': message,
+                'eosid': eosid
+            }
+        
+        # Pattern: UChannel::Close: ... UniqueId: EOS:|000240ecc1ba45d59962bc2d34e0177e
+        disconnect_match = re.search(r'UniqueId: EOS:\|([a-f0-9]{32})', content, re.IGNORECASE)
+        if disconnect_match:
+            eosid = disconnect_match.group(1)
+            return 'leave', eosid, {
+                'log_category': log_category,
+                'system': system_info,
+                'message': message,
+                'eosid': eosid
+            }
+        
+        # Pattern: Join request: ... eosid=|000240ecc1ba45d59962bc2d34e0177e ... Name=PlayerName
+        queue_match = re.search(r'Join request:.*?eosid=\|([a-f0-9]{32}).*?Name=([^?]+)', content, re.IGNORECASE)
+        if queue_match:
+            eosid = queue_match.group(1)
+            player_name = queue_match.group(2).strip()
+            return 'queue', eosid, {
+                'log_category': log_category,
+                'system': system_info,
+                'message': message,
+                'eosid': eosid,
+                'player_name': player_name
+            }
+        
         # No specific patterns matched - return general event for unclassified entries
         return 'general', None, {
             'log_category': log_category,
@@ -1016,6 +1052,9 @@ class ScalableUnifiedProcessor:
                 await self._handle_player_leave(entry)
             elif entry.entry_type == 'kill':
                 await self._handle_kill_event(entry)
+            elif entry.entry_type == 'general':
+                # Check general entries for missed player connections
+                await self._handle_general_entry(entry)
             
             # Handle embed-worthy events only if NOT in cold start mode
             if not is_cold_start:
