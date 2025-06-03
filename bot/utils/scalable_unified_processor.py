@@ -159,7 +159,7 @@ class ScalableUnifiedProcessor:
                     await self.bot.voice_channel_batcher.queue_voice_channel_update(
                         int(vc_id), server_name, player_count, max_players
                     )
-                    logger.info(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
+                    logger.debug(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
                 else:
                     logger.warning(f"No voice channel configured for server {server_name} (ID: {server_id})")
         
@@ -866,7 +866,7 @@ class ScalableUnifiedProcessor:
     async def _process_entries_chronologically(self, entries: List[LogEntry]):
         """Process log entries in chronological order"""
         try:
-            logger.info(f"Processing {len(entries)} entries chronologically")
+            logger.debug(f"Processing {len(entries)} entries chronologically")
             
             entry_types = {}
             for entry in entries:
@@ -879,7 +879,7 @@ class ScalableUnifiedProcessor:
                 
                 await self._process_single_entry(entry)
             
-            logger.info(f"Chronological processing complete. Entry types: {entry_types}")
+            logger.debug(f"Chronological processing complete. Entry types: {entry_types}")
             
             # Update voice channel after processing all entries
             await self._update_voice_channel_for_servers()
@@ -933,7 +933,7 @@ class ScalableUnifiedProcessor:
                     await self.bot.voice_channel_batcher.queue_voice_channel_update(
                         int(vc_id), server_name, player_count, max_players
                     )
-                    logger.info(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
+                    logger.debug(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
                 else:
                     logger.warning(f"No voice channel configured for server {server_name} (ID: {server_id})")
         
