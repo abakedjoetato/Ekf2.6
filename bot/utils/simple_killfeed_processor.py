@@ -44,8 +44,9 @@ class SimpleKillfeedProcessor:
         
     def _get_killfeed_path(self) -> str:
         """Get the killfeed path for this server"""
+        host = self.server_config.get('host', 'unknown')
         server_id = self.server_config.get('server_id', self.server_config.get('_id', 'unknown'))
-        return f"/home/ds{server_id}/killfeed/"
+        return f"./{host}_{server_id}/actual1/deathlogs/"
     
     async def process_server_killfeed(self, progress_callback=None) -> Dict[str, Any]:
         """Main entry point for killfeed processing"""
@@ -105,7 +106,7 @@ class SimpleKillfeedProcessor:
         try:
             # Construct path to previous file
             killfeed_path = self._get_killfeed_path()
-            previous_file_path = f"{killfeed_path}world_0/{current_state.last_file}"
+            previous_file_path = f"{killfeed_path}{current_state.last_file}"
             
             logger.info(f"Finishing previous file: {current_state.last_file} from line {current_state.last_line}")
             
@@ -160,7 +161,7 @@ class SimpleKillfeedProcessor:
         return events
 
     async def _discover_newest_csv_file(self) -> Optional[str]:
-        """Discover newest CSV file using historical parser's proven glob method"""
+        """Discover newest CSV file by searching all subdirectories under deathlogs"""
         try:
             async with connection_manager.get_connection(self.guild_id, self.server_config) as conn:
                 if not conn:
@@ -168,23 +169,40 @@ class SimpleKillfeedProcessor:
                 
                 sftp = await conn.start_sftp_client()
                 killfeed_path = self._get_killfeed_path()
-                world_path = f"{killfeed_path}world_0/"
                 
-                # List CSV files in world_0 directory
+                all_csv_files = []
+                
+                # Search all subdirectories under deathlogs
                 try:
-                    entries = await sftp.listdir(world_path)
-                    csv_files = [f for f in entries if f.endswith('.csv')]
+                    entries = await sftp.listdir(killfeed_path)
                     
-                    if not csv_files:
+                    for entry in entries:
+                        entry_path = f"{killfeed_path}{entry}"
+                        
+                        try:
+                            # Check if it's a directory
+                            stat_info = await sftp.stat(entry_path)
+                            if stat_info.permissions and (stat_info.permissions & 0o040000):  # Directory check
+                                # Search for CSV files in this subdirectory
+                                subdir_files = await sftp.listdir(entry_path)
+                                for file in subdir_files:
+                                    if file.endswith('.csv'):
+                                        all_csv_files.append((file, entry))  # Store filename and subdirectory
+                        except:
+                            # Skip if can't access
+                            continue
+                    
+                    if not all_csv_files:
                         return None
                     
                     # Get newest file (max by filename which includes timestamp)
-                    newest_file = max(csv_files)
-                    logger.info(f"Found newest killfeed file: {newest_file}")
+                    newest_file, subdir = max(all_csv_files, key=lambda x: x[0])
+                    self._current_subdir = subdir  # Store for later use
+                    logger.info(f"Found newest killfeed file: {newest_file} in {subdir}")
                     return newest_file
                     
                 except Exception as e:
-                    logger.warning(f"Failed to list killfeed directory {world_path}: {e}")
+                    logger.warning(f"Failed to search killfeed directories under {killfeed_path}: {e}")
                     return None
                     
         except Exception as e:
@@ -202,7 +220,7 @@ class SimpleKillfeedProcessor:
                 
                 sftp = await conn.start_sftp_client()
                 killfeed_path = self._get_killfeed_path()
-                file_path = f"{killfeed_path}world_0/{filename}"
+                file_path = f"{killfeed_path}{filename}"
                 
                 # Determine starting position
                 start_line = 0
