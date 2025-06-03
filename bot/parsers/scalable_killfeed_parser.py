@@ -155,8 +155,8 @@ class ScalableKillfeedParser:
                     'error': f'Server {server_name} not found or killfeed not enabled'
                 }
             
-            # Process single server
-            processor = MultiServerKillfeedProcessor(guild_id)
+            # Process single server using simplified approach
+            processor = MultiServerSimpleKillfeedProcessor(guild_id)
             results = await processor.process_available_servers([target_server])
             
             return {
