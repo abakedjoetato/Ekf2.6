@@ -68,6 +68,10 @@ class ChronologicalProcessor:
     async def process_server_data(self, progress_callback=None) -> Dict[str, Any]:
         """Main entry point for three-phase processing"""
         try:
+            # Phase 0: Clear existing data for this server (historical processing only)
+            if self.db_manager:
+                await self._clear_existing_server_data()
+            
             # Phase 1: File Discovery
             self.stats.phase = ProcessingPhase.DISCOVERY
             if progress_callback:
@@ -464,7 +468,28 @@ class ChronologicalProcessor:
         except Exception as e:
             logger.error(f"Failed to update streak stats: {e}")
     
-
+    async def _clear_existing_server_data(self):
+        """Clear existing PVP data and kill events for this server before historical processing"""
+        try:
+            logger.info(f"Clearing existing data for server {self.server_id} before historical processing")
+            
+            # Clear PVP statistics for this server
+            pvp_delete_result = await self.db_manager.pvp_data.delete_many({
+                'guild_id': self.guild_id,
+                'server_id': self.server_id
+            })
+            
+            # Clear kill events for this server
+            kills_delete_result = await self.db_manager.kill_events.delete_many({
+                'guild_id': self.guild_id,
+                'server_id': self.server_id
+            })
+            
+            logger.info(f"Cleared {pvp_delete_result.deleted_count} PVP records and {kills_delete_result.deleted_count} kill events for server {self.server_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to clear existing data for server {self.server_id}: {e}")
+            # Don't fail the entire process if clearing fails
     
     def cancel(self):
         """Cancel the processing"""
