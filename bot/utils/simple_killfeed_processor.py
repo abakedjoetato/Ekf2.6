@@ -166,10 +166,10 @@ class SimpleKillfeedProcessor:
                             final_line = current_state.last_line + len(lines)
                             final_byte = current_state.last_byte_position + len(remaining_content)
                             
-                            await self.state_manager.update_parser_state(
+                            await self.state_manager.update_killfeed_state(
                                 self.guild_id, self.server_name,
                                 current_state.last_file, final_line, final_byte,
-                                'killfeed', current_state.file_timestamp
+                                current_state.file_timestamp
                             )
                             
         except Exception as e:
@@ -314,10 +314,10 @@ class SimpleKillfeedProcessor:
                     
                     logger.info(f"Updating state: line {start_line} -> {final_line}, byte {start_byte} -> {final_byte}")
                     
-                    await self.state_manager.update_parser_state(
+                    await self.state_manager.update_killfeed_state(
                         self.guild_id, self.server_name,
                         filename, final_line, final_byte,
-                        'killfeed', file_timestamp
+                        file_timestamp
                     )
                 
         except Exception as e:
@@ -336,14 +336,16 @@ class SimpleKillfeedProcessor:
             if len(parts) < 9:
                 return None
             
-            # Extract fields (0-indexed)
+            # Extract fields (0-indexed) - CSV format: timestamp;killer;killer_id;victim;victim_id;weapon;distance;killer_platform;victim_platform;
             timestamp_str = parts[0].strip()
             killer = parts[1].strip()
-            victim = parts[2].strip() 
-            weapon = parts[3].strip()
-            distance_str = parts[4].strip()
-            killer_platform = parts[5].strip() if len(parts) > 5 else "Unknown"
-            victim_platform = parts[6].strip() if len(parts) > 6 else "Unknown"
+            killer_id = parts[2].strip()
+            victim = parts[3].strip() 
+            victim_id = parts[4].strip()
+            weapon = parts[5].strip()
+            distance_str = parts[6].strip()
+            killer_platform = parts[7].strip() if len(parts) > 7 else "Unknown"
+            victim_platform = parts[8].strip() if len(parts) > 8 else "Unknown"
             
             # Parse timestamp
             event_timestamp = self._parse_timestamp(timestamp_str)

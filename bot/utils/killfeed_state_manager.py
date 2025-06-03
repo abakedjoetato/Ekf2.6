@@ -6,7 +6,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
-from bot.models.database import db
+import motor.motor_asyncio
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,17 @@ class KillfeedStateManager:
     
     def __init__(self):
         self.active_sessions: Dict[str, bool] = {}
+        self._db = None
+    
+    @property
+    def db(self):
+        """Get database connection"""
+        if self._db is None:
+            mongo_uri = os.getenv('MONGO_URI')
+            if mongo_uri:
+                client = motor.motor_asyncio.AsyncIOMotorClient(mongo_uri)
+                self._db = client.EmeraldDB
+        return self._db
     
     def _get_session_key(self, guild_id: int, server_name: str) -> str:
         """Generate unique session key"""
@@ -53,7 +65,7 @@ class KillfeedStateManager:
         """Get current killfeed state for a server"""
         try:
             # Look for killfeed-specific state document
-            state_doc = await db.killfeed_states.find_one({
+            state_doc = await self.db.killfeed_states.find_one({
                 "guild_id": guild_id,
                 "server_name": server_name
             })
@@ -92,7 +104,7 @@ class KillfeedStateManager:
             }
             
             # Upsert the state document
-            await db.killfeed_states.update_one(
+            await self.db.killfeed_states.update_one(
                 {"guild_id": guild_id, "server_name": server_name},
                 {"$set": state_data},
                 upsert=True
@@ -108,7 +120,7 @@ class KillfeedStateManager:
     async def reset_killfeed_state(self, guild_id: int, server_name: str) -> bool:
         """Reset killfeed state for a server (force reprocessing)"""
         try:
-            await db.killfeed_states.delete_one({
+            await self.db.killfeed_states.delete_one({
                 "guild_id": guild_id,
                 "server_name": server_name
             })
