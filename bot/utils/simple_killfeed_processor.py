@@ -43,6 +43,10 @@ class SimpleKillfeedProcessor:
         self.cancelled = False
         self._current_subdir = None  # Track current subdirectory
         
+        # Initialize channel router for proper channel resolution
+        from bot.utils.channel_router import ChannelRouter
+        self.channel_router = ChannelRouter(bot) if bot else None
+        
     def _get_killfeed_path(self) -> str:
         """Get the killfeed path for this server"""
         host = self.server_config.get('host', 'unknown')
@@ -435,25 +439,34 @@ class SimpleKillfeedProcessor:
                 logger.error("CRITICAL: No bot instance available for killfeed delivery")
                 return
                 
-            # Get killfeed channel directly from database
-            guild_config = await self.bot.db_manager.get_guild(self.guild_id)
-            if not guild_config:
-                logger.warning(f"No guild config found for guild {self.guild_id}")
-                return
+            # Use channel router for consistent channel resolution
+            if self.channel_router:
+                channel_id = await self.channel_router.get_channel_id(self.guild_id, self.server_name, 'killfeed')
+            else:
+                # Fallback to direct database lookup if no channel router
+                guild_config = await self.bot.db_manager.get_guild(self.guild_id)
+                if not guild_config:
+                    logger.warning(f"No guild config found for guild {self.guild_id}")
+                    return
 
-            server_channels = guild_config.get('server_channels', {})
-            channel_id = None
-            
-            # Try server-specific channel first
-            if self.server_name in server_channels:
-                channel_id = server_channels[self.server_name].get('killfeed')
-            
-            # Fall back to default server channel
-            if not channel_id and 'default' in server_channels:
-                channel_id = server_channels['default'].get('killfeed')
+                server_channels = guild_config.get('server_channels', {})
+                channel_id = None
+                
+                # Try server-specific channel first
+                if self.server_name in server_channels:
+                    channel_id = server_channels[self.server_name].get('killfeed')
+                
+                # Fall back to default server channel
+                if not channel_id and 'default' in server_channels:
+                    channel_id = server_channels['default'].get('killfeed')
+                
+                # Legacy fallback
+                if not channel_id:
+                    legacy_channels = guild_config.get('channels', {})
+                    channel_id = legacy_channels.get('killfeed')
             
             if not channel_id:
-                logger.warning(f"No killfeed channel configured for {self.server_name}")
+                logger.warning(f"No killfeed channel configured for guild {self.guild_id}")
                 return
             
             # Get Discord channel
