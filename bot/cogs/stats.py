@@ -522,10 +522,11 @@ class Stats(discord.Cog):
 
             guild_id = ctx.guild.id if ctx.guild else 0
             
+            # Respond immediately to prevent Discord timeout
+            await ctx.respond("⏳ Checking online players...", ephemeral=True)
+            
             # Get servers for autocomplete resolution
             servers = await ServerAutocomplete.get_servers_for_guild(guild_id or 0, self.bot.db_manager)
-            
-            await ctx.defer()
 
             # Get active players from the database with fallback to voice channel data
             try:
@@ -540,16 +541,12 @@ class Stats(discord.Cog):
                     server_players = []
                     
                     try:
-                        import asyncio
-                        
-                        # Set a 5-second timeout for the database query
-                        query_task = self.bot.db_manager.player_sessions.find({
+                        # Direct database query
+                        sessions = await self.bot.db_manager.player_sessions.find({
                             'guild_id': guild_id,
                             'server_name': server_name,
                             'state': 'online'
                         }).to_list(length=50)
-                        
-                        sessions = await asyncio.wait_for(query_task, timeout=5.0)
                         
                         for session in sessions:
                             player_id = session.get('player_id', 'Unknown')
@@ -562,9 +559,6 @@ class Stats(discord.Cog):
                                 'player_id': player_id,
                                 'server_id': server_id
                             })
-                    except asyncio.TimeoutError:
-                        logger.error(f"Database query timed out for {server_name}")
-                        server_players = []
                     except Exception as e:
                         logger.error(f"Database query failed: {e}")
                         server_players = []
@@ -587,8 +581,34 @@ class Stats(discord.Cog):
                         except Exception as voice_e:
                             logger.debug(f"Voice channel count check failed: {voice_e}")
                     
-                    # Create single server display
-                    await self._display_single_server_players(ctx, server_name, server_players)
+                    # Create embed for single server
+                    embed = discord.Embed(
+                        title=f"🌐 Online Players - {server_name}",
+                        description=f"**{len(server_players)}** players currently online",
+                        color=0x32CD32,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    
+                    if server_players:
+                        player_lines = []
+                        for i, player in enumerate(server_players[:20], 1):
+                            name = player['name']
+                            player_lines.append(f"`{i:2d}.` **{name}**")
+                        
+                        embed.add_field(
+                            name="📋 Players Online",
+                            value="\n".join(player_lines),
+                            inline=False
+                        )
+                    else:
+                        embed.add_field(
+                            name="📭 No Players Online",
+                            value="No players are currently online on this server.",
+                            inline=False
+                        )
+                    
+                    embed.set_footer(text=f"Data from {server_name}")
+                    await ctx.edit(content="", embed=embed)
                     return
                     
                 else:
