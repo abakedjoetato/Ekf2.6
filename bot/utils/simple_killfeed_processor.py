@@ -283,8 +283,9 @@ class SimpleKillfeedProcessor:
                                 events.append(event)
                                 logger.info(f"Found killfeed event: {event.killer} killed {event.victim}")
                             elif i < 5:
-                                parts = [part.strip().strip('"') for part in line.split(',')]
-                                logger.warning(f"Failed to parse line {i+1} (has {len(parts)} columns): {line}")
+                                parts_comma = [part.strip().strip('"') for part in line.split(',')]
+                                parts_semicolon = [part.strip().strip('"') for part in line.split(';')]
+                                logger.warning(f"Failed to parse line {i+1} - comma split: {len(parts_comma)} columns, semicolon split: {len(parts_semicolon)} columns: {line}")
                         
                         # Update state
                         if self.state_manager and lines:
@@ -310,8 +311,8 @@ class SimpleKillfeedProcessor:
     def _parse_killfeed_line(self, line: str, line_number: int, filename: str) -> Optional[KillfeedEvent]:
         """Parse a single killfeed CSV line"""
         try:
-            # CSV format: timestamp,killer_name,killer_id,victim_name,victim_id,weapon,distance,killer_platform,victim_platform
-            parts = [part.strip().strip('"') for part in line.split(',')]
+            # CSV format: timestamp;killer_name;killer_id;victim_name;victim_id;weapon;distance;killer_platform;victim_platform
+            parts = [part.strip().strip('"') for part in line.split(';')]
             
             if len(parts) >= 9:
                 timestamp_str = parts[0]
