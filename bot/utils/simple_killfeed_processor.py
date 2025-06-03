@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 
 from bot.utils.connection_pool import GlobalConnectionManager, connection_manager
-from bot.utils.shared_parser_state import get_shared_state_manager, ParserState
+from bot.utils.killfeed_state_manager import killfeed_state_manager, KillfeedState
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class SimpleKillfeedProcessor:
         self.guild_id = guild_id
         self.server_config = server_config
         self.server_name = server_config.get('name', 'Unknown')
-        self.state_manager = get_shared_state_manager()
+        self.state_manager = killfeed_state_manager
         self.bot = bot
         self.cancelled = False
         self._current_subdir = None  # Track current subdirectory
@@ -58,18 +58,16 @@ class SimpleKillfeedProcessor:
         }
         
         try:
-            # Register session with shared state manager
+            # Register session with killfeed state manager
             if self.state_manager:
-                await self.state_manager.register_session(self.guild_id, self.server_name, 'killfeed')
+                await self.state_manager.register_session(self.guild_id, self.server_name)
             
-            # Get current killfeed-specific state from shared manager
+            # Get current killfeed-specific state
             current_state = None
             if self.state_manager:
-                # Get state but only consider it if it's for a CSV file (killfeed-specific)
-                state = await self.state_manager.get_parser_state(self.guild_id, self.server_name)
-                if state and state.last_file and state.last_file.endswith('.csv'):
-                    current_state = state
-                    logger.info(f"Found existing CSV state: {state.last_file} at line {state.last_line}")
+                current_state = await self.state_manager.get_killfeed_state(self.guild_id, self.server_name)
+                if current_state:
+                    logger.info(f"Found existing killfeed state: {current_state.last_file} at line {current_state.last_line}")
             
             events = []
             
@@ -109,11 +107,11 @@ class SimpleKillfeedProcessor:
         finally:
             # Unregister session
             if self.state_manager:
-                await self.state_manager.unregister_session(self.guild_id, self.server_name, 'killfeed')
+                await self.state_manager.unregister_session(self.guild_id, self.server_name)
         
         return results
     
-    async def _finish_previous_file(self, current_state: ParserState) -> List[KillfeedEvent]:
+    async def _finish_previous_file(self, current_state: KillfeedState) -> List[KillfeedEvent]:
         """Finish processing the previous file from last known position"""
         events = []
         
@@ -228,7 +226,7 @@ class SimpleKillfeedProcessor:
             logger.error(f"Failed to discover killfeed files: {e}")
             return None
     
-    async def _process_csv_file(self, filename: str, current_state: Optional[ParserState] = None) -> List[KillfeedEvent]:
+    async def _process_csv_file(self, filename: str, current_state: Optional[KillfeedState] = None) -> List[KillfeedEvent]:
         """Process CSV file from last known position"""
         events = []
         
