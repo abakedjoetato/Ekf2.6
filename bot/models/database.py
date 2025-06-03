@@ -1480,6 +1480,20 @@ class DatabaseManager:
             logger.error(f"Failed to get active player sessions: {e}")
             return []
 
+    async def get_active_player_count(self, guild_id: int, server_name: str) -> int:
+        """Get count of active players for a specific server"""
+        try:
+            query = {
+                "guild_id": int(guild_id),
+                "server_name": str(server_name),
+                "status": "online"
+            }
+            count = await self.player_sessions.count_documents(query)
+            return count
+        except Exception as e:
+            logger.error(f"Failed to get active player count for {server_name}: {e}")
+            return 0
+
     async def remove_player_session(self, guild_id: int, server_id: str, player_id: str):
         """Remove player session from database"""
         try:

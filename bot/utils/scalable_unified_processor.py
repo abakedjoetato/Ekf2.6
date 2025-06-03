@@ -482,41 +482,71 @@ class ScalableUnifiedProcessor:
                 'message': message
             }
         
-        # Airdrop events - using proven patterns
-        airdrop_match = re.search(r'Event_AirDrop.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
-        if airdrop_match:
-            x_coord, y_coord = airdrop_match.groups()
-            return 'airdrop', None, {
-                'x_coordinate': float(x_coord),
-                'y_coordinate': float(y_coord),
-                'log_category': log_category,
-                'system': system_info,
-                'message': message
-            }
+        # Airdrop events - broader pattern matching
+        if 'airdrop' in content_lower:
+            # Try specific pattern first
+            airdrop_match = re.search(r'X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+            if airdrop_match:
+                x_coord, y_coord = airdrop_match.groups()
+                return 'airdrop', None, {
+                    'x_coordinate': float(x_coord),
+                    'y_coordinate': float(y_coord),
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+            else:
+                # Generic airdrop event without coordinates
+                return 'airdrop', None, {
+                    'location': 'Unknown',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
         
-        # Helicrash events - using proven patterns  
-        helicrash_match = re.search(r'Helicrash.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
-        if helicrash_match:
-            x_coord, y_coord = helicrash_match.groups()
-            return 'helicrash', None, {
-                'x_coordinate': float(x_coord),
-                'y_coordinate': float(y_coord),
-                'log_category': log_category,
-                'system': system_info,
-                'message': message
-            }
+        # Helicrash events - broader pattern matching
+        if 'helicrash' in content_lower or 'heli' in content_lower:
+            # Try specific pattern first
+            helicrash_match = re.search(r'X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+            if helicrash_match:
+                x_coord, y_coord = helicrash_match.groups()
+                return 'helicrash', None, {
+                    'x_coordinate': float(x_coord),
+                    'y_coordinate': float(y_coord),
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+            else:
+                # Generic helicrash event without coordinates
+                return 'helicrash', None, {
+                    'location': 'Unknown',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
         
-        # Trader events - using proven patterns
-        trader_match = re.search(r'Trader.*spawned.*location.*X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
-        if trader_match:
-            x_coord, y_coord = trader_match.groups()
-            return 'trader', None, {
-                'x_coordinate': float(x_coord),
-                'y_coordinate': float(y_coord),
-                'log_category': log_category,
-                'system': system_info,
-                'message': message
-            }
+        # Trader events - broader pattern matching
+        if 'trader' in content_lower:
+            # Try specific pattern first
+            trader_match = re.search(r'X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+            if trader_match:
+                x_coord, y_coord = trader_match.groups()
+                return 'trader', None, {
+                    'x_coordinate': float(x_coord),
+                    'y_coordinate': float(y_coord),
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+            else:
+                # Generic trader event without coordinates
+                return 'trader', None, {
+                    'location': 'Unknown',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
         
         # Generic spawn events
         if 'spawn' in content_lower or 'respawn' in content_lower:
@@ -730,12 +760,17 @@ class ScalableUnifiedProcessor:
                 server_name = server.get('name', 'Unknown Server')
                 server_id = str(server.get('_id', ''))
                 
-                # Get current player count from lifecycle manager
-                if hasattr(self.bot, 'lifecycle_manager'):
-                    active_players = self.bot.lifecycle_manager.get_active_players(self.guild_id)
-                    server_players = [p for p in active_players.values() if p and p.get('server_id') == server_id]
-                    player_count = len(server_players)
-                else:
+                # Get current player count from database using server_name
+                try:
+                    if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
+                        # Get active player count for this specific server
+                        player_count = await self.bot.db_manager.get_active_player_count(
+                            self.guild_id, server_name
+                        )
+                    else:
+                        player_count = 0
+                except Exception as e:
+                    logger.error(f"Failed to get player count for {server_name}: {e}")
                     player_count = 0
                 
                 # Get max players from config
