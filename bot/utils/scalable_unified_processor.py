@@ -323,31 +323,154 @@ class ScalableUnifiedProcessor:
         return None
     
     def _classify_log_entry(self, content: str) -> Tuple[str, Optional[str], Optional[Dict[str, Any]]]:
-        """Classify log entry type and extract relevant data"""
+        """Classify log entry type and extract relevant data for Deadside logs"""
         content_lower = content.lower()
         
-        # Player connection events
-        if 'joined the game' in content_lower or 'connected' in content_lower:
-            player_name = self._extract_player_name(content)
-            return 'join', player_name, {'action': 'connect'}
+        # Parse Deadside log format: [frame_id]LogCategory: [System] Message
+        # Example: [977]LogSFPS: [ASFPSGameMode::CanSpawnVehicle] NewVehicles 11 Max 80
         
-        if 'left the game' in content_lower or 'disconnected' in content_lower:
-            player_name = self._extract_player_name(content)
-            return 'leave', player_name, {'action': 'disconnect'}
+        # Extract log category and system info
+        log_category = None
+        system_info = None
+        message = content
         
-        # Kill/death events
-        if 'killed' in content_lower and 'with' in content_lower:
-            return 'kill', None, self._parse_kill_event(content)
+        # Parse frame and log category
+        if ']log' in content_lower:
+            try:
+                parts = content.split(']', 1)
+                if len(parts) > 1:
+                    frame_part = parts[0] + ']'
+                    remaining = parts[1]
+                    
+                    if ':' in remaining:
+                        log_parts = remaining.split(':', 1)
+                        log_category = log_parts[0].strip()
+                        message = log_parts[1].strip()
+                        
+                        # Extract system info if present
+                        if message.startswith('[') and ']' in message:
+                            system_end = message.find(']')
+                            system_info = message[1:system_end]
+                            message = message[system_end + 1:].strip()
+            except:
+                pass
         
-        # Server events
-        if 'server' in content_lower and ('start' in content_lower or 'init' in content_lower):
-            return 'server_start', None, {'message': content}
+        # Deadside player connection events
+        if ('logsfpsnetworkmanager' in content_lower or 'logsfps' in content_lower):
+            if 'player' in content_lower and ('connect' in content_lower or 'join' in content_lower or 'login' in content_lower):
+                player_name = self._extract_deadside_player_name(content)
+                return 'join', player_name, {
+                    'action': 'connect',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+            
+            if 'player' in content_lower and ('disconnect' in content_lower or 'leave' in content_lower or 'logout' in content_lower):
+                player_name = self._extract_deadside_player_name(content)
+                return 'leave', player_name, {
+                    'action': 'disconnect',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
         
-        if 'server' in content_lower and ('stop' in content_lower or 'shutdown' in content_lower):
-            return 'server_stop', None, {'message': content}
+        # Deadside kill/death events
+        if ('logsfps' in content_lower and 'kill' in content_lower) or ('damage' in content_lower and 'death' in content_lower):
+            kill_data = self._parse_deadside_kill_event(content)
+            if kill_data:
+                return 'kill', None, {
+                    **kill_data,
+                    'log_category': log_category,
+                    'system': system_info
+                }
         
-        # General events
-        return 'general', None, {'message': content}
+        # Vehicle and gameplay events
+        if 'logsfps' in content_lower:
+            if 'vehicle' in content_lower:
+                return 'vehicle', None, {
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message,
+                    'event_type': 'vehicle'
+                }
+            
+            if 'spawn' in content_lower or 'respawn' in content_lower:
+                return 'spawn', None, {
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message,
+                    'event_type': 'spawn'
+                }
+        
+        # Server status events
+        if 'logcore' in content_lower or 'logengine' in content_lower:
+            if 'init' in content_lower or 'start' in content_lower:
+                return 'server_start', None, {
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+            
+            if 'shutdown' in content_lower or 'exit' in content_lower:
+                return 'server_stop', None, {
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+        
+        # General Deadside events
+        return 'general', None, {
+            'log_category': log_category,
+            'system': system_info,
+            'message': message
+        }
+    
+    def _extract_deadside_player_name(self, content: str) -> Optional[str]:
+        """Extract player name from Deadside log content"""
+        # Deadside specific patterns for player names
+        # Look for patterns like: Player "PlayerName" connected
+        import re
+        
+        patterns = [
+            r'Player "([^"]+)"',
+            r'player "([^"]+)"',
+            r'User "([^"]+)"',
+            r'user "([^"]+)"',
+            r'Player ([^\s]+)',
+            r'player ([^\s]+)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        
+        return None
+    
+    def _parse_deadside_kill_event(self, content: str) -> Optional[Dict[str, Any]]:
+        """Parse Deadside kill event from log content"""
+        import re
+        
+        # Deadside kill patterns
+        # Look for patterns like: Player "Killer" killed Player "Victim" with WeaponName
+        kill_patterns = [
+            r'Player "([^"]+)" killed Player "([^"]+)" with (.+)',
+            r'player "([^"]+)" killed player "([^"]+)" with (.+)',
+            r'([^\s]+) killed ([^\s]+) with (.+)',
+        ]
+        
+        for pattern in kill_patterns:
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                return {
+                    'killer': match.group(1).strip(),
+                    'victim': match.group(2).strip(),
+                    'weapon': match.group(3).strip(),
+                    'raw_message': content
+                }
+        
+        return None
     
     def _extract_player_name(self, content: str) -> Optional[str]:
         """Extract player name from log content"""

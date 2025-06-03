@@ -25,9 +25,8 @@ async def test_unified_parser():
         # Import the unified parser
         from bot.parsers.scalable_unified_parser import ScalableUnifiedParser
         
-        # Create parser instance
-        parser = ScalableUnifiedParser()
-        parser.bot = type('MockBot', (), {
+        # Create mock bot instance
+        mock_bot = type('MockBot', (), {
             'db_manager': type('MockDBManager', (), {
                 'guilds': db.guilds,
                 'kills': db.kills,
@@ -35,6 +34,9 @@ async def test_unified_parser():
                 'parser_states': db.parser_states
             })()
         })()
+        
+        # Create parser instance with mock bot
+        parser = ScalableUnifiedParser(mock_bot)
         
         print(f"🔍 Testing unified parser for guild {guild_id}")
         
