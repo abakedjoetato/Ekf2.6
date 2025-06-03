@@ -283,7 +283,8 @@ class SimpleKillfeedProcessor:
                                 events.append(event)
                                 logger.info(f"Found killfeed event: {event.killer} killed {event.victim}")
                             elif i < 5:
-                                logger.warning(f"Failed to parse line {i+1}: {line}")
+                                parts = [part.strip().strip('"') for part in line.split(',')]
+                                logger.warning(f"Failed to parse line {i+1} (has {len(parts)} columns): {line}")
                         
                         # Update state
                         if self.state_manager and lines:
@@ -309,22 +310,22 @@ class SimpleKillfeedProcessor:
     def _parse_killfeed_line(self, line: str, line_number: int, filename: str) -> Optional[KillfeedEvent]:
         """Parse a single killfeed CSV line"""
         try:
-            # CSV format: timestamp,killer,victim,weapon,distance,killer_platform,victim_platform
+            # CSV format: timestamp,killer_name,killer_id,victim_name,victim_id,weapon,distance,killer_platform,victim_platform
             parts = [part.strip().strip('"') for part in line.split(',')]
             
-            if len(parts) >= 7:
+            if len(parts) >= 9:
                 timestamp_str = parts[0]
                 timestamp = self._parse_timestamp(timestamp_str)
                 
                 if timestamp:
                     return KillfeedEvent(
                         timestamp=timestamp,
-                        killer=parts[1],
-                        victim=parts[2],
-                        weapon=parts[3],
-                        distance=int(parts[4]) if parts[4].isdigit() else 0,
-                        killer_platform=parts[5],
-                        victim_platform=parts[6],
+                        killer=parts[1],  # killer_name
+                        victim=parts[3],  # victim_name  
+                        weapon=parts[5],  # weapon
+                        distance=int(parts[6]) if parts[6].isdigit() else 0,  # distance
+                        killer_platform=parts[7],  # killer_platform
+                        victim_platform=parts[8],  # victim_platform
                         raw_line=line,
                         line_number=line_number,
                         filename=filename
