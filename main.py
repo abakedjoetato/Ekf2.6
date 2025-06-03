@@ -490,6 +490,10 @@ class EmeraldKillfeedBot(commands.Bot):
             from bot.utils.channel_router import ChannelRouter
             self.channel_router = ChannelRouter(self)
             
+            # Initialize embed factory
+            from bot.utils.embed_factory import EmbedFactory
+            self.embed_factory = EmbedFactory()
+            
             # Initialize voice channel batcher to prevent rate limiting
             from bot.utils.voice_channel_batch import VoiceChannelBatcher
             self.voice_channel_batcher = VoiceChannelBatcher(self)

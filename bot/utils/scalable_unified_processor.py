@@ -871,7 +871,26 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"Mission {mission_id} is ready on {entry.server_name}")
             
-            # TODO: Send mission ready embed via channel delivery system
+            # Create mission embed using EmbedFactory
+            if self.bot and hasattr(self.bot, 'embed_factory'):
+                from datetime import datetime, timezone
+                embed = self.bot.embed_factory.create_mission_embed(
+                    mission_id=mission_id,
+                    state='ready',
+                    level=self.bot.embed_factory.get_mission_level(mission_id),
+                    respawn_time=None,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
+                if embed and hasattr(self.bot, 'channel_router'):
+                    # Send to events channel with server-specific routing
+                    await self.bot.channel_router.send_embed_to_channel(
+                        guild_id=self.guild_id,
+                        server_id=entry.server_name,
+                        channel_type='events',
+                        embed=embed
+                    )
+                    logger.info(f"Sent mission ready embed for {mission_id} on {entry.server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle mission event: {e}")
@@ -888,7 +907,24 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"Airdrop flying at ({x_coord}, {y_coord}) on {entry.server_name}")
             
-            # TODO: Send airdrop embed via channel delivery system
+            # Create airdrop embed using EmbedFactory
+            if self.bot and hasattr(self.bot, 'embed_factory'):
+                from datetime import datetime, timezone
+                embed = self.bot.embed_factory.create_airdrop_embed(
+                    state="flying",
+                    location=f"({x_coord}, {y_coord})",
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
+                if embed and hasattr(self.bot, 'channel_router'):
+                    # Send to events channel with server-specific routing
+                    await self.bot.channel_router.send_embed_to_channel(
+                        guild_id=self.guild_id,
+                        server_id=entry.server_name,
+                        channel_type='events',
+                        embed=embed
+                    )
+                    logger.info(f"Sent airdrop embed for {entry.server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle airdrop event: {e}")
@@ -905,7 +941,23 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"Helicrash ready at ({x_coord}, {y_coord}) on {entry.server_name}")
             
-            # TODO: Send helicrash embed via channel delivery system
+            # Create helicrash embed using EmbedFactory
+            if self.bot and hasattr(self.bot, 'embed_factory'):
+                from datetime import datetime, timezone
+                embed = self.bot.embed_factory.create_helicrash_embed(
+                    location=f"({x_coord}, {y_coord})",
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
+                if embed and hasattr(self.bot, 'channel_router'):
+                    # Send to events channel with server-specific routing
+                    await self.bot.channel_router.send_embed_to_channel(
+                        guild_id=self.guild_id,
+                        server_id=entry.server_name,
+                        channel_type='events',
+                        embed=embed
+                    )
+                    logger.info(f"Sent helicrash embed for {entry.server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle helicrash event: {e}")
@@ -922,7 +974,23 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"Trader ready at ({x_coord}, {y_coord}) on {entry.server_name}")
             
-            # TODO: Send trader embed via channel delivery system
+            # Create trader embed using EmbedFactory
+            if self.bot and hasattr(self.bot, 'embed_factory'):
+                from datetime import datetime, timezone
+                embed = self.bot.embed_factory.create_trader_embed(
+                    location=f"({x_coord}, {y_coord})",
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
+                if embed and hasattr(self.bot, 'channel_router'):
+                    # Send to events channel with server-specific routing
+                    await self.bot.channel_router.send_embed_to_channel(
+                        guild_id=self.guild_id,
+                        server_id=entry.server_name,
+                        channel_type='events',
+                        embed=embed
+                    )
+                    logger.info(f"Sent trader embed for {entry.server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle trader event: {e}")
