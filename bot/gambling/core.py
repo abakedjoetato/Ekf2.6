@@ -23,17 +23,12 @@ class GamblingCore:
         self.bot = bot
         
     async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has premium access for gambling features"""
+        """Check if guild has premium access - unified validation"""
         try:
-            if hasattr(self.bot, 'premium_manager'):
-                return await self.bot.premium_manager.check_feature_access(guild_id, 'gambling')
-            
-            # Fallback check
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
-            if not guild_config:
+            if hasattr(self.bot, 'premium_manager_v2'):
+                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
+            else:
                 return False
-                
-            return guild_config.get('premium', False)
         except Exception as e:
             logger.error(f"Premium check failed: {e}")
             return False
