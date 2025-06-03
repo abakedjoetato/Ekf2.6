@@ -27,32 +27,40 @@ class ChannelRouter:
         try:
             guild_config = await self.bot.db_manager.get_guild(guild_id)
             if not guild_config:
-                logger.debug(f"No guild config found for guild {guild_id}")
+                logger.warning(f"No guild config found for guild {guild_id}")
                 return None
 
             server_channels = guild_config.get('server_channels', {})
+            logger.info(f"Channel lookup for guild {guild_id}, server '{server_id}', type '{channel_type}'")
+            logger.info(f"Available server_channels: {list(server_channels.keys())}")
             
             # Try server-specific channel first
             if server_id in server_channels:
                 channel_id = server_channels[server_id].get(channel_type)
                 if channel_id:
-                    logger.debug(f"Using server-specific {channel_type} channel {channel_id} for server {server_id}")
+                    logger.info(f"Found server-specific {channel_type} channel {channel_id} for server {server_id}")
                     return channel_id
+                else:
+                    logger.info(f"Server {server_id} exists but no {channel_type} channel configured")
             
             # Fall back to default server channels
             if 'default' in server_channels:
                 channel_id = server_channels['default'].get(channel_type)
                 if channel_id:
-                    logger.debug(f"Using default {channel_type} channel {channel_id} for server {server_id}")
+                    logger.info(f"Using default {channel_type} channel {channel_id} for server {server_id}")
                     return channel_id
+                else:
+                    logger.info(f"Default server exists but no {channel_type} channel configured")
             
             # Legacy fallback to old channel structure
-            legacy_channel_id = guild_config.get('channels', {}).get(channel_type)
+            legacy_channels = guild_config.get('channels', {})
+            legacy_channel_id = legacy_channels.get(channel_type)
             if legacy_channel_id:
-                logger.debug(f"Using legacy {channel_type} channel {legacy_channel_id} for server {server_id}")
+                logger.info(f"Using legacy {channel_type} channel {legacy_channel_id} for server {server_id}")
                 return legacy_channel_id
             
-            logger.debug(f"No {channel_type} channel configured for guild {guild_id}, server {server_id}")
+            logger.warning(f"No {channel_type} channel configured anywhere for guild {guild_id}, server {server_id}")
+            logger.info(f"Available legacy channels: {list(legacy_channels.keys())}")
             return None
             
         except Exception as e:
