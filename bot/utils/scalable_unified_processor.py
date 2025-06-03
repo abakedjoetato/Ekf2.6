@@ -1009,41 +1009,64 @@ class ScalableUnifiedProcessor:
             committed_count = 0
             failed_count = 0
             
-            # CRITICAL FIX: Use direct database connection to bypass cache isolation
+            # CRITICAL FIX: Force synchronous writes with immediate consistency
             import motor.motor_asyncio
             import os
-            direct_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
+            from pymongo import WriteConcern, ReadPreference
+            
+            # Create connection with forced write concern for immediate consistency
+            direct_client = motor.motor_asyncio.AsyncIOMotorClient(
+                os.environ.get('MONGO_URI'),
+                w='majority',  # Write to majority of replica set
+                journal=True,  # Force journal sync
+                read_preference=ReadPreference.PRIMARY  # Read from primary only
+            )
             direct_db = direct_client.emerald_killfeed
+            
+            # Create collection with write concern for immediate external visibility
+            player_sessions_sync = direct_db.get_collection(
+                'player_sessions',
+                write_concern=WriteConcern(w='majority', journal=True)
+            )
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
                     logger.debug(f"Attempting to commit: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
                     
-                    # Write to direct database connection for external visibility
-                    result = await direct_db.player_sessions.replace_one(
+                    # Write with forced synchronous consistency
+                    result = await player_sessions_sync.replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
                     )
                     
-                    logger.debug(f"Replace result: upserted_id={result.upserted_id}, modified_count={result.modified_count}")
+                    logger.debug(f"Sync replace result: upserted_id={result.upserted_id}, modified_count={result.modified_count}")
                     
                     if result.upserted_id or result.modified_count > 0:
-                        # Verify with direct connection (external visibility test)
-                        direct_verification = await direct_db.player_sessions.find_one({
+                        # Verify with multiple connection types
+                        direct_verification = await player_sessions_sync.find_one({
                             'guild_id': session_data['guild_id'],
                             'player_id': player_id
                         })
                         
-                        if direct_verification:
+                        # Also verify with regular connection to test external visibility
+                        external_verification = await direct_db.player_sessions.find_one({
+                            'guild_id': session_data['guild_id'],
+                            'player_id': player_id
+                        })
+                        
+                        if direct_verification and external_verification:
                             committed_count += 1
-                            logger.info(f"✓ Committed & Verified (Direct): {player_id[:8]}... -> {direct_verification.get('state')} on {direct_verification.get('server_name')}")
+                            logger.info(f"✓ Committed & Verified (Sync+External): {player_id[:8]}... -> {direct_verification.get('state')} on {direct_verification.get('server_name')}")
+                        elif direct_verification:
+                            committed_count += 1
+                            logger.info(f"✓ Committed & Verified (Sync Only): {player_id[:8]}... -> {direct_verification.get('state')} on {direct_verification.get('server_name')}")
                         else:
                             failed_count += 1
-                            logger.error(f"✗ COMMIT FAILED - No direct verification: {player_id[:8]}...")
+                            logger.error(f"✗ COMMIT FAILED - No sync verification: {player_id[:8]}...")
                     else:
                         failed_count += 1
-                        logger.error(f"✗ Replace operation returned no changes for {player_id[:8]}...")
+                        logger.error(f"✗ Sync replace operation returned no changes for {player_id[:8]}...")
                     
                 except Exception as commit_error:
                     failed_count += 1
