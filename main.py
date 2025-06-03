@@ -300,6 +300,21 @@ class EmeraldKillfeedBot(commands.Bot):
                 logger.info("✅ Commands loaded and ready - Discord sync not required for functionality")
                 return
 
+            # Check if we're within the global rate limit cooldown period
+            global_cooldown_file = "global_sync_cooldown.txt"
+            if os.path.exists(global_cooldown_file):
+                try:
+                    with open(global_cooldown_file, 'r') as f:
+                        until = float(f.read().strip())
+                        if time.time() < until:
+                            remaining = int(until - time.time())
+                            logger.info(f"⚠️ Global sync rate limited for {remaining}s - skipping sync attempt")
+                            return
+                        else:
+                            os.remove(global_cooldown_file)
+                except Exception:
+                    pass
+
             logger.info(f"🔄 New commands detected - attempting Discord sync for {len(all_commands)} commands")
 
             # Attempt global sync without clearing (prevents rate limits)
@@ -319,7 +334,12 @@ class EmeraldKillfeedBot(commands.Bot):
                 error_msg = str(e).lower()
                 if "429" in error_msg or "rate limit" in error_msg:
                     logger.warning(f"❌ Global sync rate limited: {e}")
-                    # Don't set cooldown yet - try per-guild first
+                    # Set extended cooldown for global sync rate limits
+                    cooldown_until = time.time() + 3600  # 1 hour cooldown
+                    with open(global_cooldown_file, 'w') as f:
+                        f.write(str(cooldown_until))
+                    logger.info("🕐 Set 1-hour global sync cooldown due to rate limiting")
+                    return
                 else:
                     logger.warning(f"⚠️ Global sync failed: {e}")
 

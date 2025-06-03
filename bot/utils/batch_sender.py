@@ -25,10 +25,10 @@ class BatchSender:
     def __init__(self, bot):
         self.bot = bot
         
-        # Batching configuration
-        self.MAX_BATCH_SIZE = 10
-        self.MAX_BATCH_TIME = 30  # seconds
-        self.FLUSH_INTERVAL = 5   # seconds
+        # Batching configuration - increased intervals to reduce API calls
+        self.MAX_BATCH_SIZE = 5
+        self.MAX_BATCH_TIME = 120  # 2 minutes instead of 30 seconds
+        self.FLUSH_INTERVAL = 60   # 1 minute instead of 5 seconds
         
         # Channel queues for batching
         self.channel_queues: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
@@ -110,12 +110,18 @@ class BatchSender:
                     logger.error(f"Permission denied sending to channel #{channel.name} ({channel_id}): {e}")
                 except discord.HTTPException as e:
                     if e.status == 429:  # Rate limited
-                        logger.warning(f"Rate limited on channel #{channel.name} ({channel_id})")
-                        await asyncio.sleep(1)
+                        logger.warning(f"Rate limited on channel #{channel.name} ({channel_id}) - stopping batch send")
+                        # Stop sending more messages to this channel when rate limited
+                        break
                     else:
                         logger.error(f"HTTP error sending message to #{channel.name}: {e}")
                 except Exception as e:
-                    logger.error(f"Error sending message to #{channel.name}: {e}")
+                    error_str = str(e).lower()
+                    if "rate limit" in error_str or "429" in error_str:
+                        logger.warning(f"Rate limited on channel #{channel.name} ({channel_id}) - stopping batch send")
+                        break
+                    else:
+                        logger.error(f"Error sending message to #{channel.name}: {e}")
             
             logger.info(f"Batch sender: Successfully sent {sent_count}/{len(messages)} messages to #{channel.name}")
             

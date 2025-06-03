@@ -17,7 +17,7 @@ class VoiceChannelBatcher:
         self.pending_updates: Dict[int, Dict[str, any]] = {}  # channel_id -> update_data
         self.last_update_times: Dict[int, datetime] = {}
         self.update_lock = asyncio.Lock()
-        self.min_update_interval = timedelta(seconds=30)  # Minimum 30 seconds between updates
+        self.min_update_interval = timedelta(minutes=5)  # Minimum 5 minutes between updates to reduce API calls
         
     async def queue_voice_channel_update(self, channel_id: int, server_name: str, player_count: int, max_players: int = 50):
         """Queue a voice channel update - will be processed in batch"""
