@@ -568,14 +568,48 @@ class ScalableUnifiedProcessor:
                         'message': message
                     }
         
-        # Trader events - precise SFPS system patterns
+        # Mission events - comprehensive SFPS system patterns for all mission states
+        mission_patterns = [
+            r'LogSFPS.*?mission.*?status.*?changed.*?to.*?READY.*?at.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Mission.*?event.*?Status=READY.*?Location=X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Mission.*?objective.*?activated.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?mission.*?status.*?ready.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Mission.*?Status.*?READY.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?mission.*?ready.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Mission.*?READY.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?mission.*?objective.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Mission.*?objective.*?X=([\d\.-]+).*?Y=([\d\.-]+)'
+        ]
+        
+        for pattern in mission_patterns:
+            mission_match = re.search(pattern, content, re.IGNORECASE)
+            if mission_match:
+                if len(mission_match.groups()) >= 2:
+                    x_coord, y_coord = mission_match.groups()[:2]
+                    return 'mission', None, {
+                        'x_coordinate': float(x_coord),
+                        'y_coordinate': float(y_coord),
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
+                else:
+                    return 'mission', None, {
+                        'location': 'Unknown',
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
+        
+        # Trader events - comprehensive SFPS system patterns
         trader_patterns = [
             r'LogSFPS.*?trader.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
-            r'LogSFPS.*?Trader.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Trader.*?X=([\d\.-]+).*?Y=([\d\.-]+)', 
             r'LogSFPS.*?trading.*?post.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
             r'LogSFPS.*?Trade.*?Zone.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
-            r'merchant.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
-            r'shop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?Trading.*?zone.*?active.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?merchant.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?shop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
             r'LogSFPS.*?trader',
             r'LogSFPS.*?merchant',
             r'LogSFPS.*?shop'
