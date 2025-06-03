@@ -1165,6 +1165,11 @@ class ScalableUnifiedProcessor:
     async def _handle_mission_event(self, entry: LogEntry):
         """Handle mission events - only send embeds for READY status"""
         try:
+            # Skip embed creation during cold start to prevent spam
+            if self._cold_start_mode:
+                logger.debug(f"Skipping mission embed during cold start for {entry.server_name}")
+                return
+            
             additional_data = entry.additional_data or {}
             mission_id = additional_data.get('mission_id')
             state = additional_data.get('state')
@@ -1224,6 +1229,11 @@ class ScalableUnifiedProcessor:
     async def _handle_airdrop_event(self, entry: LogEntry):
         """Handle airdrop events using proper EmbedFactory theming"""
         try:
+            # Skip embed creation during cold start to prevent spam
+            if self._cold_start_mode:
+                logger.debug(f"Skipping airdrop embed during cold start for {entry.server_name}")
+                return
+            
             additional_data = entry.additional_data or {}
             x_coord = additional_data.get('x_coordinate')
             y_coord = additional_data.get('y_coordinate')
@@ -1265,6 +1275,11 @@ class ScalableUnifiedProcessor:
     async def _handle_helicrash_event(self, entry: LogEntry):
         """Handle helicrash events using proper EmbedFactory theming"""
         try:
+            # Skip embed creation during cold start to prevent spam
+            if self._cold_start_mode:
+                logger.debug(f"Skipping helicrash embed during cold start for {entry.server_name}")
+                return
+            
             additional_data = entry.additional_data or {}
             x_coord = additional_data.get('x_coordinate')
             y_coord = additional_data.get('y_coordinate')
@@ -1305,6 +1320,11 @@ class ScalableUnifiedProcessor:
     async def _handle_trader_event(self, entry: LogEntry):
         """Handle trader events using proper EmbedFactory theming"""
         try:
+            # Skip embed creation during cold start to prevent spam
+            if self._cold_start_mode:
+                logger.debug(f"Skipping trader embed during cold start for {entry.server_name}")
+                return
+            
             additional_data = entry.additional_data or {}
             x_coord = additional_data.get('x_coordinate')
             y_coord = additional_data.get('y_coordinate')
