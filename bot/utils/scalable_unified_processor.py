@@ -966,127 +966,170 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"Mission {mission_id} is ready on {entry.server_name}")
             
-            # Create mission embed using EmbedFactory
+            # Create mission embed using proper EmbedFactory with theming
             if self.bot and hasattr(self.bot, 'embed_factory'):
-                mission_name = self.bot.embed_factory.normalize_mission_name(mission_id)
-                embed = self.bot.embed_factory.create_mission_embed(
-                    title="🎯 Mission Ready",
-                    description=f"**{mission_name}** is now available for deployment",
-                    mission_id=mission_id,
-                    level=self.bot.embed_factory.get_mission_level(mission_id),
-                    state='READY',
-                    respawn_time=None
-                )
+                embed_data = {
+                    'mission_id': mission_id,
+                    'state': 'READY',
+                    'server_name': entry.server_name,
+                    'timestamp': entry.timestamp
+                }
                 
-                if embed and hasattr(self.bot, 'channel_router'):
-                    # Send to events channel with server-specific routing
-                    await self.bot.channel_router.send_embed_to_channel(
-                        guild_id=self.guild_id,
-                        server_id=entry.server_name,
-                        channel_type='events',
-                        embed=embed
+                try:
+                    embed, file_attachment = await self.bot.embed_factory.build('mission', embed_data)
+                    
+                    if embed and hasattr(self.bot, 'channel_router'):
+                        # Send to events channel with server-specific routing and proper theming
+                        await self.bot.channel_router.send_embed_to_channel(
+                            guild_id=self.guild_id,
+                            server_id=entry.server_name,
+                            channel_type='events',
+                            embed=embed,
+                            file=file_attachment
+                        )
+                        logger.info(f"Sent mission ready embed for {mission_id} on {entry.server_name}")
+                except Exception as embed_error:
+                    logger.error(f"Failed to create mission embed: {embed_error}")
+                    # Fallback to basic embed
+                    mission_name = self.bot.embed_factory.normalize_mission_name(mission_id)
+                    embed = self.bot.embed_factory.create_mission_embed(
+                        title="🎯 Mission Ready",
+                        description=f"**{mission_name}** is now available for deployment",
+                        mission_id=mission_id,
+                        level=self.bot.embed_factory.get_mission_level(mission_id),
+                        state='READY',
+                        respawn_time=None
                     )
-                    logger.info(f"Sent mission ready embed for {mission_id} on {entry.server_name}")
+                    
+                    if embed and hasattr(self.bot, 'channel_router'):
+                        await self.bot.channel_router.send_embed_to_channel(
+                            guild_id=self.guild_id,
+                            server_id=entry.server_name,
+                            channel_type='events',
+                            embed=embed
+                        )
+                        logger.info(f"Sent fallback mission embed for {mission_id} on {entry.server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle mission event: {e}")
     
     async def _handle_airdrop_event(self, entry: LogEntry):
-        """Handle airdrop events - only for flying/active airdrops"""
+        """Handle airdrop events using proper EmbedFactory theming"""
         try:
             additional_data = entry.additional_data or {}
             x_coord = additional_data.get('x_coordinate')
             y_coord = additional_data.get('y_coordinate')
+            location = additional_data.get('location', 'Unknown')
             
-            if x_coord is None or y_coord is None:
-                return
+            # Handle both coordinate and generic location data
+            if x_coord is not None and y_coord is not None:
+                location = f"({x_coord}, {y_coord})"
             
-            logger.info(f"Airdrop flying at ({x_coord}, {y_coord}) on {entry.server_name}")
+            logger.info(f"Airdrop event at {location} on {entry.server_name}")
             
-            # Create airdrop embed using EmbedFactory
+            # Create airdrop embed using proper EmbedFactory theming
             if self.bot and hasattr(self.bot, 'embed_factory'):
-                from datetime import datetime, timezone
-                embed = self.bot.embed_factory.create_airdrop_embed(
-                    state="flying",
-                    location=f"({x_coord}, {y_coord})",
-                    timestamp=datetime.now(timezone.utc)
-                )
+                embed_data = {
+                    'state': 'flying',
+                    'location': location,
+                    'server_name': entry.server_name,
+                    'timestamp': entry.timestamp
+                }
                 
-                if embed and hasattr(self.bot, 'channel_router'):
-                    # Send to events channel with server-specific routing
-                    await self.bot.channel_router.send_embed_to_channel(
-                        guild_id=self.guild_id,
-                        server_id=entry.server_name,
-                        channel_type='events',
-                        embed=embed
-                    )
-                    logger.info(f"Sent airdrop embed for {entry.server_name}")
+                try:
+                    embed, file_attachment = await self.bot.embed_factory.build('airdrop', embed_data)
+                    
+                    if embed and hasattr(self.bot, 'channel_router'):
+                        await self.bot.channel_router.send_embed_to_channel(
+                            guild_id=self.guild_id,
+                            server_id=entry.server_name,
+                            channel_type='events',
+                            embed=embed,
+                            file=file_attachment
+                        )
+                        logger.info(f"Sent airdrop embed for {entry.server_name} at {location}")
+                except Exception as embed_error:
+                    logger.error(f"Failed to create airdrop embed: {embed_error}")
             
         except Exception as e:
             logger.error(f"Failed to handle airdrop event: {e}")
     
     async def _handle_helicrash_event(self, entry: LogEntry):
-        """Handle helicrash events - only for ready/active crashes"""
+        """Handle helicrash events using proper EmbedFactory theming"""
         try:
             additional_data = entry.additional_data or {}
             x_coord = additional_data.get('x_coordinate')
             y_coord = additional_data.get('y_coordinate')
+            location = additional_data.get('location', 'Unknown')
             
-            if x_coord is None or y_coord is None:
-                return
+            # Handle both coordinate and generic location data
+            if x_coord is not None and y_coord is not None:
+                location = f"({x_coord}, {y_coord})"
             
-            logger.info(f"Helicrash ready at ({x_coord}, {y_coord}) on {entry.server_name}")
+            logger.info(f"Helicrash event at {location} on {entry.server_name}")
             
-            # Create helicrash embed using EmbedFactory
+            # Create helicrash embed using proper EmbedFactory theming
             if self.bot and hasattr(self.bot, 'embed_factory'):
-                from datetime import datetime, timezone
-                embed = self.bot.embed_factory.create_helicrash_embed(
-                    location=f"({x_coord}, {y_coord})",
-                    timestamp=datetime.now(timezone.utc)
-                )
+                embed_data = {
+                    'location': location,
+                    'server_name': entry.server_name,
+                    'timestamp': entry.timestamp
+                }
                 
-                if embed and hasattr(self.bot, 'channel_router'):
-                    # Send to events channel with server-specific routing
-                    await self.bot.channel_router.send_embed_to_channel(
-                        guild_id=self.guild_id,
-                        server_id=entry.server_name,
-                        channel_type='events',
-                        embed=embed
-                    )
-                    logger.info(f"Sent helicrash embed for {entry.server_name}")
+                try:
+                    embed, file_attachment = await self.bot.embed_factory.build('helicrash', embed_data)
+                    
+                    if embed and hasattr(self.bot, 'channel_router'):
+                        await self.bot.channel_router.send_embed_to_channel(
+                            guild_id=self.guild_id,
+                            server_id=entry.server_name,
+                            channel_type='events',
+                            embed=embed,
+                            file=file_attachment
+                        )
+                        logger.info(f"Sent helicrash embed for {entry.server_name} at {location}")
+                except Exception as embed_error:
+                    logger.error(f"Failed to create helicrash embed: {embed_error}")
             
         except Exception as e:
             logger.error(f"Failed to handle helicrash event: {e}")
     
     async def _handle_trader_event(self, entry: LogEntry):
-        """Handle trader events - only for ready/active traders"""
+        """Handle trader events using proper EmbedFactory theming"""
         try:
             additional_data = entry.additional_data or {}
             x_coord = additional_data.get('x_coordinate')
             y_coord = additional_data.get('y_coordinate')
+            location = additional_data.get('location', 'Unknown')
             
-            if x_coord is None or y_coord is None:
-                return
+            # Handle both coordinate and generic location data
+            if x_coord is not None and y_coord is not None:
+                location = f"({x_coord}, {y_coord})"
             
-            logger.info(f"Trader ready at ({x_coord}, {y_coord}) on {entry.server_name}")
+            logger.info(f"Trader event at {location} on {entry.server_name}")
             
-            # Create trader embed using EmbedFactory
+            # Create trader embed using proper EmbedFactory theming
             if self.bot and hasattr(self.bot, 'embed_factory'):
-                from datetime import datetime, timezone
-                embed = self.bot.embed_factory.create_trader_embed(
-                    location=f"({x_coord}, {y_coord})",
-                    timestamp=datetime.now(timezone.utc)
-                )
+                embed_data = {
+                    'location': location,
+                    'server_name': entry.server_name,
+                    'timestamp': entry.timestamp
+                }
                 
-                if embed and hasattr(self.bot, 'channel_router'):
-                    # Send to events channel with server-specific routing
-                    await self.bot.channel_router.send_embed_to_channel(
-                        guild_id=self.guild_id,
-                        server_id=entry.server_name,
-                        channel_type='events',
-                        embed=embed
-                    )
-                    logger.info(f"Sent trader embed for {entry.server_name}")
+                try:
+                    embed, file_attachment = await self.bot.embed_factory.build('trader', embed_data)
+                    
+                    if embed and hasattr(self.bot, 'channel_router'):
+                        await self.bot.channel_router.send_embed_to_channel(
+                            guild_id=self.guild_id,
+                            server_id=entry.server_name,
+                            channel_type='events',
+                            embed=embed,
+                            file=file_attachment
+                        )
+                        logger.info(f"Sent trader embed for {entry.server_name} at {location}")
+                except Exception as embed_error:
+                    logger.error(f"Failed to create trader embed: {embed_error}")
             
         except Exception as e:
             logger.error(f"Failed to handle trader event: {e}")
