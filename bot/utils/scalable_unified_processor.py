@@ -1343,15 +1343,22 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 try:
-                    # Update player state and check if it actually changed
-                    state_changed = await self.bot.db_manager.update_player_state(
-                        self.guild_id,
-                        eosid,
-                        'offline',
-                        entry.server_name,
-                        entry.timestamp,
-                        skip_voice_update=True
-                    )
+                    # During cold start, remove from memory state
+                    if self._cold_start_mode:
+                        if eosid in self._cold_start_player_states:
+                            del self._cold_start_player_states[eosid]
+                            logger.info(f"Player {eosid[:8]}... removed from batch update (disconnected from {entry.server_name})")
+                        state_changed = True  # For logging purposes
+                    else:
+                        # Normal processing - update database immediately
+                        state_changed = await self.bot.db_manager.update_player_state(
+                            self.guild_id,
+                            eosid,
+                            'offline',
+                            entry.server_name,
+                            entry.timestamp,
+                            skip_voice_update=True
+                        )
                     
                     # Only send connection embed if state actually changed (online -> offline)
                     if state_changed and not self._cold_start_mode:
