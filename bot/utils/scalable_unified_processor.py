@@ -172,13 +172,14 @@ class ScalableUnifiedProcessor:
                     if stored_state and stored_state.file_timestamp:  # Using file_timestamp to store hash
                         if stored_state.file_timestamp != current_hash:
                             rotation_detected = True
-                            logger.info(f"File rotation detected for {server_name} - resetting state")
+                            logger.info(f"Cold start: File rotation detected for {server_name} - resetting state")
                         else:
                             last_position = stored_state.last_byte_position
                             last_line = stored_state.last_line
                     else:
-                        # First time processing or no stored state
+                        # Cold start scenarios: bot startup, new server, or no stored state
                         rotation_detected = True
+                        logger.info(f"Cold start: First time processing {server_name} (bot startup or new server)")
                     
                     return ServerFileState(
                         server_name=server_name,
@@ -218,13 +219,15 @@ class ScalableUnifiedProcessor:
                 
                 async with sftp.open(deadside_log_path, 'rb') as file:
                     if file_state.rotation_detected:
-                        # File rotated - process entire file and reset player states
+                        # Cold start: file rotation, bot startup, or new server - process entire file and reset player states
+                        logger.info(f"Cold start processing for {server_name} - resetting all player sessions")
                         content = await file.read()
                         await self._handle_server_restart(server_name)
                         start_position = 0
                         start_line = 0
                     else:
-                        # Continue from last position
+                        # Hot run: continue from last position
+                        logger.info(f"Hot run processing for {server_name} - incremental from position {file_state.last_position}")
                         await file.seek(file_state.last_position)
                         content = await file.read()
                         start_position = file_state.last_position
@@ -373,8 +376,19 @@ class ScalableUnifiedProcessor:
             except:
                 pass
         
-        # Deadside player connection events
-        if ('logsfpsnetworkmanager' in content_lower or 'logsfps' in content_lower):
+        # Deadside player connection events - based on actual log format
+        if 'logsfps' in content_lower:
+            # Player online status updates: "InformAuthorizedCharacters Online |player_id type 1"
+            if 'informauthorizedcharacters online' in content_lower and '|' in content:
+                player_id = self._extract_deadside_player_id(content)
+                return 'join', player_id, {
+                    'action': 'online_update',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+            
+            # Traditional connection patterns (fallback)
             if 'player' in content_lower and ('connect' in content_lower or 'join' in content_lower or 'login' in content_lower):
                 player_name = self._extract_deadside_player_name(content)
                 return 'join', player_name, {
