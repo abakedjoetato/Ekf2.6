@@ -252,7 +252,7 @@ class ChronologicalProcessor:
     
     async def _process_chronologically(self, progress_callback=None):
         """Phase 3: Process all cached records in chronological order"""
-        batch_size = 500  # Increased for better bulk operation efficiency
+        batch_size = 250  # Optimized for hybrid processing efficiency
         processed = 0
         
         for i in range(0, len(self.kill_cache), batch_size):
@@ -273,18 +273,21 @@ class ChronologicalProcessor:
         logger.info(f"Processed {processed} kills chronologically for server {self.server_id}")
     
     async def _process_kill_batch(self, kill_batch: List[KillRecord]):
-        """Process a batch of chronologically ordered kills with bulk operations"""
+        """Process a batch of chronologically ordered kills with hybrid bulk + sequential operations"""
         valid_records = 0
         skipped_records = 0
         
         try:
-            # Prepare bulk operations
+            # Phase 1: Bulk operations for simple statistics
             kill_events_to_insert = []
-            player_stat_updates = {}  # {player_name: {kills: int, deaths: int, distance_data: list}}
+            simple_stats = {}  # {player_name: {kills: int, deaths: int, suicides: int, distance_sum: int}}
+            
+            # Phase 2: Sequential processing for state-dependent statistics
+            player_states = {}  # {player_name: {current_streak: int, best_streak: int, last_event: str}}
             
             processed_at = datetime.now(timezone.utc)
             
-            # Build bulk data structures
+            # Build bulk data and process chronologically for streaks
             for kill_record in kill_batch:
                 # Validate player names before processing
                 killer_valid = kill_record.killer and kill_record.killer.strip()
@@ -292,11 +295,19 @@ class ChronologicalProcessor:
                 
                 if not killer_valid or not victim_valid:
                     skipped_records += 1
-                    continue  # Skip records with empty player names
+                    continue
                 
                 killer_name = kill_record.killer.strip()
                 victim_name = kill_record.victim.strip()
                 is_suicide = killer_name.lower() == victim_name.lower()
+                
+                # Validate and parse distance
+                try:
+                    distance = int(kill_record.distance) if kill_record.distance else 0
+                    if distance < 0 or distance > 50000:  # Sanity check: max 50km shots
+                        distance = 0
+                except (ValueError, TypeError):
+                    distance = 0
                 
                 # Prepare kill event for bulk insert
                 kill_event = {
@@ -305,7 +316,7 @@ class ChronologicalProcessor:
                     'killer': killer_name,
                     'victim': victim_name,
                     'weapon': kill_record.weapon or 'Unknown',
-                    'distance': kill_record.distance,
+                    'distance': distance,
                     'killer_platform': kill_record.killer_platform or 'Unknown',
                     'victim_platform': kill_record.victim_platform or 'Unknown',
                     'timestamp': kill_record.timestamp,
@@ -315,34 +326,41 @@ class ChronologicalProcessor:
                 }
                 kill_events_to_insert.append(kill_event)
                 
-                # Aggregate player stat updates (only for non-suicides)
-                if not is_suicide:
-                    # Killer stats
-                    if killer_name not in player_stat_updates:
-                        player_stat_updates[killer_name] = {'kills': 0, 'deaths': 0, 'distance_data': []}
-                    player_stat_updates[killer_name]['kills'] += 1
-                    player_stat_updates[killer_name]['distance_data'].append({
-                        'distance': kill_record.distance,
-                        'timestamp': kill_record.timestamp
-                    })
+                # Phase 1: Aggregate simple statistics
+                if is_suicide:
+                    # Track suicides separately
+                    if killer_name not in simple_stats:
+                        simple_stats[killer_name] = {'kills': 0, 'deaths': 0, 'suicides': 0, 'distance_sum': 0}
+                    simple_stats[killer_name]['suicides'] += 1
+                else:
+                    # Track kills and deaths
+                    if killer_name not in simple_stats:
+                        simple_stats[killer_name] = {'kills': 0, 'deaths': 0, 'suicides': 0, 'distance_sum': 0}
+                    if victim_name not in simple_stats:
+                        simple_stats[victim_name] = {'kills': 0, 'deaths': 0, 'suicides': 0, 'distance_sum': 0}
                     
-                    # Victim stats
-                    if victim_name not in player_stat_updates:
-                        player_stat_updates[victim_name] = {'kills': 0, 'deaths': 0, 'distance_data': []}
-                    player_stat_updates[victim_name]['deaths'] += 1
+                    simple_stats[killer_name]['kills'] += 1
+                    simple_stats[killer_name]['distance_sum'] += distance
+                    simple_stats[victim_name]['deaths'] += 1
+                
+                # Phase 2: Sequential streak processing
+                await self._process_streak_update(killer_name, victim_name, is_suicide, distance, player_states)
                 
                 valid_records += 1
             
-            # Execute bulk operations if database manager is available
+            # Execute operations if database manager is available
             if self.db_manager and kill_events_to_insert:
                 # Bulk insert kill events
                 await self.db_manager.kill_events.insert_many(kill_events_to_insert, ordered=True)
                 
-                # Bulk update player statistics
-                await self._bulk_update_player_stats(player_stat_updates)
+                # Bulk update simple statistics
+                await self._bulk_update_simple_stats(simple_stats)
+                
+                # Update streak statistics
+                await self._update_streak_stats(player_states)
             
             if valid_records > 0:
-                logger.info(f"Bulk processed {valid_records} valid kill records for server {self.server_id}")
+                logger.info(f"Hybrid processed {valid_records} valid kill records for server {self.server_id}")
             if skipped_records > 0:
                 logger.debug(f"Skipped {skipped_records} records with invalid player names")
                 
@@ -350,22 +368,43 @@ class ChronologicalProcessor:
             logger.error(f"Failed to process kill batch: {e}")
             self.stats.errors.append(f"Batch processing error: {str(e)}")
     
-    async def _bulk_update_player_stats(self, player_stat_updates: Dict[str, Dict]):
-        """Efficiently update player statistics in bulk"""
+    async def _process_streak_update(self, killer_name: str, victim_name: str, is_suicide: bool, 
+                                   distance: int, player_states: Dict[str, Dict]):
+        """Process streak updates in chronological order"""
+        try:
+            if is_suicide:
+                # Suicide resets killer's streak
+                if killer_name not in player_states:
+                    player_states[killer_name] = {'current_streak': 0, 'best_streak': 0, 'longest_shot': 0}
+                player_states[killer_name]['current_streak'] = 0
+            else:
+                # Initialize states if needed
+                if killer_name not in player_states:
+                    player_states[killer_name] = {'current_streak': 0, 'best_streak': 0, 'longest_shot': 0}
+                if victim_name not in player_states:
+                    player_states[victim_name] = {'current_streak': 0, 'best_streak': 0, 'longest_shot': 0}
+                
+                # Killer gets a kill - increment streak
+                player_states[killer_name]['current_streak'] += 1
+                if player_states[killer_name]['current_streak'] > player_states[killer_name]['best_streak']:
+                    player_states[killer_name]['best_streak'] = player_states[killer_name]['current_streak']
+                
+                # Update longest shot
+                if distance > player_states[killer_name]['longest_shot']:
+                    player_states[killer_name]['longest_shot'] = distance
+                
+                # Victim dies - reset their streak
+                player_states[victim_name]['current_streak'] = 0
+                
+        except Exception as e:
+            logger.error(f"Failed to process streak update: {e}")
+    
+    async def _bulk_update_simple_stats(self, simple_stats: Dict[str, Dict]):
+        """Efficiently update simple player statistics in bulk"""
         try:
             bulk_operations = []
             
-            for player_name, stats in player_stat_updates.items():
-                kills_to_add = stats['kills']
-                deaths_to_add = stats['deaths']
-                distance_data = stats['distance_data']
-                
-                # Calculate distance statistics
-                max_distance = max((d['distance'] for d in distance_data), default=0)
-                total_distance = sum(d['distance'] for d in distance_data)
-                latest_kill_timestamp = max((d['timestamp'] for d in distance_data), default=None) if distance_data else None
-                
-                # Prepare upsert operation
+            for player_name, stats in simple_stats.items():
                 filter_query = {
                     'guild_id': self.guild_id,
                     'server_id': self.server_id,
@@ -374,49 +413,58 @@ class ChronologicalProcessor:
                 
                 update_ops = {
                     '$inc': {
-                        'kills': kills_to_add,
-                        'deaths': deaths_to_add,
-                        'total_distance': total_distance
-                    },
-                    '$max': {
-                        'personal_best_distance': max_distance
+                        'kills': stats['kills'],
+                        'deaths': stats['deaths'],
+                        'suicides': stats['suicides'],
+                        'total_distance': stats['distance_sum']
                     },
                     '$set': {
                         'last_updated': datetime.now(timezone.utc)
                     }
                 }
                 
-                if latest_kill_timestamp:
-                    update_ops['$max']['last_kill_timestamp'] = latest_kill_timestamp
-                
-                # Create upsert operation
                 from pymongo import UpdateOne
                 bulk_operations.append(
                     UpdateOne(filter_query, update_ops, upsert=True)
                 )
             
-            # Execute bulk write
             if bulk_operations:
                 result = await self.db_manager.pvp_data.bulk_write(bulk_operations, ordered=False)
-                logger.debug(f"Bulk updated {len(bulk_operations)} player stat records, {result.upserted_count} new players")
+                logger.debug(f"Bulk updated {len(bulk_operations)} simple stat records")
                 
         except Exception as e:
-            logger.error(f"Failed to bulk update player stats: {e}")
-            # Fall back to individual updates for critical data integrity
-            for player_name, stats in player_stat_updates.items():
-                try:
-                    for _ in range(stats['kills']):
-                        await self.db_manager.increment_player_kill(
-                            self.guild_id, self.server_id, player_name, 
-                            max((d['distance'] for d in stats['distance_data']), default=0),
-                            max((d['timestamp'] for d in stats['distance_data']), default=datetime.now(timezone.utc))
-                        )
-                    for _ in range(stats['deaths']):
-                        await self.db_manager.increment_player_death(
-                            self.guild_id, self.server_id, player_name
-                        )
-                except Exception as fallback_error:
-                    logger.error(f"Fallback update failed for {player_name}: {fallback_error}")
+            logger.error(f"Failed to bulk update simple stats: {e}")
+    
+    async def _update_streak_stats(self, player_states: Dict[str, Dict]):
+        """Update streak statistics for players"""
+        try:
+            for player_name, state in player_states.items():
+                filter_query = {
+                    'guild_id': self.guild_id,
+                    'server_id': self.server_id,
+                    'player_name': player_name
+                }
+                
+                update_ops = {
+                    '$set': {
+                        'current_streak': state['current_streak'],
+                        'last_updated': datetime.now(timezone.utc)
+                    },
+                    '$max': {
+                        'best_streak': state['best_streak'],
+                        'personal_best_distance': state['longest_shot']
+                    }
+                }
+                
+                await self.db_manager.pvp_data.update_one(filter_query, update_ops, upsert=True)
+            
+            if player_states:
+                logger.debug(f"Updated streak stats for {len(player_states)} players")
+                
+        except Exception as e:
+            logger.error(f"Failed to update streak stats: {e}")
+    
+
     
     def cancel(self):
         """Cancel the processing"""

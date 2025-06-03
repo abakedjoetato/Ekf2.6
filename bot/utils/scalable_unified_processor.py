@@ -445,30 +445,75 @@ class MultiGuildUnifiedProcessor:
         self.processors: Dict[int, ScalableUnifiedProcessor] = {}
     
     async def process_all_guilds(self, guild_configs: Dict[int, List[Dict[str, Any]]]) -> Dict[str, Any]:
-        """Process unified logs for all guilds"""
-        tasks = []
+        """Process unified logs for all guilds with staggered processing for resource management"""
+        # Group servers into staggered batches to reduce resource pressure
+        server_groups = []
+        current_group = []
+        servers_per_group = 15  # Process up to 15 servers simultaneously
         
         for guild_id, server_configs in guild_configs.items():
-            processor = ScalableUnifiedProcessor(guild_id)
-            self.processors[guild_id] = processor
+            for server_config in server_configs:
+                current_group.append((guild_id, server_config))
+                if len(current_group) >= servers_per_group:
+                    server_groups.append(current_group)
+                    current_group = []
+        
+        if current_group:  # Add remaining servers
+            server_groups.append(current_group)
+        
+        total_processed = 0
+        total_rotations = 0
+        successful_guilds = set()
+        all_results = {}
+        
+        # Process server groups with 30-second stagger
+        for group_index, server_group in enumerate(server_groups):
+            if group_index > 0:
+                logger.info(f"Staggering processing: waiting 30 seconds before processing group {group_index + 1}/{len(server_groups)}")
+                await asyncio.sleep(30)
             
-            task = processor.process_guild_servers(server_configs)
-            tasks.append(task)
-        
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Compile summary
-        total_servers = sum(len(configs) for configs in guild_configs.values())
-        successful_guilds = sum(1 for result in results if isinstance(result, dict) and result.get('success'))
-        total_processed = sum(result.get('processed_servers', 0) for result in results if isinstance(result, dict))
-        total_rotations = sum(result.get('rotated_servers', 0) for result in results if isinstance(result, dict))
+            logger.info(f"Processing server group {group_index + 1}/{len(server_groups)} with {len(server_group)} servers")
+            
+            # Group servers by guild for this batch
+            guild_batch = {}
+            for guild_id, server_config in server_group:
+                if guild_id not in guild_batch:
+                    guild_batch[guild_id] = []
+                guild_batch[guild_id].append(server_config)
+            
+            # Process this batch of guilds
+            batch_tasks = []
+            batch_processors = {}
+            
+            for guild_id, batch_server_configs in guild_batch.items():
+                processor = ScalableUnifiedProcessor(guild_id)
+                batch_processors[guild_id] = processor
+                
+                task = processor.process_guild_servers(batch_server_configs)
+                batch_tasks.append((guild_id, task))
+            
+            # Execute batch
+            batch_results = await asyncio.gather(
+                *[task for _, task in batch_tasks], 
+                return_exceptions=True
+            )
+            
+            # Collect batch results
+            for (guild_id, _), result in zip(batch_tasks, batch_results):
+                if isinstance(result, dict) and result.get('success'):
+                    successful_guilds.add(guild_id)
+                    total_processed += result.get('processed_servers', 0)
+                    total_rotations += result.get('rotated_servers', 0)
+                
+                all_results[f"guild_{guild_id}_batch_{group_index}"] = result
         
         return {
             'success': True,
             'total_guilds': len(guild_configs),
-            'successful_guilds': successful_guilds,
-            'total_servers': total_servers,
+            'successful_guilds': len(successful_guilds),
+            'total_servers': sum(len(configs) for configs in guild_configs.values()),
             'processed_servers': total_processed,
             'rotated_servers': total_rotations,
-            'results': results
+            'guild_results': all_results,
+            'processing_groups': len(server_groups)
         }
