@@ -1486,9 +1486,10 @@ class DatabaseManager:
             query = {
                 "guild_id": int(guild_id),
                 "server_name": str(server_name),
-                "status": "online"
+                "state": "online"
             }
             count = await self.player_sessions.count_documents(query)
+            logger.debug(f"Active player count for {server_name}: {count}")
             return count
         except Exception as e:
             logger.error(f"Failed to get active player count for {server_name}: {e}")

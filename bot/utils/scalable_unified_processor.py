@@ -482,12 +482,14 @@ class ScalableUnifiedProcessor:
                 'message': message
             }
         
-        # Airdrop events - broader pattern matching
+        # Airdrop events - broader pattern matching with debug logging
         if 'airdrop' in content_lower:
+            print(f"DEBUG: Found airdrop keyword in: {content[:100]}...")
             # Try specific pattern first
             airdrop_match = re.search(r'X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
             if airdrop_match:
                 x_coord, y_coord = airdrop_match.groups()
+                print(f"DEBUG: Airdrop coordinates detected: {x_coord}, {y_coord}")
                 return 'airdrop', None, {
                     'x_coordinate': float(x_coord),
                     'y_coordinate': float(y_coord),
@@ -497,6 +499,7 @@ class ScalableUnifiedProcessor:
                 }
             else:
                 # Generic airdrop event without coordinates
+                print(f"DEBUG: Generic airdrop event detected")
                 return 'airdrop', None, {
                     'location': 'Unknown',
                     'log_category': log_category,
@@ -790,7 +793,9 @@ class ScalableUnifiedProcessor:
                     await self.bot.voice_channel_batcher.queue_voice_channel_update(
                         int(vc_id), server_name, player_count, max_players
                     )
-                    logger.debug(f"Queued voice channel update for {server_name}: {player_count}/{max_players}")
+                    logger.info(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
+                else:
+                    logger.warning(f"No voice channel configured for server {server_name} (ID: {server_id})")
         
         except Exception as e:
             logger.error(f"Failed to update voice channels: {e}")
