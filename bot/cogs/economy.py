@@ -135,8 +135,8 @@ class Economy(discord.Cog):
             # Update wallet
             user_key = f"{guild_id}:{discord_id}"
             async with self.get_user_lock(user_key):
-                await self.bot.db_manager.update_user_balance(
-                    guild_id, discord_id, earnings, f"Work earnings: ${earnings}"
+                await self.bot.db_manager.update_wallet(
+                    guild_id, discord_id, earnings, "add"
                 )
                 
                 # Add wallet event
@@ -187,8 +187,8 @@ class Economy(discord.Cog):
             # Update wallet
             user_key = f"{guild_id}:{user.id}"
             async with self.get_user_lock(user_key):
-                await self.bot.db_manager.update_user_balance(
-                    guild_id, user.id, amount, f"Admin give: ${amount} from {ctx.user.display_name}"
+                await self.bot.db_manager.update_wallet(
+                    guild_id, user.id, amount, "add"
                 )
                 
                 # Add wallet event

@@ -43,6 +43,7 @@ class DatabaseManager:
         self.leaderboard_messages = self.db.leaderboard_messages
         self.bot_config = self.db.bot_config
         self.premium_limits = self.db.premium_limits
+        self.wallet_events = self.db.wallet_events
     
     @property
     def admin(self):
@@ -1066,6 +1067,25 @@ class DatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to update wallet: {e}")
+            return False
+
+    async def add_wallet_event(self, guild_id: int, discord_id: int, amount: int, event_type: str, description: str) -> bool:
+        """Add a wallet transaction event"""
+        try:
+            event_data = {
+                "guild_id": guild_id,
+                "discord_id": discord_id,
+                "amount": amount,
+                "event_type": event_type,
+                "description": description,
+                "timestamp": datetime.now(timezone.utc)
+            }
+            
+            result = await self.db.wallet_events.insert_one(event_data)
+            return result.acknowledged
+            
+        except Exception as e:
+            logger.error(f"Failed to add wallet event: {e}")
             return False
 
     # PREMIUM (Server-scoped)
