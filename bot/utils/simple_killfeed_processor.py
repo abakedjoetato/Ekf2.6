@@ -352,13 +352,21 @@ class SimpleKillfeedProcessor:
             if not event_timestamp:
                 return None
                 
+            # Filter out suicide events and non-PvP kills
+            if weapon in ['suicide_by_relocation', 'suicide_by_falling', 'suicide_by_drowning', 'suicide']:
+                return None
+                
+            # Skip if killer and victim are the same (suicide)
+            if killer == victim or killer_id == victim_id:
+                return None
+            
             # Parse distance
             try:
                 distance = int(float(distance_str))
             except (ValueError, TypeError):
                 distance = 0
             
-            # Create event
+            # Create event only for valid PvP kills
             return KillfeedEvent(
                 timestamp=event_timestamp,
                 killer=killer,
