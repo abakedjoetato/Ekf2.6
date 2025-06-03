@@ -100,6 +100,11 @@ class ScalableUnifiedProcessor:
                 # Process entries in chronological order
                 await self._process_entries_chronologically(all_entries)
                 results['entries_processed'] = len(all_entries)
+                
+                # Phase 4: Final voice channel update after cold start processing
+                if self._voice_channel_updates_deferred:
+                    await self._perform_final_voice_channel_update(available_servers)
+                    self._voice_channel_updates_deferred = False
             
             results['success'] = True
             
@@ -108,6 +113,58 @@ class ScalableUnifiedProcessor:
             results['error'] = str(e)
         
         return results
+    
+    async def _perform_final_voice_channel_update(self, server_configs: List[Dict[str, Any]]):
+        """Perform final voice channel update after cold start processing to prevent rate limiting"""
+        try:
+            if not self.bot or not hasattr(self.bot, 'db_manager') or not self.bot.db_manager:
+                return
+            
+            # Get guild configuration
+            guild_config = await self.bot.db_manager.get_guild(self.guild_id)
+            if not guild_config:
+                return
+            
+            # Update voice channels for each server
+            for server_config in server_configs:
+                server_name = server_config.get('name', server_config.get('server_name', 'default'))
+                server_id = str(server_config.get('_id', server_config.get('server_id', '')))
+                
+                try:
+                    # Get current player count from database
+                    if hasattr(self.bot.db_manager, 'get_active_player_count'):
+                        player_count = await self.bot.db_manager.get_active_player_count(
+                            self.guild_id, server_name
+                        )
+                    else:
+                        player_count = 0
+                except Exception as e:
+                    logger.error(f"Failed to get player count for {server_name}: {e}")
+                    player_count = 0
+                
+                # Get max players from config
+                max_players = server_config.get('max_players', 50)
+                
+                # Find voice channel ID
+                server_channels_config = guild_config.get('server_channels', {})
+                server_specific = server_channels_config.get(server_id, {})
+                default_server = server_channels_config.get('default', {})
+                legacy_channels = guild_config.get('channels', {})
+                
+                vc_id = (server_specific.get('playercountvc') or 
+                        default_server.get('playercountvc') or 
+                        legacy_channels.get('playercountvc'))
+                
+                if vc_id:
+                    await self.bot.voice_channel_batcher.queue_voice_channel_update(
+                        int(vc_id), server_name, player_count, max_players
+                    )
+                    logger.info(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
+                else:
+                    logger.warning(f"No voice channel configured for server {server_name} (ID: {server_id})")
+        
+        except Exception as e:
+            logger.error(f"Failed to update voice channels after cold start: {e}")
     
     async def _discover_and_check_rotation(self, server_configs: List[Dict[str, Any]]) -> Dict[str, ServerFileState]:
         """Discover Deadside.log files and check for rotation"""
@@ -1031,12 +1088,15 @@ class ScalableUnifiedProcessor:
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to offline state - this may trigger disconnect embed
                 try:
+                    # Skip voice channel updates during cold start to prevent rate limiting
+                    skip_voice_update = self._voice_channel_updates_deferred
                     state_changed = await self.bot.db_manager.update_player_state(
                         self.guild_id,
                         eosid,
                         'offline',
                         entry.server_name,
-                        entry.timestamp
+                        entry.timestamp,
+                        skip_voice_update=skip_voice_update
                     )
                     
                     if state_changed:
