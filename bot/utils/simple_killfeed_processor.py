@@ -41,6 +41,7 @@ class SimpleKillfeedProcessor:
         self.state_manager = get_shared_state_manager()
         self.bot = bot
         self.cancelled = False
+        self._current_subdir = None  # Track current subdirectory
         
     def _get_killfeed_path(self) -> str:
         """Get the killfeed path for this server"""
@@ -106,7 +107,12 @@ class SimpleKillfeedProcessor:
         try:
             # Construct path to previous file
             killfeed_path = self._get_killfeed_path()
-            previous_file_path = f"{killfeed_path}{current_state.last_file}"
+            
+            # Use the subdirectory if we have one from discovery
+            if self._current_subdir:
+                previous_file_path = f"{killfeed_path}{self._current_subdir}/{current_state.last_file}"
+            else:
+                previous_file_path = f"{killfeed_path}{current_state.last_file}"
             
             logger.info(f"Finishing previous file: {current_state.last_file} from line {current_state.last_line}")
             
@@ -220,7 +226,12 @@ class SimpleKillfeedProcessor:
                 
                 sftp = await conn.start_sftp_client()
                 killfeed_path = self._get_killfeed_path()
-                file_path = f"{killfeed_path}{filename}"
+                
+                # Use the subdirectory if we have one from discovery
+                if self._current_subdir:
+                    file_path = f"{killfeed_path}{self._current_subdir}/{filename}"
+                else:
+                    file_path = f"{killfeed_path}{filename}"
                 
                 # Determine starting position
                 start_line = 0
