@@ -52,6 +52,7 @@ class ScalableUnifiedProcessor:
         self.database = None  # Will be set when needed
         self._cold_start_player_states = {}  # Memory storage for cold start batch processing
         self._hot_start_state_changes = set()  # Track servers with state changes during hot starts
+        self._player_name_cache = {}  # Cache for player names from join queue events
         
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
                                   progress_callback=None) -> Dict[str, Any]:
@@ -1202,40 +1203,10 @@ class ScalableUnifiedProcessor:
             additional_data = entry.additional_data or {}
             player_name = additional_data.get('player_name', f'Player{eosid[:8]}')
             
-            logger.debug(f"Player {player_name} ({eosid}) queued for {entry.server_name}")
+            # Store player name in cache for when they register
+            self._player_name_cache[eosid] = player_name
             
-            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # Update player to queued state
-                try:
-                    await self.bot.db_manager.update_player_state(
-                        self.guild_id,
-                        eosid,
-                        'queued',
-                        entry.server_name,
-                        entry.timestamp
-                    )
-                    logger.debug(f"Player {player_name} set to queued state")
-                except AttributeError as e:
-                    logger.error(f"Database method error for queue event: {e}")
-                    # Fallback: update session directly
-                    try:
-                        await self.bot.db_manager.player_sessions.update_one(
-                            {"guild_id": self.guild_id, "player_id": eosid},
-                            {
-                                "$set": {
-                                    "state": "queued",
-                                    "server_name": entry.server_name,
-                                    "last_updated": entry.timestamp,
-                                    "player_name": player_name
-                                }
-                            },
-                            upsert=True
-                        )
-                        logger.info(f"Player {player_name} updated to queued state (fallback)")
-                    except Exception as fallback_error:
-                        logger.error(f"Fallback update failed for {player_name}: {fallback_error}")
-            else:
-                logger.warning(f"No database manager available for queue event: {player_name}")
+            logger.debug(f"Player {player_name} ({eosid}) queued for {entry.server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle player queue: {e}")
@@ -1252,6 +1223,9 @@ class ScalableUnifiedProcessor:
                 try:
                     # During cold start, store in memory for batch processing
                     if self._cold_start_mode:
+                        # Get player name from cache if available
+                        character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
+                        
                         # Store player state in memory for batch write later
                         self._cold_start_player_states[eosid] = {
                             'guild_id': self.guild_id,
@@ -1260,32 +1234,46 @@ class ScalableUnifiedProcessor:
                             'server_name': entry.server_name,
                             'last_updated': entry.timestamp,
                             'joined_at': entry.timestamp.isoformat(),
-                            'platform': 'Unknown'
+                            'platform': 'Unknown',
+                            'character_name': character_name
                         }
-                        logger.info(f"Player {eosid[:8]}... queued for batch update (online on {entry.server_name})")
+                        logger.info(f"Player {character_name} ({eosid[:8]}...) queued for batch update (online on {entry.server_name})")
                         state_changed = True  # For logging purposes
                     else:
                         # Hot start processing - update database immediately and track for voice updates
                         try:
-                            state_changed = await self.bot.db_manager.update_player_state(
-                                self.guild_id,
-                                eosid,
-                                'online',
-                                entry.server_name,
-                                entry.timestamp,
-                                skip_voice_update=True
+                            # Get player name from cache if available
+                            character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
+                            
+                            # Update player session with character name
+                            result = await self.bot.db_manager.player_sessions.update_one(
+                                {"guild_id": self.guild_id, "player_id": eosid},
+                                {
+                                    "$set": {
+                                        "state": "online",
+                                        "server_name": entry.server_name,
+                                        "last_updated": entry.timestamp,
+                                        "joined_at": entry.timestamp.isoformat(),
+                                        "platform": "Unknown",
+                                        "character_name": character_name
+                                    }
+                                },
+                                upsert=True
                             )
+                            
+                            state_changed = result.upserted_id is not None or result.modified_count > 0
                             
                             # Track servers with state changes for voice channel updates
                             if state_changed:
                                 self._hot_start_state_changes.add(entry.server_name)
-                                logger.info(f"Hot start: Player {eosid[:8]}... joined {entry.server_name}")
+                                logger.info(f"Hot start: Player {character_name} ({eosid[:8]}...) joined {entry.server_name}")
                             else:
-                                logger.debug(f"No state change for {eosid[:8]}... (already online)")
+                                logger.debug(f"No state change for {character_name} (already online)")
                         except Exception as db_error:
                             logger.error(f"Database update failed for {eosid[:8]}...: {db_error}")
                             import traceback
                             logger.error(f"Full traceback: {traceback.format_exc()}")
+                            state_changed = False
                     
                     # Only send connection embed if state actually changed (offline -> online)
                     if state_changed and not self._cold_start_mode:
