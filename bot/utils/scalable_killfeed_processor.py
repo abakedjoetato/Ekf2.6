@@ -355,6 +355,7 @@ class ScalableKillfeedProcessor:
                     
                     # Create killfeed embed data
                     embed_data = {
+                        'guild_id': self.guild_id,
                         'killer': event.killer,
                         'victim': event.victim,
                         'weapon': weapon,

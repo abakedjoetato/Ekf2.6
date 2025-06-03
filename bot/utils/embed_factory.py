@@ -862,65 +862,6 @@ class EmbedFactory:
         except Exception as e:
             logger.error(f"Failed to get player KDR for {player_name}: {e}")
             return None
-                    color = EmbedFactory.COLORS['falling']
-                    themed_description = random.choice(EmbedFactory.FALLING_MESSAGES)
-                    asset_file = discord.File("./assets/Falling.png", filename="Falling.png")
-                    thumbnail_url = "attachment://Falling.png"
-                    cause_display = "**Falling** • Physics Lesson"
-                    status_display = "**KIA - FALLING**"
-                else:
-                    # SUICIDE EMBED - SEPARATE
-                    title = random.choice(EmbedFactory.SUICIDE_TITLES)
-                    color = EmbedFactory.COLORS['suicide']
-                    themed_description = random.choice(EmbedFactory.SUICIDE_MESSAGES)
-                    asset_file = discord.File("./assets/Suicide.png", filename="Suicide.png")
-                    thumbnail_url = "attachment://Suicide.png"
-                    cause_display = "**Menu Suicide** • Non-Combat Loss"
-                    status_display = "**KIA - INTERNAL**"
-
-                embed = discord.Embed(
-                    title=title,
-                    color=color,
-                    timestamp=datetime.now(timezone.utc)
-                )
-
-                embed.add_field(name="**OPERATIVE**", value=f"**{player_name}**", inline=True)
-                embed.add_field(name=status_display, value=cause_display, inline=True)
-                embed.add_field(name="**INCIDENT REPORT**", value=themed_description, inline=False)
-
-                embed.set_thumbnail(url=thumbnail_url)
-
-            else:
-                # PVP KILL EMBED
-                killer = embed_data.get('killer', 'Unknown')
-                victim = embed_data.get('victim', 'Unknown')
-                killer_kdr = embed_data.get('killer_kdr', '0.00')
-                victim_kdr = embed_data.get('victim_kdr', '0.00')
-                title = random.choice(EmbedFactory.KILL_TITLES)
-
-                embed = discord.Embed(
-                    title=title,
-                    color=EmbedFactory.COLORS['killfeed'],
-                    timestamp=datetime.now(timezone.utc)
-                )
-
-                embed.add_field(name="**ELIMINATOR**", value=f"**{killer}** • **{killer_kdr}** KDR", inline=True)
-                embed.add_field(name="**ELIMINATED**", value=f"**{victim}** • **{victim_kdr}** KDR", inline=True)
-                embed.add_field(name="**WEAPON SYSTEM**", value=f"**{weapon}** • **{distance:.1f}m**", inline=True)
-
-                kill_message = random.choice(EmbedFactory.KILL_MESSAGES)
-                embed.add_field(name="**COMBAT REPORT**", value=kill_message, inline=False)
-
-                asset_file = discord.File("./assets/Killfeed.png", filename="Killfeed.png")
-                embed.set_thumbnail(url="attachment://Killfeed.png")
-
-            embed.set_footer(text="Powered by Emerald")
-
-            return embed, asset_file
-
-        except Exception as e:
-            logger.error(f"Error building killfeed embed: {e}")
-            return await EmbedFactory.build_error_embed("Killfeed embed error")
 
     @staticmethod
     async def build_leaderboard_embed(embed_data: dict) -> tuple[discord.Embed, discord.File]:
