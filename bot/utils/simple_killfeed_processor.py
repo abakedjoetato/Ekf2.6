@@ -465,11 +465,11 @@ class SimpleKillfeedProcessor:
             # Send events to channel
             for event in events:
                 try:
-                    # Create killfeed embed
-                    embed = await self._create_killfeed_embed(event)
+                    # Create killfeed embed with factory
+                    embed, file = await self._create_killfeed_embed(event)
                     
-                    # Send directly to channel
-                    await channel.send(embed=embed)
+                    # Send with embed and file attachment
+                    await channel.send(embed=embed, file=file)
                     logger.info(f"✅ Delivered killfeed event: {event.killer} killed {event.victim} with {event.weapon}")
                     
                 except Exception as e:
@@ -479,43 +479,30 @@ class SimpleKillfeedProcessor:
             logger.error(f"Killfeed delivery failed: {e}")
     
     async def _create_killfeed_embed(self, event: KillfeedEvent):
-        """Create Discord embed for killfeed event"""
-        import discord
+        """Create Discord embed for killfeed event using EmbedFactory for consistent branding"""
+        from bot.utils.embed_factory import EmbedFactory
         
-        embed = discord.Embed(
-            title="💀 Player Eliminated",
-            color=0xFF0000,
-            timestamp=event.timestamp
-        )
+        # Determine if this is a suicide event
+        is_suicide = event.killer == event.victim
         
-        embed.add_field(
-            name="Killer",
-            value=f"**{event.killer}** ({event.killer_platform})",
-            inline=True
-        )
+        # Prepare embed data for factory
+        embed_data = {
+            'killer': event.killer,
+            'victim': event.victim,
+            'weapon': event.weapon,
+            'distance': event.distance,
+            'killer_platform': event.killer_platform,
+            'victim_platform': event.victim_platform,
+            'server_name': self.server_name,
+            'timestamp': event.timestamp,
+            'is_suicide': is_suicide,
+            'guild_id': self.guild_id
+        }
         
-        embed.add_field(
-            name="Victim", 
-            value=f"**{event.victim}** ({event.victim_platform})",
-            inline=True
-        )
+        # Use factory to create branded embed with thumbnail
+        embed, file = await EmbedFactory.build('killfeed', embed_data)
         
-        embed.add_field(
-            name="Weapon",
-            value=f"**{event.weapon}**",
-            inline=True
-        )
-        
-        if event.distance > 0:
-            embed.add_field(
-                name="Distance",
-                value=f"**{event.distance}m**",
-                inline=True
-            )
-        
-        embed.set_footer(text=f"Server: {self.server_name}")
-        
-        return embed
+        return embed, file
     
     def cancel(self):
         """Cancel the processing"""
