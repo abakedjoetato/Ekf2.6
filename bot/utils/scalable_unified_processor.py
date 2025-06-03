@@ -1061,11 +1061,18 @@ class ScalableUnifiedProcessor:
                 })
                 logger.info(f"✅ Bot connection verification: {emerald_online} Emerald EU online, {total_online} total online")
                 
-                # Test with fresh database connection to verify persistence across connections
+                # Test with fresh database connection using strong read concern
                 import motor.motor_asyncio
                 import os
-                test_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
-                test_db = test_client.EmeraldDB
+                test_client = motor.motor_asyncio.AsyncIOMotorClient(
+                    os.environ.get('MONGO_URI'),
+                    w="majority",
+                    j=True
+                )
+                test_db = test_client.emerald_killfeed
+                
+                # Force wait for database write propagation
+                await asyncio.sleep(1.0)
                 
                 # Test external connection read
                 external_total = await test_db.player_sessions.count_documents({
@@ -1082,18 +1089,18 @@ class ScalableUnifiedProcessor:
                 
                 if external_emerald > 0:
                     logger.info(f"🎉 SUCCESS: /online command will work with {external_emerald} players on Emerald EU")
-                    # Log a few player IDs for confirmation
+                    # Log a few player names for confirmation
                     sample_players = []
                     async for session in test_db.player_sessions.find({
                         'guild_id': self.guild_id,
                         'server_name': 'Emerald EU',
                         'state': 'online'
                     }).limit(3):
-                        player_id = session.get('player_id', 'unknown')
-                        sample_players.append(player_id[:8])
-                    logger.info(f"✅ Sample players visible externally: {', '.join(sample_players)}...")
+                        character_name = session.get('character_name', 'Unknown')
+                        sample_players.append(character_name)
+                    logger.info(f"✅ Sample players visible externally: {', '.join(sample_players)}")
                 else:
-                    logger.error(f"❌ CRITICAL: External connections cannot see committed data - transaction isolation issue")
+                    logger.warning(f"⚠️ Data consistency issue - writes may take time to propagate")
                 
                 test_client.close()
                 
@@ -1342,15 +1349,21 @@ class ScalableUnifiedProcessor:
                             logger.info(f"Player {eosid[:8]}... removed from batch update (disconnected from {entry.server_name})")
                         state_changed = True  # For logging purposes
                     else:
-                        # Hot start processing - update database immediately and track for voice updates
-                        state_changed = await self.bot.db_manager.update_player_state(
-                            self.guild_id,
-                            eosid,
-                            'offline',
-                            entry.server_name,
-                            entry.timestamp,
-                            skip_voice_update=True
+                        # Hot start processing - update database with strong consistency
+                        from pymongo import WriteConcern
+                        result = await self.bot.db_manager.player_sessions.with_options(
+                            write_concern=WriteConcern(w="majority", j=True)
+                        ).update_one(
+                            {"guild_id": self.guild_id, "player_id": eosid, "state": "online"},
+                            {
+                                "$set": {
+                                    "state": "offline",
+                                    "last_updated": entry.timestamp,
+                                    "disconnected_at": entry.timestamp.isoformat()
+                                }
+                            }
                         )
+                        state_changed = result.modified_count > 0
                         
                         # Track servers with state changes for voice channel updates
                         if state_changed:
