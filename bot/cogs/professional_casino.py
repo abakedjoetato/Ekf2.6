@@ -403,7 +403,8 @@ class SlotsGameView(discord.ui.View):
     
     async def update_balance(self, amount):
         try:
-            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, amount, 'casino_slots')
+            operation = "add" if amount >= 0 else "subtract"
+            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, abs(amount), operation)
         except:
             return False
 
@@ -506,7 +507,8 @@ class CoinFlipGameView(discord.ui.View):
     
     async def update_balance(self, amount):
         try:
-            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, amount, 'casino_coinflip')
+            operation = "add" if amount >= 0 else "subtract"
+            return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, abs(amount), operation)
         except:
             return False
 

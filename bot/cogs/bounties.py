@@ -107,17 +107,9 @@ class Bounties(discord.Cog):
                               amount: int, event_type: str, description: str):
         """Add wallet transaction event for tracking"""
         try:
-            event_doc = {
-                "guild_id": guild_id,
-                "discord_id": discord_id,
-                "amount": amount,
-                "event_type": event_type,
-                "description": description,
-                "timestamp": datetime.now(timezone.utc)
-            }
-
-            await self.bot.db_manager.db.wallet_events.insert_one(event_doc)
-
+            await self.bot.db_manager.add_wallet_event(
+                guild_id, discord_id, amount, event_type, description
+            )
         except Exception as e:
             logger.error(f"Failed to add wallet event: {e}")
 

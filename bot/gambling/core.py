@@ -52,7 +52,7 @@ class GamblingCore:
             if new_balance < 0:
                 return False
                 
-            await self.bot.db_manager.update_wallet(guild_id, user_id, new_balance)
+            await self.bot.db_manager.update_wallet(guild_id, user_id, amount, "add")
             
             # Log wallet event
             await self.add_wallet_event(guild_id, user_id, amount, 'gambling', description)
@@ -75,7 +75,9 @@ class GamblingCore:
                 'timestamp': datetime.now(timezone.utc).isoformat()
             }
             
-            await self.bot.db_manager.add_wallet_event(event_data)
+            await self.bot.db_manager.add_wallet_event(
+                guild_id, discord_id, amount, event_type, description
+            )
         except Exception as e:
             logger.error(f"Error adding wallet event: {e}")
 
