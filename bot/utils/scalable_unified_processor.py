@@ -48,6 +48,7 @@ class ScalableUnifiedProcessor:
         self.cancelled = False
         self.state_manager = get_shared_state_manager()
         self._cold_start_mode = False
+        self._voice_channel_updates_deferred = False  # Flag to defer voice updates during cold start
         self.database = None  # Will be set when needed
         
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
@@ -236,6 +237,7 @@ class ScalableUnifiedProcessor:
                         # COLD START: Reset everything and parse from beginning
                         logger.info(f"🔄 COLD START for {server_name} - parsing entire log from line 0, skipping embeds")
                         self._cold_start_mode = True  # Block all embed outputs
+                        self._voice_channel_updates_deferred = True  # Defer voice channel updates
                         
                         # Reset all player sessions to offline - import database manager locally
                         try:
@@ -974,12 +976,15 @@ class ScalableUnifiedProcessor:
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Update player to online state - this may trigger connection embed
                 try:
+                    # Skip voice channel updates during cold start to prevent rate limiting
+                    skip_voice_update = self._voice_channel_updates_deferred
                     state_changed = await self.bot.db_manager.update_player_state(
                         self.guild_id,
                         eosid,
                         'online',
                         entry.server_name,
-                        entry.timestamp
+                        entry.timestamp,
+                        skip_voice_update=skip_voice_update
                     )
                     
                     if state_changed:

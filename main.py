@@ -301,12 +301,6 @@ class EmeraldKillfeedBot(commands.Bot):
                 return
 
             logger.info(f"🔄 New commands detected - attempting Discord sync for {len(all_commands)} commands")
-            
-            # Set immediate cooldown to prevent further sync attempts during rate limiting
-            with open(cooldown_file, 'w') as f:
-                f.write(str(time.time() + cooldown_secs))
-            
-            logger.info("⚠️ Sync cooldown applied - bot fully operational without Discord dependency")
 
             # Attempt global sync without clearing (prevents rate limits)
             try:
@@ -325,13 +319,11 @@ class EmeraldKillfeedBot(commands.Bot):
                 error_msg = str(e).lower()
                 if "429" in error_msg or "rate limit" in error_msg:
                     logger.warning(f"❌ Global sync rate limited: {e}")
-                    # Set cooldown
-                    with open(cooldown_file, 'w') as f:
-                        f.write(str(time.time() + cooldown_secs))
+                    # Don't set cooldown yet - try per-guild first
                 else:
                     logger.warning(f"⚠️ Global sync failed: {e}")
 
-            # Per-guild fallback
+            # Per-guild fallback (higher rate limits)
             logger.info(f"🏠 Performing per-guild sync fallback for {len(self.guilds)} guilds...")
             success_count = 0
 
