@@ -507,17 +507,33 @@ class ScalableUnifiedProcessor:
                     'message': message
                 }
         
-        # Helicrash events - broader pattern matching
-        if 'helicrash' in content_lower or 'heli' in content_lower:
-            # Try specific pattern first
-            helicrash_match = re.search(r'X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+        # Helicrash events - enhanced pattern matching
+        helicrash_patterns = [
+            r'helicrash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'helicopter.*?crash.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'heli.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?helicrash',
+            r'LogSFPS.*?helicopter.*?crash'
+        ]
+        
+        for pattern in helicrash_patterns:
+            helicrash_match = re.search(pattern, content, re.IGNORECASE)
             if helicrash_match:
-                x_coord, y_coord = helicrash_match.groups()
-                return 'helicrash', None, {
-                    'x_coordinate': float(x_coord),
-                    'y_coordinate': float(y_coord),
-                    'log_category': log_category,
-                    'system': system_info,
+                if len(helicrash_match.groups()) >= 2:
+                    x_coord, y_coord = helicrash_match.groups()[:2]
+                    return 'helicrash', None, {
+                        'x_coordinate': float(x_coord),
+                        'y_coordinate': float(y_coord),
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
+                else:
+                    # Generic helicrash without coordinates
+                    return 'helicrash', None, {
+                        'location': 'Unknown',
+                        'log_category': log_category,
+                        'system': system_info,
                     'message': message
                 }
             else:
@@ -529,27 +545,36 @@ class ScalableUnifiedProcessor:
                     'message': message
                 }
         
-        # Trader events - broader pattern matching
-        if 'trader' in content_lower:
-            # Try specific pattern first
-            trader_match = re.search(r'X=([\d\.-]+).*Y=([\d\.-]+)', content, re.IGNORECASE)
+        # Trader events - enhanced pattern matching
+        trader_patterns = [
+            r'trader.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'merchant.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'shop.*?X=([\d\.-]+).*?Y=([\d\.-]+)',
+            r'LogSFPS.*?trader',
+            r'LogSFPS.*?merchant',
+            r'LogSFPS.*?shop'
+        ]
+        
+        for pattern in trader_patterns:
+            trader_match = re.search(pattern, content, re.IGNORECASE)
             if trader_match:
-                x_coord, y_coord = trader_match.groups()
-                return 'trader', None, {
-                    'x_coordinate': float(x_coord),
-                    'y_coordinate': float(y_coord),
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
-            else:
-                # Generic trader event without coordinates
-                return 'trader', None, {
-                    'location': 'Unknown',
-                    'log_category': log_category,
-                    'system': system_info,
-                    'message': message
-                }
+                if len(trader_match.groups()) >= 2:
+                    x_coord, y_coord = trader_match.groups()[:2]
+                    return 'trader', None, {
+                        'x_coordinate': float(x_coord),
+                        'y_coordinate': float(y_coord),
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
+                else:
+                    # Generic trader without coordinates
+                    return 'trader', None, {
+                        'location': 'Unknown',
+                        'log_category': log_category,
+                        'system': system_info,
+                        'message': message
+                    }
         
         # Generic spawn events
         if 'spawn' in content_lower or 'respawn' in content_lower:
