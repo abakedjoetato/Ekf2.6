@@ -512,50 +512,160 @@ class Stats(discord.Cog):
 
     @discord.slash_command(name="online", description="Show currently online players")
     async def online(self, ctx: discord.ApplicationContext):
-        """Show currently online players"""
+        """Show currently online players for a specific server"""
         try:
-            guild_id = ctx.guild.id
-            
-            # Get online players from database
-            sessions = await self.bot.db_manager.player_sessions.find({
-                'guild_id': guild_id,
-                'state': 'online'
-            }).to_list(length=50)
-            
-            # Create embed
-            embed = discord.Embed(
-                title="🌐 Online Players",
-                description=f"**{len(sessions)}** players currently online",
-                color=0x32CD32
-            )
-            
-            if sessions:
-                player_lines = []
-                for i, session in enumerate(sessions[:20], 1):
-                    player_id = session.get('player_id', 'Unknown')
-                    player_name = player_id[:8] + '...' if len(player_id) > 8 else player_id
-                    server_name = session.get('server_name', 'Unknown')
-                    player_lines.append(f"`{i:2d}.` **{player_name}** ({server_name})")
-                
-                embed.add_field(
-                    name="📋 Players Online",
-                    value="
-".join(player_lines),
-                    inline=False
-                )
-            else:
-                embed.add_field(
-                    name="📭 No Players Online",
-                    value="No players are currently online.",
-                    inline=False
-                )
-            
-            await ctx.respond(embed=embed)
-            
-        except Exception as e:
-            await ctx.respond("Failed to fetch online players.", ephemeral=True)
+            if not ctx.guild:
+                await ctx.respond("This command can only be used in a server!", ephemeral=True)
+                return
 
-(self, ctx, server_name: str, server_players: list):
+            guild_id = ctx.guild.id if ctx.guild else 0
+            
+            # Respond immediately to prevent Discord timeout
+            await ctx.respond("⏳ Checking online players...", ephemeral=True)
+            
+            # Get servers for autocomplete resolution
+            servers = await ServerAutocomplete.get_servers_for_guild(guild_id or 0, self.bot.db_manager)
+
+            # Get active players from the database with fallback to voice channel data
+            try:
+                if server_name:
+                    # Show players for specific server
+                    server_id = ServerAutocomplete.get_server_id_from_name(server_name, servers)
+                    if not server_id:
+                        await ctx.followup.send(f"Server '{server_name}' not found.", ephemeral=True)
+                        return
+                    
+                    # Direct database query with timeout protection
+                    server_players = []
+                    
+                    try:
+                        # Direct database query
+                        sessions = await self.bot.db_manager.player_sessions.find({
+                            'guild_id': guild_id,
+                            'server_name': server_name,
+                            'state': 'online'
+                        }).to_list(length=50)
+                        
+                        for session in sessions:
+                            player_id = session.get('player_id', 'Unknown')
+                            player_name = player_id[:8] + '...' if len(player_id) > 8 else player_id
+                            
+                            server_players.append({
+                                'name': player_name,
+                                'join_time': session.get('joined_at'),
+                                'platform': session.get('platform', 'Unknown'),
+                                'player_id': player_id,
+                                'server_id': server_id
+                            })
+                    except Exception as e:
+                        logger.error(f"Database query failed: {e}")
+                        server_players = []
+                    
+                    # If no players found, show empty state with voice channel data
+                    if not server_players:
+                        # Try to get current player count from voice channel manager
+                        try:
+                            if hasattr(self.bot, 'voice_channel_batch') and self.bot.voice_channel_batch:
+                                count = await self.bot.voice_channel_batch.get_current_player_count(guild_id, server_name)
+                                if count and count > 0:
+                                    # Create a placeholder indicating players are online but data is being refreshed
+                                    server_players = [{
+                                        'name': f'{count} players online',
+                                        'join_time': None,
+                                        'platform': 'Data refreshing',
+                                        'player_id': '',
+                                        'server_id': server_id
+                                    }]
+                        except Exception as voice_e:
+                            logger.debug(f"Voice channel count check failed: {voice_e}")
+                    
+                    # Create embed for single server
+                    embed = discord.Embed(
+                        title=f"🌐 Online Players - {server_name}",
+                        description=f"**{len(server_players)}** players currently online",
+                        color=0x32CD32,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    
+                    if server_players:
+                        player_lines = []
+                        for i, player in enumerate(server_players[:20], 1):
+                            name = player['name']
+                            player_lines.append(f"`{i:2d}.` **{name}**")
+                        
+                        embed.add_field(
+                            name="📋 Players Online",
+                            value="\n".join(player_lines),
+                            inline=False
+                        )
+                    else:
+                        embed.add_field(
+                            name="📭 No Players Online",
+                            value="No players are currently online on this server.",
+                            inline=False
+                        )
+                    
+                    embed.set_footer(text=f"Data from {server_name}")
+                    await ctx.edit(content="", embed=embed)
+                    return
+                    
+                else:
+                    # Show players for ALL servers in the guild
+                    query = {
+                        'guild_id': guild_id,
+                        'state': 'online'
+                    }
+                    
+                    # Group players by server
+                    servers_with_players = {}
+                    cursor = self.bot.db_manager.player_sessions.find(query)
+                    
+                    async for session in cursor:
+                        server_name_from_db = session.get('server_name', 'Unknown')
+                        player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
+                        joined_at = session.get('joined_at')
+                        platform = session.get('platform', 'Unknown')
+                        player_id = session.get('player_id', session.get('steam_id', ''))
+                        
+                        # Parse join time
+                        join_time = None
+                        if joined_at:
+                            if isinstance(joined_at, str):
+                                try:
+                                    join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
+                                except:
+                                    pass
+                            elif hasattr(joined_at, 'replace'):
+                                join_time = joined_at
+                        
+                        if server_name_from_db not in servers_with_players:
+                            servers_with_players[server_name_from_db] = []
+                        
+                        servers_with_players[server_name_from_db].append({
+                            'name': player_name,
+                            'join_time': join_time,
+                            'platform': platform,
+                            'player_id': player_id
+                        })
+                    
+                    # Create multi-server display
+                    await self._display_all_servers_players(ctx, servers_with_players, servers)
+                    return
+                            
+            except Exception as e:
+                logger.error(f"Error fetching online players: {e}")
+                await ctx.followup.send("Error retrieving player data.", ephemeral=True)
+                return
+
+        except Exception as e:
+            logger.error(f"Failed to show online players: {e}")
+            if ctx.response.is_done():
+                await ctx.followup.send("Failed to retrieve online players.", ephemeral=True)
+            else:
+                await ctx.respond("Failed to retrieve online players.", ephemeral=True)
+                
+
+    async def _display_single_server_players(self, ctx, server_name: str, server_players: list):
         """Display players for a single specific server"""
         # Sort by join time (most recent first)
         server_players.sort(key=lambda x: x['join_time'] if x['join_time'] else datetime.min, reverse=True)
