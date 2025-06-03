@@ -541,12 +541,12 @@ class Stats(discord.Cog):
                         {
                             'guild_id': guild_id,
                             'server_name': server_name,
-                            'status': 'online'
+                            'state': 'online'
                         },
                         {
                             'guild_id': guild_id,
                             'server_id': server_id,
-                            'status': 'online'
+                            'state': 'online'
                         }
                     ]
                     
@@ -612,7 +612,7 @@ class Stats(discord.Cog):
                     # Show players for ALL servers in the guild
                     query = {
                         'guild_id': guild_id,
-                        'status': 'online'
+                        'state': 'online'
                     }
                     
                     # Group players by server

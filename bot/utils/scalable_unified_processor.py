@@ -1147,6 +1147,10 @@ class ScalableUnifiedProcessor:
                         skip_voice_update=True
                     )
                     
+                    # Always log state changes for debugging
+                    if state_changed:
+                        logger.info(f"Player {eosid[:8]}... state changed to online on {entry.server_name}")
+                    
                     # Only send connection embed if state actually changed (offline -> online)
                     if state_changed and not self._cold_start_mode:
                         # Get player name from database
