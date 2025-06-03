@@ -310,9 +310,9 @@ class SimpleKillfeedProcessor:
     def _parse_killfeed_line(self, line: str, line_number: int, filename: str) -> Optional[KillfeedEvent]:
         """Parse a single killfeed CSV line using historical parser's exact logic"""
         try:
-            # Use historical parser's exact CSV parsing logic
+            # Use historical parser's exact CSV parsing logic - but handle 10 columns
             parts = line.strip().split(';')
-            if len(parts) < 7:
+            if len(parts) < 9:  # Need at least 9 columns for the core data
                 return None
                 
             timestamp_str = parts[0].strip()
