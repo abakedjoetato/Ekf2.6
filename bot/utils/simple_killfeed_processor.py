@@ -324,6 +324,28 @@ class SimpleKillfeedProcessor:
             logger.debug(f"Failed to parse timestamp {timestamp_str}: {e}")
             return None
     
+    def _extract_timestamp_from_filename(self, filename: str) -> Optional[str]:
+        """Extract timestamp from killfeed filename"""
+        try:
+            # Historical parser extracts timestamp from filename pattern
+            # Example: killfeed_2024-06-03_22-15-30.csv
+            import re
+            
+            timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})', filename)
+            if timestamp_match:
+                return timestamp_match.group(1)
+            
+            # Alternative pattern: killfeed_20240603_221530.csv  
+            timestamp_match = re.search(r'(\d{8}_\d{6})', filename)
+            if timestamp_match:
+                return timestamp_match.group(1)
+                
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Failed to extract timestamp from filename {filename}: {e}")
+            return None
+    
     async def _deliver_killfeed_events(self, events: List[KillfeedEvent]):
         """Deliver killfeed events to Discord channels"""
         try:
