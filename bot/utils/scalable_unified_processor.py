@@ -1046,12 +1046,40 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed, {failed_count} failed")
             
-            # Verify database state after commit
-            total_online = await self.bot.db_manager.player_sessions.count_documents({
-                'guild_id': self.guild_id,
-                'state': 'online'
-            })
-            logger.info(f"✅ Database verification: {total_online} total online sessions after batch commit")
+            # Force database synchronization and verification
+            try:
+                # Ensure all writes are flushed to disk
+                await self.bot.db_manager.player_sessions.database.command("fsync", async=False)
+                
+                # Verify database state after commit with explicit read concern
+                total_online = await self.bot.db_manager.player_sessions.count_documents({
+                    'guild_id': self.guild_id,
+                    'state': 'online'
+                })
+                logger.info(f"✅ Database verification: {total_online} total online sessions after batch commit")
+                
+                # Additional verification with immediate read-back
+                emerald_online = await self.bot.db_manager.player_sessions.count_documents({
+                    'guild_id': self.guild_id,
+                    'server_name': 'Emerald EU',
+                    'state': 'online'
+                })
+                logger.info(f"✅ Emerald EU verification: {emerald_online} online sessions")
+                
+                # Log sample session IDs for tracking
+                sample_sessions = []
+                async for session in self.bot.db_manager.player_sessions.find({
+                    'guild_id': self.guild_id,
+                    'state': 'online'
+                }).limit(3):
+                    player_id = session.get('player_id', 'unknown')
+                    sample_sessions.append(player_id[:8])
+                
+                if sample_sessions:
+                    logger.info(f"✅ Sample committed sessions: {', '.join(sample_sessions)}...")
+                
+            except Exception as sync_error:
+                logger.error(f"Database synchronization error: {sync_error}")
             
         except Exception as e:
             logger.error(f"Failed to commit cold start player states: {e}")
