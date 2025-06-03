@@ -352,12 +352,8 @@ class SimpleKillfeedProcessor:
             if not event_timestamp:
                 return None
                 
-            # Filter out suicide events and non-PvP kills
-            if weapon in ['suicide_by_relocation', 'suicide_by_falling', 'suicide_by_drowning', 'suicide']:
-                return None
-                
-            # Skip if killer and victim are the same (suicide)
-            if killer == victim or killer_id == victim_id:
+            # Only skip events with blank killer names
+            if not killer or not killer.strip():
                 return None
             
             # Parse distance
@@ -366,7 +362,7 @@ class SimpleKillfeedProcessor:
             except (ValueError, TypeError):
                 distance = 0
             
-            # Create event only for valid PvP kills
+            # Create event for all deaths (PvP kills, suicides, falling deaths, etc.)
             return KillfeedEvent(
                 timestamp=event_timestamp,
                 killer=killer,
@@ -389,6 +385,7 @@ class SimpleKillfeedProcessor:
         try:
             # Try multiple timestamp formats
             formats = [
+                '%Y.%m.%d-%H.%M.%S',  # CSV format: 2025.06.03-01.45.48
                 '%Y-%m-%d %H:%M:%S',
                 '%Y/%m/%d %H:%M:%S',
                 '%d/%m/%Y %H:%M:%S',
