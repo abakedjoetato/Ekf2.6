@@ -561,6 +561,52 @@ class ScalableUnifiedProcessor:
                 'message': message
             }
         
+        # Kill events - comprehensive PvP kill detection
+        kill_patterns = [
+            r'LogSFPS.*?Player.*?([a-f0-9]{32}).*?killed.*?Player.*?([a-f0-9]{32}).*?with.*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?([a-f0-9]{32}).*?killed.*?([a-f0-9]{32}).*?using.*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?Player.*?([a-f0-9]{32}).*?eliminated.*?Player.*?([a-f0-9]{32}).*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?([a-f0-9]{32}).*?eliminated.*?([a-f0-9]{32}).*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?Kill.*?([a-f0-9]{32}).*?([a-f0-9]{32}).*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?PvP.*?([a-f0-9]{32}).*?([a-f0-9]{32}).*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?Damage.*?killed.*?([a-f0-9]{32}).*?([a-f0-9]{32}).*?([A-Za-z0-9_]+)'
+        ]
+        
+        for pattern in kill_patterns:
+            kill_match = re.search(pattern, content, re.IGNORECASE)
+            if kill_match and len(kill_match.groups()) >= 3:
+                killer_id, victim_id, weapon = kill_match.groups()[:3]
+                return 'kill', None, {
+                    'killer_id': killer_id,
+                    'victim_id': victim_id,
+                    'weapon': weapon,
+                    'kill_type': 'pvp',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+        
+        # Death events - player deaths without specific killer
+        death_patterns = [
+            r'LogSFPS.*?Player.*?([a-f0-9]{32}).*?died.*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?([a-f0-9]{32}).*?death.*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?Player.*?([a-f0-9]{32}).*?eliminated.*?([A-Za-z0-9_]+)',
+            r'LogSFPS.*?([a-f0-9]{32}).*?eliminated.*?([A-Za-z0-9_]+)'
+        ]
+        
+        for pattern in death_patterns:
+            death_match = re.search(pattern, content, re.IGNORECASE)
+            if death_match and len(death_match.groups()) >= 2:
+                victim_id, cause = death_match.groups()[:2]
+                return 'death', victim_id, {
+                    'victim_id': victim_id,
+                    'cause': cause,
+                    'death_type': 'environmental',
+                    'log_category': log_category,
+                    'system': system_info,
+                    'message': message
+                }
+        
         # Vehicle events - using proven patterns
         vehicle_spawn_match = re.search(r'LogSFPS: \[ASFPSGameMode::NewVehicle_Add\] Add vehicle (BP_SFPSVehicle_[A-Za-z0-9_]+)', content, re.IGNORECASE)
         if vehicle_spawn_match:
@@ -1124,10 +1170,37 @@ class ScalableUnifiedProcessor:
             
             eosid = entry.player_name  # EOSID is stored in player_name field
             
-            logger.debug(f"Player {eosid} disconnected from {entry.server_name}")
+            logger.info(f"Player connection: {eosid} left {entry.server_name}")
+            
+            # Skip embed creation during cold start to prevent spam
+            if not self._cold_start_mode:
+                # Create connection embed using proper EmbedFactory theming
+                if self.bot and hasattr(self.bot, 'embed_factory'):
+                    embed_data = {
+                        'player_name': eosid[:8] + '...',  # Truncated EOSID for display
+                        'event_type': 'leave',
+                        'server_name': entry.server_name,
+                        'timestamp': entry.timestamp,
+                        'platform': 'Unknown'
+                    }
+                    
+                    try:
+                        embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
+                        
+                        if embed and hasattr(self.bot, 'channel_router'):
+                            await self.bot.channel_router.send_embed_to_channel(
+                                guild_id=self.guild_id,
+                                server_id=entry.server_name,
+                                channel_type='connections',
+                                embed=embed,
+                                file=file_attachment
+                            )
+                            logger.info(f"Sent connection embed for {eosid[:8]}... leaving {entry.server_name}")
+                    except Exception as embed_error:
+                        logger.error(f"Failed to create connection embed: {embed_error}")
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # Update player to offline state - this may trigger disconnect embed
+                # Update player to offline state
                 try:
                     # Always skip individual voice channel updates - use batched update at end
                     state_changed = await self.bot.db_manager.update_player_state(
