@@ -1451,6 +1451,8 @@ class ScalableUnifiedProcessor:
                         server_name=entry.server_name,
                         entry_type='join',
                         player_name=eosid,
+                        guild_id=entry.guild_id,
+                        raw_line=entry.raw_line,
                         additional_data={'eosid': eosid, 'source': 'general_registration'}
                     )
                     
@@ -1470,6 +1472,8 @@ class ScalableUnifiedProcessor:
                         server_name=entry.server_name,
                         entry_type='leave',
                         player_name=eosid,
+                        guild_id=entry.guild_id,
+                        raw_line=entry.raw_line,
                         additional_data={'eosid': eosid, 'source': 'general_disconnect'}
                     )
                     
@@ -1490,6 +1494,8 @@ class ScalableUnifiedProcessor:
                         server_name=entry.server_name,
                         entry_type='queue',
                         player_name=eosid,
+                        guild_id=entry.guild_id,
+                        raw_line=entry.raw_line,
                         additional_data={'eosid': eosid, 'player_name': player_name, 'source': 'general_queue'}
                     )
                     
