@@ -1046,40 +1046,58 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed, {failed_count} failed")
             
-            # Force database synchronization and verification
+            # Force database persistence and cross-connection verification
             try:
-                # Ensure all writes are flushed to disk
-                await self.bot.db_manager.player_sessions.database.command("fsync", async=False)
-                
-                # Verify database state after commit with explicit read concern
+                # Verify with bot's connection
                 total_online = await self.bot.db_manager.player_sessions.count_documents({
                     'guild_id': self.guild_id,
                     'state': 'online'
                 })
-                logger.info(f"✅ Database verification: {total_online} total online sessions after batch commit")
-                
-                # Additional verification with immediate read-back
                 emerald_online = await self.bot.db_manager.player_sessions.count_documents({
                     'guild_id': self.guild_id,
                     'server_name': 'Emerald EU',
                     'state': 'online'
                 })
-                logger.info(f"✅ Emerald EU verification: {emerald_online} online sessions")
+                logger.info(f"✅ Bot connection verification: {emerald_online} Emerald EU online, {total_online} total online")
                 
-                # Log sample session IDs for tracking
-                sample_sessions = []
-                async for session in self.bot.db_manager.player_sessions.find({
+                # Test with fresh database connection to verify persistence across connections
+                import motor.motor_asyncio
+                import os
+                test_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
+                test_db = test_client.EmeraldDB
+                
+                # Test external connection read
+                external_total = await test_db.player_sessions.count_documents({
                     'guild_id': self.guild_id,
                     'state': 'online'
-                }).limit(3):
-                    player_id = session.get('player_id', 'unknown')
-                    sample_sessions.append(player_id[:8])
+                })
+                external_emerald = await test_db.player_sessions.count_documents({
+                    'guild_id': self.guild_id,
+                    'server_name': 'Emerald EU',
+                    'state': 'online'
+                })
                 
-                if sample_sessions:
-                    logger.info(f"✅ Sample committed sessions: {', '.join(sample_sessions)}...")
+                logger.info(f"✅ External connection verification: {external_emerald} Emerald EU online, {external_total} total online")
                 
-            except Exception as sync_error:
-                logger.error(f"Database synchronization error: {sync_error}")
+                if external_emerald > 0:
+                    logger.info(f"🎉 SUCCESS: /online command will work with {external_emerald} players on Emerald EU")
+                    # Log a few player IDs for confirmation
+                    sample_players = []
+                    async for session in test_db.player_sessions.find({
+                        'guild_id': self.guild_id,
+                        'server_name': 'Emerald EU',
+                        'state': 'online'
+                    }).limit(3):
+                        player_id = session.get('player_id', 'unknown')
+                        sample_players.append(player_id[:8])
+                    logger.info(f"✅ Sample players visible externally: {', '.join(sample_players)}...")
+                else:
+                    logger.error(f"❌ CRITICAL: External connections cannot see committed data - transaction isolation issue")
+                
+                test_client.close()
+                
+            except Exception as verification_error:
+                logger.error(f"Database cross-connection verification error: {verification_error}")
             
         except Exception as e:
             logger.error(f"Failed to commit cold start player states: {e}")
