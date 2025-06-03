@@ -116,41 +116,40 @@ class ScalableKillfeedProcessor:
                 killfeed_path = self._get_killfeed_path()
                 logger.info(f"Killfeed discovery: Looking for CSV files in {killfeed_path}")
                 
-                # List files and find newest timestamp - use glob for wildcard support
+                # Use glob pattern matching like historical parser for recursive discovery
                 try:
-                    # For paths with wildcards, we need to find matching directories first
-                    if '*' in killfeed_path:
-                        import glob
-                        # Handle wildcard paths by finding actual directories
-                        base_path = killfeed_path.split('*')[0]  # Get path before first wildcard
+                    # Use recursive glob pattern to find CSV files in subdirectories
+                    pattern = f"{killfeed_path}**/*.csv"
+                    logger.info(f"Killfeed discovery using glob pattern: {pattern}")
+                    
+                    try:
+                        # Use glob for recursive file discovery (same as historical parser)
+                        paths = await sftp.glob(pattern)
+                        logger.info(f"Glob discovery: Found {len(paths)} CSV files")
+                        
                         file_list = []
-                        logger.info(f"Wildcard path detected, searching base: {base_path}")
-                        # Try to list files in matching subdirectories
-                        try:
-                            dirs = await sftp.listdir(base_path.rstrip('/'))
-                            logger.info(f"Found {len(dirs)} directories in {base_path}: {dirs}")
-                            for dir_name in dirs:
-                                subdir_path = f"{base_path.rstrip('/')}/{dir_name}"
-                                try:
-                                    subfiles = await sftp.listdir(subdir_path)
-                                    csv_files = [f for f in subfiles if f.endswith('.csv')]
-                                    if csv_files:
-                                        logger.info(f"Found {len(csv_files)} CSV files in {subdir_path}: {csv_files}")
-                                        for subfile in csv_files:
-                                            file_list.append(f"{dir_name}/{subfile}")
-                                except Exception as e:
-                                    logger.debug(f"Could not access {subdir_path}: {e}")
-                                    continue
-                        except Exception as e:
-                            logger.error(f"Could not list directories in {base_path}: {e}")
-                            file_list = []
-                    else:
+                        for path in paths:
+                            # Extract just the filename portion for compatibility
+                            filename = path.split('/')[-1]
+                            file_list.append(filename)
+                            logger.info(f"Found CSV file: {filename} (full path: {path})")
+                            
+                    except Exception as e:
+                        logger.warning(f"Glob pattern failed, falling back to directory listing: {e}")
+                        
+                        # Fallback to directory listing if glob fails
                         try:
                             all_files = await sftp.listdir(killfeed_path)
                             file_list = [f for f in all_files if f.endswith('.csv')]
-                            logger.info(f"Direct path search: Found {len(file_list)} CSV files in {killfeed_path}: {file_list}")
-                        except Exception as e:
-                            logger.error(f"Could not list files in {killfeed_path}: {e}")
+                            logger.info(f"Fallback directory listing: Found {len(file_list)} CSV files in {killfeed_path}: {file_list}")
+                            
+                            # If no CSV files found, check for other file types that might contain killfeed data
+                            if not file_list:
+                                other_files = [f for f in all_files if not f.startswith('.')]
+                                logger.warning(f"No CSV files found. Other files present: {other_files}")
+                                
+                        except Exception as e2:
+                            logger.error(f"Both glob and directory listing failed: {e2}")
                             file_list = []
                 except Exception as e:
                     logger.warning(f"Could not list killfeed directory {killfeed_path}: {e}")
