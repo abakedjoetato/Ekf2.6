@@ -1089,42 +1089,56 @@ class ScalableUnifiedProcessor:
             
             eosid = entry.player_name  # EOSID is stored in player_name field
             
-            logger.info(f"Player connection: {eosid} joined {entry.server_name}")
-            
-            # Skip embed creation during cold start to prevent spam
-            if not self._cold_start_mode:
-                # Create connection embed using proper EmbedFactory theming
-                if self.bot and hasattr(self.bot, 'embed_factory'):
-                    embed_data = {
-                        'player_name': eosid[:8] + '...',  # Truncated EOSID for display
-                        'event_type': 'join',
-                        'server_name': entry.server_name,
-                        'timestamp': entry.timestamp,
-                        'platform': 'Unknown'
-                    }
-                    
-                    try:
-                        embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
-                        
-                        if embed and hasattr(self.bot, 'channel_router'):
-                            await self.bot.channel_router.send_embed_to_channel(
-                                guild_id=self.guild_id,
-                                server_id=entry.server_name,
-                                channel_type='connections',
-                                embed=embed,
-                                file=file_attachment
-                            )
-                            logger.info(f"Sent connection embed for {eosid[:8]}... joining {entry.server_name}")
-                    except Exception as embed_error:
-                        logger.error(f"Failed to create connection embed: {embed_error}")
-            
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # Update player to online state
                 try:
-                    # Always skip individual voice channel updates - use batched update at end
+                    # Update player state and check if it actually changed
                     state_changed = await self.bot.db_manager.update_player_state(
                         self.guild_id,
                         eosid,
+                        'online',
+                        entry.server_name,
+                        entry.timestamp,
+                        skip_voice_update=True
+                    )
+                    
+                    # Only send connection embed if state actually changed (offline -> online)
+                    if state_changed and not self._cold_start_mode:
+                        # Get player name from database
+                        player_name = await self.bot.db_manager.get_player_name_from_session(self.guild_id, eosid)
+                        display_name = player_name if player_name else eosid[:8] + '...'
+                        
+                        logger.info(f"Player connection: {display_name} joined {entry.server_name}")
+                        
+                        # Create connection embed using proper EmbedFactory theming
+                        if hasattr(self.bot, 'embed_factory'):
+                            embed_data = {
+                                'player_name': display_name,
+                                'event_type': 'join',
+                                'server_name': entry.server_name,
+                                'timestamp': entry.timestamp,
+                                'platform': 'Unknown'
+                            }
+                            
+                            try:
+                                embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
+                                
+                                if embed and hasattr(self.bot, 'channel_router'):
+                                    await self.bot.channel_router.send_embed_to_channel(
+                                        guild_id=self.guild_id,
+                                        server_id=entry.server_name,
+                                        channel_type='connections',
+                                        embed=embed,
+                                        file=file_attachment
+                                    )
+                                    logger.info(f"Sent connection embed for {display_name} joining {entry.server_name}")
+                            except Exception as embed_error:
+                                logger.error(f"Failed to create connection embed: {embed_error}")
+                    elif not state_changed:
+                        logger.debug(f"Player {eosid[:8]}... already online - no embed sent")
+                
+                except Exception as e:
+                    logger.error(f"Database error for join event: {e}")
+                    # Continue processing without database update
                         'online',
                         entry.server_name,
                         entry.timestamp,

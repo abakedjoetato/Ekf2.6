@@ -67,18 +67,8 @@ class ScalableKillfeedParser:
                 logger.error("Database manager not available")
                 return guilds_with_killfeed
             
-            # Get the database connection
-            if hasattr(self.bot.db_manager, 'get_database'):
-                database = self.bot.db_manager.get_database()
-            elif hasattr(self.bot.db_manager, 'database'):
-                database = self.bot.db_manager.database
-            elif hasattr(self.bot, 'database'):
-                database = self.bot.database
-            else:
-                logger.error("Cannot access database")
-                return guilds_with_killfeed
-            
-            collection = database.guild_configs
+            # Access database collection directly from db_manager
+            collection = self.bot.db_manager.guild_configs
             
             cursor = collection.find({
                 'servers': {

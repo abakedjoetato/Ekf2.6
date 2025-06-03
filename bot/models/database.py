@@ -1887,3 +1887,50 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting servers for guild {guild_id}: {e}")
             return []
+    
+    async def get_player_name_from_session(self, guild_id: int, eosid: str) -> Optional[str]:
+        """Get player name from session data based on EOSID"""
+        try:
+            session = await self.player_sessions.find_one({
+                "guild_id": guild_id,
+                "player_id": eosid
+            })
+            return session.get("player_name") if session else None
+        except Exception as e:
+            logger.error(f"Failed to get player name for EOSID {eosid}: {e}")
+            return None
+    
+    async def update_player_state(self, guild_id: int, eosid: str, state: str, server_name: str, timestamp: datetime, skip_voice_update: bool = False) -> bool:
+        """Update player state and return True if state changed"""
+        try:
+            # Find existing session
+            existing_session = await self.player_sessions.find_one({
+                "guild_id": guild_id,
+                "player_id": eosid
+            })
+            
+            # Check if state actually changed
+            if existing_session and existing_session.get("state") == state:
+                return False  # No state change
+            
+            # Update or create session
+            await self.player_sessions.update_one(
+                {"guild_id": guild_id, "player_id": eosid},
+                {
+                    "$set": {
+                        "state": state,
+                        "server_name": server_name,
+                        "last_updated": timestamp,
+                        "guild_id": guild_id,
+                        "player_id": eosid
+                    }
+                },
+                upsert=True
+            )
+            
+            logger.debug(f"Player {eosid} state changed to {state}")
+            return True  # State changed
+            
+        except Exception as e:
+            logger.error(f"Failed to update player state for {eosid}: {e}")
+            return False
