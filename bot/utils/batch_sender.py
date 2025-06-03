@@ -85,8 +85,11 @@ class BatchSender:
             self.channel_queues[channel_id].clear()
             self.channel_last_flush[channel_id] = time.time()
             
+            logger.info(f"Batch sender: Flushing {len(messages)} messages to channel {channel.name} ({channel_id})")
+            
             # Send messages with proper rate limiting
-            for message_data in messages:
+            sent_count = 0
+            for i, message_data in enumerate(messages):
                 try:
                     kwargs = {}
                     if message_data['embed']:
@@ -97,19 +100,24 @@ class BatchSender:
                         kwargs['content'] = message_data['content']
                     
                     if kwargs:  # Only send if there's something to send
-                        await channel.send(**kwargs)
+                        logger.info(f"Batch sender: Sending message {i+1}/{len(messages)} to #{channel.name}")
+                        sent_message = await channel.send(**kwargs)
+                        sent_count += 1
+                        logger.info(f"Batch sender: Successfully sent message {sent_message.id} to #{channel.name}")
                         await asyncio.sleep(0.1)  # Small delay between messages
                     
+                except discord.Forbidden as e:
+                    logger.error(f"Permission denied sending to channel #{channel.name} ({channel_id}): {e}")
                 except discord.HTTPException as e:
                     if e.status == 429:  # Rate limited
-                        logger.warning(f"Rate limited on channel {channel_id}")
+                        logger.warning(f"Rate limited on channel #{channel.name} ({channel_id})")
                         await asyncio.sleep(1)
                     else:
-                        logger.error(f"HTTP error sending message: {e}")
+                        logger.error(f"HTTP error sending message to #{channel.name}: {e}")
                 except Exception as e:
-                    logger.error(f"Error sending message: {e}")
+                    logger.error(f"Error sending message to #{channel.name}: {e}")
             
-            logger.debug(f"Flushed {len(messages)} messages to channel {channel_id}")
+            logger.info(f"Batch sender: Successfully sent {sent_count}/{len(messages)} messages to #{channel.name}")
             
         except Exception as e:
             logger.error(f"Error flushing channel {channel_id}: {e}")
