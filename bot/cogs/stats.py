@@ -554,13 +554,8 @@ class Stats(discord.Cog):
                     
                     # Try each query format until we find data
                     for query in queries_to_try:
-                        # CRITICAL FIX: Use bot's internal database connection to match unified parser
-                        if hasattr(self.bot.db_manager, 'db'):
-                            # Access underlying database connection directly
-                            cursor = self.bot.db_manager.db.player_sessions.find(query)
-                        else:
-                            # Fallback to cached wrapper
-                            cursor = self.bot.db_manager.player_sessions.find(query)
+                        # Use bot's database connection directly (same as unified parser)
+                        cursor = self.bot.db_manager.player_sessions.find(query)
                         temp_players = []
                         
                         async for session in cursor:

@@ -1009,59 +1009,23 @@ class ScalableUnifiedProcessor:
             committed_count = 0
             failed_count = 0
             
-            # COMPREHENSIVE FIX: Write to both bot's connection and external connections
-            import motor.motor_asyncio
-            import os
-            
-            # Create external connection for visibility verification
-            external_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
-            external_db = external_client.emerald_killfeed
-            
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
                     logger.debug(f"Attempting to commit: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
                     
-                    # Dual-write strategy: Write to both bot's connection and external connection
-                    
-                    # Write 1: Bot's internal connection
-                    bot_result = await self.bot.db_manager.player_sessions.replace_one(
+                    # Simple write using bot's database connection
+                    result = await self.bot.db_manager.player_sessions.replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
                     )
                     
-                    # Write 2: External connection for /online command compatibility
-                    external_result = await external_db.player_sessions.replace_one(
-                        {'guild_id': session_data['guild_id'], 'player_id': player_id},
-                        session_data,
-                        upsert=True
-                    )
-                    
-                    logger.debug(f"Dual write results: bot={bot_result.acknowledged}, external={external_result.acknowledged}")
-                    
-                    if (bot_result.upserted_id or bot_result.modified_count > 0) and \
-                       (external_result.upserted_id or external_result.modified_count > 0):
-                        
-                        # Verify both connections can read the data
-                        bot_verification = await self.bot.db_manager.player_sessions.find_one({
-                            'guild_id': session_data['guild_id'],
-                            'player_id': player_id
-                        })
-                        
-                        external_verification = await external_db.player_sessions.find_one({
-                            'guild_id': session_data['guild_id'],
-                            'player_id': player_id
-                        })
-                        
-                        if bot_verification and external_verification:
-                            committed_count += 1
-                            logger.info(f"✓ Committed & Verified (Dual): {player_id[:8]}... -> {bot_verification.get('state')} on {bot_verification.get('server_name')}")
-                        else:
-                            failed_count += 1
-                            logger.error(f"✗ COMMIT FAILED - Verification failed: bot={bool(bot_verification)}, external={bool(external_verification)}")
+                    if result.upserted_id or result.modified_count > 0:
+                        committed_count += 1
+                        logger.info(f"✓ Committed: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
                     else:
                         failed_count += 1
-                        logger.error(f"✗ Dual write operation failed for {player_id[:8]}...")
+                        logger.error(f"✗ Write operation failed for {player_id[:8]}...")
                     
                 except Exception as commit_error:
                     failed_count += 1
@@ -1069,8 +1033,7 @@ class ScalableUnifiedProcessor:
                     import traceback
                     logger.error(f"Full traceback: {traceback.format_exc()}")
             
-            # Close direct connection
-            direct_client.close()
+
             
             logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed, {failed_count} failed")
             
