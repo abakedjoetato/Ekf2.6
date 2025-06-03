@@ -527,7 +527,7 @@ class Stats(discord.Cog):
             
             await ctx.defer()
 
-            # Get active players from the database
+            # Get active players from the database with fallback to voice channel data
             try:
                 if server_name:
                     # Show players for specific server
@@ -536,40 +536,73 @@ class Stats(discord.Cog):
                         await ctx.followup.send(f"Server '{server_name}' not found.", ephemeral=True)
                         return
                     
-                    # Query player sessions for specific server
-                    query = {
-                        'guild_id': guild_id,
-                        'server_name': server_name,
-                        'status': 'online'
-                    }
+                    # Try multiple query formats for compatibility
+                    queries_to_try = [
+                        {
+                            'guild_id': guild_id,
+                            'server_name': server_name,
+                            'status': 'online'
+                        },
+                        {
+                            'guild_id': guild_id,
+                            'server_id': server_id,
+                            'status': 'online'
+                        }
+                    ]
                     
                     server_players = []
-                    cursor = self.bot.db_manager.player_sessions.find(query)
                     
-                    async for session in cursor:
-                        player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
-                        joined_at = session.get('joined_at')
-                        platform = session.get('platform', 'Unknown')
-                        player_id = session.get('player_id', session.get('steam_id', ''))
+                    # Try each query format until we find data
+                    for query in queries_to_try:
+                        cursor = self.bot.db_manager.player_sessions.find(query)
+                        temp_players = []
                         
-                        # Parse join time
-                        join_time = None
-                        if joined_at:
-                            if isinstance(joined_at, str):
-                                try:
-                                    join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
-                                except:
-                                    pass
-                            elif hasattr(joined_at, 'replace'):
-                                join_time = joined_at
+                        async for session in cursor:
+                            player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
+                            joined_at = session.get('joined_at')
+                            platform = session.get('platform', 'Unknown')
+                            player_id = session.get('player_id', session.get('steam_id', ''))
+                            
+                            # Parse join time
+                            join_time = None
+                            if joined_at:
+                                if isinstance(joined_at, str):
+                                    try:
+                                        join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
+                                    except:
+                                        pass
+                                elif hasattr(joined_at, 'replace'):
+                                    join_time = joined_at
+                            
+                            temp_players.append({
+                                'name': player_name,
+                                'join_time': join_time,
+                                'platform': platform,
+                                'player_id': player_id,
+                                'server_id': server_id
+                            })
                         
-                        server_players.append({
-                            'name': player_name,
-                            'join_time': join_time,
-                            'platform': platform,
-                            'player_id': player_id,
-                            'server_id': server_id
-                        })
+                        if temp_players:
+                            server_players = temp_players
+                            break
+                    
+                    # If no players found, show empty state with voice channel data
+                    if not server_players:
+                        # Try to get current player count from voice channel manager
+                        try:
+                            if hasattr(self.bot, 'voice_channel_batch') and self.bot.voice_channel_batch:
+                                count = await self.bot.voice_channel_batch.get_current_player_count(guild_id, server_name)
+                                if count and count > 0:
+                                    # Create a placeholder indicating players are online but data is being refreshed
+                                    server_players = [{
+                                        'name': f'{count} players online',
+                                        'join_time': None,
+                                        'platform': 'Data refreshing',
+                                        'player_id': '',
+                                        'server_id': server_id
+                                    }]
+                        except Exception as voice_e:
+                            logger.debug(f"Voice channel count check failed: {voice_e}")
                     
                     # Create single server display
                     await self._display_single_server_players(ctx, server_name, server_players)
@@ -587,7 +620,7 @@ class Stats(discord.Cog):
                     cursor = self.bot.db_manager.player_sessions.find(query)
                     
                     async for session in cursor:
-                        server_id = session.get('server_id', 'Unknown')
+                        server_name_from_db = session.get('server_name', 'Unknown')
                         player_name = session.get('player_name', session.get('character_name', 'Unknown Player'))
                         joined_at = session.get('joined_at')
                         platform = session.get('platform', 'Unknown')
@@ -604,10 +637,10 @@ class Stats(discord.Cog):
                             elif hasattr(joined_at, 'replace'):
                                 join_time = joined_at
                         
-                        if server_id not in servers_with_players:
-                            servers_with_players[server_id] = []
+                        if server_name_from_db not in servers_with_players:
+                            servers_with_players[server_name_from_db] = []
                         
-                        servers_with_players[server_id].append({
+                        servers_with_players[server_name_from_db].append({
                             'name': player_name,
                             'join_time': join_time,
                             'platform': platform,
