@@ -1088,6 +1088,67 @@ class DatabaseManager:
             logger.error(f"Failed to add wallet event: {e}")
             return False
 
+    async def update_player_state(self, guild_id: int, player_id: str, state: str, server_name: str, timestamp: datetime) -> bool:
+        """Update player state and return if state actually changed"""
+        try:
+            # Check current state
+            current_session = await self.player_sessions.find_one({
+                "guild_id": guild_id,
+                "player_id": player_id
+            })
+            
+            # Determine if state actually changed
+            current_state = current_session.get('state', 'offline') if current_session else 'offline'
+            state_changed = current_state != state
+            
+            if state_changed:
+                # Update player session state
+                await self.player_sessions.update_one(
+                    {"guild_id": guild_id, "player_id": player_id},
+                    {
+                        "$set": {
+                            "state": state,
+                            "server_name": server_name,
+                            "last_updated": timestamp
+                        }
+                    },
+                    upsert=True
+                )
+                
+                # If state changed to online/offline, send connection embed
+                if hasattr(self, '_bot_instance') and self._bot_instance:
+                    bot = self._bot_instance
+                    if hasattr(bot, 'embed_factory') and hasattr(bot, 'channel_router'):
+                        # Get player name from session data
+                        player_name = current_session.get('player_name', f'Player{player_id[:8].upper()}') if current_session else f'Player{player_id[:8].upper()}'
+                        
+                        embed_data = {
+                            'player_name': player_name,
+                            'server_name': server_name,
+                            'timestamp': timestamp,
+                            'action': 'join' if state == 'online' else 'leave'
+                        }
+                        
+                        try:
+                            embed, file_attachment = await bot.embed_factory.build('connection', embed_data)
+                            if embed:
+                                await bot.channel_router.send_embed_to_channel(
+                                    guild_id=guild_id,
+                                    server_id=server_name,
+                                    channel_type='connections',
+                                    embed=embed,
+                                    file=file_attachment
+                                )
+                                logger.debug(f"Sent connection embed for {player_name} {state} on {server_name}")
+                        except Exception as embed_error:
+                            logger.warning(f"Failed to send connection embed: {embed_error}")
+            
+            return state_changed
+            
+        except Exception as e:
+            logger.error(f"Failed to update player state: {e}")
+            return False
+
     # PREMIUM (Server-scoped)
     async def set_premium_status(self, guild_id: int, server_id: str, 
                                 expires_at: Optional[datetime] = None) -> bool:
