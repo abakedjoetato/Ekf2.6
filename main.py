@@ -34,7 +34,6 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot.models.database import DatabaseManager
-from bot.utils.premium_sync import PremiumSyncManager
 
 # Configure logging first
 logging.basicConfig(

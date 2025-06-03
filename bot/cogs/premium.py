@@ -66,9 +66,10 @@ class Premium(discord.Cog):
                 {"$unset": {"is_home_server": ""}}
             )
 
+            guild_name = ctx.guild.name if ctx.guild else "Unknown Guild"
             embed = discord.Embed(
                 title="🏠 Home Server Set",
-                description=f"**{ctx.guild.name}** has been set as the bot's home server!",
+                description=f"**{guild_name}** has been set as the bot's home server!",
                 color=0x00FF00,
                 timestamp=datetime.now(timezone.utc)
             )
