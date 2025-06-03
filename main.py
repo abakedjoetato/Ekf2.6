@@ -597,7 +597,21 @@ class EmeraldKillfeedBot(commands.Bot):
             except Exception as sync_error:
                 logger.error(f"❌ Command sync failed: {sync_error}")
 
-            # STEP 4: Database setup with graceful degradation
+            # STEP 4: Set cold start flag for unified parser
+            logger.info("🔄 Setting cold start flag for bot restart...")
+            if hasattr(self, 'db_manager') and self.db_manager:
+                try:
+                    # Set global cold start flag in database
+                    await self.db_manager.guild_configs.update_many(
+                        {},  # All guilds
+                        {'$set': {'cold_start_required': True}},
+                        upsert=False
+                    )
+                    logger.info("✅ Cold start flag set for all guilds")
+                except Exception as flag_error:
+                    logger.warning(f"Failed to set cold start flag: {flag_error}")
+            
+            # STEP 5: Database setup with graceful degradation
             logger.info("🚀 Starting database and parser setup...")
             db_success = await self.setup_database()
             if not db_success:

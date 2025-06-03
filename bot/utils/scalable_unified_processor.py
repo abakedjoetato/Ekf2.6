@@ -231,21 +231,29 @@ class ScalableUnifiedProcessor:
                     
                     # Check if this is a cold start (bot restart scenario)
                     if self.bot and hasattr(self.bot, 'db_manager'):
-                        # Check if all player sessions were recently reset (indicates bot restart)
-                        recent_reset_time = datetime.now(timezone.utc) - timedelta(minutes=5)
-                        recent_resets = await self.bot.db_manager.player_sessions.count_documents({
-                            "guild_id": self.guild_id,
-                            "state": "offline",
-                            "last_updated": {"$gte": recent_reset_time}
+                        # Check for cold start flag (bot restart indicator)
+                        guild_config = await self.bot.db_manager.guild_configs.find_one({
+                            "guild_id": self.guild_id
                         })
+                        cold_start_required = guild_config.get('cold_start_required', False) if guild_config else False
                         
                         # COLD START CONDITIONS:
-                        # 1. Bot restart detected (recent_resets > 0)
+                        # 1. Cold start flag set (bot restart)
                         # 2. File rotation detected (hash changed)
                         # 3. New server (no stored state)
-                        # 4. More than 1500 new lines detected
                         
-                        if stored_state is None:
+                        if cold_start_required:
+                            # Bot restart detected via flag
+                            rotation_detected = True
+                            logger.info(f"🔄 COLD START: Bot restart flag detected for {server_name}")
+                            
+                            # Clear cold start flag for this guild
+                            await self.bot.db_manager.guild_configs.update_one(
+                                {"guild_id": self.guild_id},
+                                {"$unset": {"cold_start_required": ""}}
+                            )
+                            logger.info(f"✅ Cold start flag cleared for guild {self.guild_id}")
+                        elif stored_state is None:
                             # New server - cold start required
                             rotation_detected = True
                             logger.info(f"🔄 COLD START: New server detected for {server_name}")
@@ -253,10 +261,6 @@ class ScalableUnifiedProcessor:
                             # File rotation detected
                             rotation_detected = True
                             logger.info(f"🔄 COLD START: File rotation detected for {server_name}")
-                        elif recent_resets > 5:
-                            # Bot restart detected
-                            rotation_detected = True
-                            logger.info(f"🔄 COLD START: Bot restart detected for {server_name}")
                         else:
                             # Hot start - continue from last position
                             rotation_detected = False
@@ -311,13 +315,16 @@ class ScalableUnifiedProcessor:
                         self._cold_start_mode = True  # Block all embed outputs
                         self._voice_channel_updates_deferred = True  # Defer voice channel updates
                         
-                        # Reset all player sessions to offline - import database manager locally
+                        # Reset all player sessions to offline
                         try:
-                            from bot.models.database import DatabaseManager
-                            db = DatabaseManager.get_instance()
-                            if db:
-                                await db.reset_player_sessions_for_server(self.guild_id, server_id)
+                            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
+                                await self.bot.db_manager.player_sessions.update_many(
+                                    {"guild_id": self.guild_id, "server_name": server_name},
+                                    {"$set": {"state": "offline", "last_updated": datetime.now(timezone.utc)}}
+                                )
                                 logger.info(f"🔄 Cold start: Reset player sessions for {server_name}")
+                            else:
+                                logger.warning(f"Database manager not available for {server_name}")
                         except Exception as e:
                             logger.warning(f"Could not reset player sessions for {server_name}: {e}")
                         
