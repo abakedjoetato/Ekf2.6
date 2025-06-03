@@ -169,6 +169,7 @@ class ScalableKillfeedProcessor:
                             filename = os.path.basename(str(full_path))
                             file_info = type('FileInfo', (), {
                                 'filename': filename,
+                                'full_path': str(full_path),  # Store full path for later use
                                 'size': getattr(attrs, 'size', 0),
                                 'mtime': getattr(attrs, 'mtime', 0)
                             })()
@@ -197,12 +198,18 @@ class ScalableKillfeedProcessor:
                         # Extract timestamp from filename
                         timestamp = self._extract_timestamp_from_filename(attr.filename)
                         if timestamp and timestamp.strip():
-                            csv_files.append((attr.filename, timestamp))
+                            # Store both filename and full path for later use
+                            full_path = getattr(attr, 'full_path', None)
+                            csv_files.append((attr.filename, timestamp, full_path))
                 
                 if csv_files:
-                    # Sort by timestamp and return newest
+                    # Sort by timestamp and return newest filename and full path
                     csv_files.sort(key=lambda x: x[1], reverse=True)
-                    return csv_files[0][0]
+                    newest_file, _, newest_full_path = csv_files[0]
+                    
+                    # Store the full path for later use in processing
+                    self._newest_file_full_path = newest_full_path
+                    return newest_file
                 
                 return None
                 
@@ -241,8 +248,10 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
+                
+                # For gap processing, construct the path properly for the last known file
                 killfeed_path = self._get_killfeed_path()
-                file_path = f"{killfeed_path.rstrip('/')}/{current_state.last_file}"
+                file_path = f"{killfeed_path.rstrip('/')}/world_0/{current_state.last_file}"
                 
                 # Read from last known position to end of file
                 async with sftp.open(file_path, 'rb') as file:
@@ -314,8 +323,13 @@ class ScalableKillfeedProcessor:
                     return
                 
                 sftp = await conn.start_sftp_client()
-                killfeed_path = self._get_killfeed_path()
-                file_path = f"{killfeed_path.rstrip('/')}/{newest_file}"
+                
+                # Use stored full path if available, otherwise construct path
+                if hasattr(self, '_newest_file_full_path') and self._newest_file_full_path:
+                    file_path = self._newest_file_full_path
+                else:
+                    killfeed_path = self._get_killfeed_path()
+                    file_path = f"{killfeed_path.rstrip('/')}/{newest_file}"
                 
                 # Read entire file content
                 async with sftp.open(file_path, 'rb') as file:
