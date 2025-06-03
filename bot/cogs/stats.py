@@ -539,7 +539,7 @@ class Stats(discord.Cog):
                     # Query player sessions for specific server
                     query = {
                         'guild_id': guild_id,
-                        'server_id': server_id,
+                        'server_name': server_name,
                         'status': 'online'
                     }
                     

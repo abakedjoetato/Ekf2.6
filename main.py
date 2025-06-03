@@ -283,27 +283,17 @@ class EmeraldKillfeedBot(commands.Bot):
             # Force sync override for development
             force_sync = os.getenv('FORCE_SYNC', 'false').lower() == 'true'
 
-            # Temporarily force sync to fix missing commands
+            # Skip sync if commands haven't changed and not forced
             if current_fingerprint == old_fingerprint and not force_sync:
-                logger.info("🔄 Forcing sync to fix missing Discord commands...")
-                # Comment out the return to force sync
-                # return
+                logger.info("✅ Commands unchanged - skipping sync to prevent rate limits")
+                return
 
             logger.info(f"🔄 Command structure changed - syncing {len(all_commands)} commands")
 
-            # Clear all commands first to force Discord cache refresh
-            try:
-                logger.info("🧹 Clearing all Discord commands to refresh cache...")
-                await asyncio.wait_for(self.sync_commands(commands=[]), timeout=30)
-                logger.info("✅ Commands cleared")
-                await asyncio.sleep(2)  # Brief pause
-            except Exception as e:
-                logger.warning(f"⚠️ Command clearing failed: {e}")
-
-            # Attempt global sync
+            # Attempt global sync without clearing (prevents rate limits)
             try:
                 logger.info("🌍 Performing global command sync...")
-                await asyncio.wait_for(self.sync_commands(), timeout=30)
+                await asyncio.wait_for(self.sync_commands(), timeout=45)
                 logger.info("✅ Global sync complete")
 
                 # Save successful fingerprint
