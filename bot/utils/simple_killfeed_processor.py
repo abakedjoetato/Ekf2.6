@@ -264,6 +264,7 @@ class SimpleKillfeedProcessor:
                         lines = content.decode('utf-8', errors='ignore').splitlines()
                         
                         # Process each line
+                        logger.info(f"Processing {len(lines)} lines from {filename}")
                         for i, line in enumerate(lines):
                             if self.cancelled:
                                 break
@@ -272,10 +273,17 @@ class SimpleKillfeedProcessor:
                             if not line:
                                 continue
                             
+                            # Debug: Log first few lines to understand format
+                            if i < 5:
+                                logger.info(f"Line {i+1}: {line}")
+                            
                             # Parse killfeed line
                             event = self._parse_killfeed_line(line, start_line + i, filename)
                             if event:
                                 events.append(event)
+                                logger.info(f"Found killfeed event: {event.killer} killed {event.victim}")
+                            elif i < 5:
+                                logger.warning(f"Failed to parse line {i+1}: {line}")
                         
                         # Update state
                         if self.state_manager and lines:
