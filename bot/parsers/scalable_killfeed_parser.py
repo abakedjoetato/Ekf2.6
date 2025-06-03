@@ -25,18 +25,19 @@ class ScalableKillfeedParser:
         try:
             logger.info("🔍 Starting scalable killfeed parser run...")
             
-            # Get all guilds with killfeed enabled
-            guilds_with_killfeed = await self._get_guilds_with_killfeed()
+            # Get all guilds with connected servers
+            guilds_with_servers = await self._get_all_guilds_with_servers()
             
-            if not guilds_with_killfeed:
-                logger.info("🔍 Scalable killfeed parser: Found 0 servers with killfeed enabled")
+            if not guilds_with_servers:
+                logger.info("🔍 Scalable killfeed parser: Found 0 connected servers")
                 return
             
-            logger.info(f"🔍 Scalable killfeed parser: Found {len(guilds_with_killfeed)} guilds with killfeed enabled")
+            total_servers = sum(len(servers) for servers in guilds_with_servers.values())
+            logger.info(f"🔍 Scalable killfeed parser: Found {len(guilds_with_servers)} guilds with {total_servers} connected servers")
             
             # Process all guilds concurrently
             tasks = []
-            for guild_id, servers in guilds_with_killfeed.items():
+            for guild_id, servers in guilds_with_servers.items():
                 task = self._process_guild_killfeed(guild_id, servers)
                 tasks.append(task)
             
@@ -57,45 +58,43 @@ class ScalableKillfeedParser:
         except Exception as e:
             logger.error(f"Scalable killfeed parser execution failed: {e}")
     
-    async def _get_guilds_with_killfeed(self) -> Dict[int, List[Dict[str, Any]]]:
-        """Get all guilds that have killfeed enabled servers"""
-        guilds_with_killfeed = {}
+    async def _get_all_guilds_with_servers(self) -> Dict[int, List[Dict[str, Any]]]:
+        """Get all guilds that have connected servers"""
+        guilds_with_servers = {}
         
         try:
             # Access database through bot's db_manager
             if not hasattr(self.bot, 'db_manager') or not self.bot.db_manager:
                 logger.error("Database manager not available")
-                return guilds_with_killfeed
+                return guilds_with_servers
             
             # Access database collection directly from db_manager
             collection = self.bot.db_manager.guild_configs
             
             cursor = collection.find({
                 'servers': {
-                    '$elemMatch': {
-                        'killfeed_enabled': True
-                    }
+                    '$exists': True,
+                    '$ne': []
                 }
             })
             
             async for guild_doc in cursor:
                 guild_id = guild_doc.get('guild_id')
                 if guild_id:
-                    # Filter servers with killfeed enabled
-                    killfeed_servers = []
+                    # Include all servers regardless of killfeed configuration
+                    connected_servers = []
                     for server in guild_doc.get('servers', []):
-                        if server.get('killfeed_enabled'):
-                            # Add guild_id to server config for processing
-                            server['guild_id'] = guild_id
-                            killfeed_servers.append(server)
+                        # Add guild_id to server config for processing
+                        server['guild_id'] = guild_id
+                        connected_servers.append(server)
                     
-                    if killfeed_servers:
-                        guilds_with_killfeed[guild_id] = killfeed_servers
+                    if connected_servers:
+                        guilds_with_servers[guild_id] = connected_servers
             
         except Exception as e:
-            logger.error(f"Failed to get guilds with killfeed: {e}")
+            logger.error(f"Failed to get guilds with servers: {e}")
         
-        return guilds_with_killfeed
+        return guilds_with_servers
     
     async def _process_guild_killfeed(self, guild_id: int, servers: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Process killfeed for all servers in a guild"""
