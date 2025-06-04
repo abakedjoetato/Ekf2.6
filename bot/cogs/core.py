@@ -1,42 +1,47 @@
 """
-Emerald's Killfeed - Core System Commands
-Basic bot management, info, and utility commands
+Emerald's Killfeed - Core System Commands (REFACTORED)
+Essential bot information and system status commands
+Uses py-cord 2.6.1 syntax with proper error handling
 """
-
-import logging
-from datetime import datetime, timezone
-from typing import Optional
 
 import discord
 from discord.ext import commands
+import logging
+from datetime import datetime, timezone
+import platform
+import psutil
+import asyncio
 
 logger = logging.getLogger(__name__)
 
 class Core(discord.Cog):
-    """
-    CORE SYSTEM
-    - Basic bot information and utility commands
-    - Server management and configuration
-    - General purpose commands
-    """
-
+    """Core system commands for bot information and status"""
+    
     def __init__(self, bot):
         self.bot = bot
-    
+        logger.info("Core cog initialized")
+
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
-            if hasattr(self.bot, 'premium_manager_v2'):
-                return await self.bot.premium_manager_v2.has_premium_access(guild_id)
-            else:
-                return False
+            premium_data = await self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id})
+            return premium_data is not None and premium_data.get("active", False)
         except Exception as e:
-            logger.error(f"Premium access check failed: {e}")
+            logger.error(f"Error checking premium access: {e}")
             return False
 
     @discord.slash_command(name="info", description="Show bot information")
     async def info(self, ctx: discord.ApplicationContext):
         """Display bot information and statistics"""
+        # Immediate defer to prevent Discord timeout
+        try:
+            await ctx.defer()
+        except discord.errors.NotFound:
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
+            return
+            
         try:
             # Create bot info embed manually for reliability
             embed = discord.Embed(
@@ -48,14 +53,14 @@ class Core(discord.Cog):
 
             # Add bot information fields
             embed.add_field(
-                name="Server Statistics",
-                value=f"**Guilds:** {len(self.bot.guilds)}\n**Users:** {sum(guild.member_count for guild in self.bot.guilds if guild.member_count):,}",
+                name="📊 Statistics",
+                value=f"Servers: {len(self.bot.guilds)}\nLatency: {round(self.bot.latency * 1000)}ms",
                 inline=True
             )
 
             embed.add_field(
-                name="⚙️ System Status", 
-                value="**Status:** Online\n**Version:** v2.0",
+                name="💾 System",
+                value=f"Python: {platform.python_version()}\nPy-cord: {discord.__version__}",
                 inline=True
             )
 
@@ -66,166 +71,123 @@ class Core(discord.Cog):
             )
 
             # Set thumbnail using main logo
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
-            embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-        try:
-            await ctx.respond(embed=embed, file=main_file)
-        except discord.errors.NotFound:
-            pass  # Interaction expired
+            try:
+                main_file = discord.File("./assets/main.png", filename="main.png")
+                embed.set_thumbnail(url="attachment://main.png")
+                embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+                
+                await ctx.followup.send(embed=embed, file=main_file)
+            except FileNotFoundError:
+                embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+                await ctx.followup.send(embed=embed)
+            except discord.errors.NotFound:
+                pass  # Interaction expired
+            except Exception as e:
+                logger.error(f"Failed to show bot info: {e}")
+                try:
+                    await ctx.followup.send("Failed to retrieve bot information.", ephemeral=True)
+                except discord.errors.NotFound:
+                    pass  # Interaction expired
+                    
         except Exception as e:
-            logger.error(f"Failed to show bot info: {e}")
-        try:
-            await ctx.respond("Failed to retrieve bot information.", ephemeral=True)
-        except discord.errors.NotFound:
-            pass  # Interaction expired
+            logger.error(f"Error in info command: {e}")
+            try:
+                await ctx.followup.send("An error occurred while retrieving bot information.", ephemeral=True)
+            except:
+                pass
 
     @discord.slash_command(name="ping", description="Check bot latency")
-    async def ping(self, ctx):
+    async def ping(self, ctx: discord.ApplicationContext):
         """Check bot response time and latency"""
+        # Immediate defer to prevent Discord timeout
         try:
-            try:
-
-                await ctx.defer()
-
-            except discord.errors.NotFound:
-
-                # Interaction already expired, respond immediately
-        try:
-            await ctx.respond("Processing...", ephemeral=True)
+            await ctx.defer()
         except discord.errors.NotFound:
-            pass  # Interaction expired
-
-            except Exception as e:
-
-                logger.error(f"Failed to defer interaction: {e}")
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
+            return
+            
         try:
-            await ctx.respond("Processing...", ephemeral=True)
-        except discord.errors.NotFound:
-            pass  # Interaction expired
             latency = round(self.bot.latency * 1000)
-
+            
             embed = discord.Embed(
                 title="🏓 Pong!",
                 description=f"Bot latency: **{latency}ms**",
-                color=0x00FF00 if latency < 100 else 0xFFD700 if latency < 300 else 0xFF6B6B,
-                timestamp=datetime.now(timezone.utc)
+                color=0x00FF00 if latency < 100 else 0xFFAA00 if latency < 200 else 0xFF0000
             )
-
-            # Status indicator
-            if latency < 100:
-                status = " Excellent"
-            elif latency < 300:
-                status = "🟡 Good"
-            else:
-                status = " Poor"
-
-            embed.add_field(
-                name="📡 Connection Status",
-                value=status,
-                inline=True
-            )
-
-            embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-        try:
-            await ctx.respond(embed=embed)
+            
+            await ctx.followup.send(embed=embed)
+            
         except discord.errors.NotFound:
             pass  # Interaction expired
-
         except Exception as e:
-            logger.error(f"Failed to ping: {e}")
-        try:
-            await ctx.respond("Failed to check latency.", ephemeral=True)
-        except discord.errors.NotFound:
-            pass  # Interaction expired
-
-    @discord.slash_command(name="help", description="Show help information")
-    async def help(self, ctx):
-        """Display help information and command categories"""
-        try:
+            logger.error(f"Error in ping command: {e}")
             try:
+                await ctx.followup.send("Failed to check latency.", ephemeral=True)
+            except:
+                pass
 
-                await ctx.defer()
-
-            except discord.errors.NotFound:
-
-                # Interaction already expired, respond immediately
+    @discord.slash_command(name="status", description="Show bot system status")
+    async def status(self, ctx: discord.ApplicationContext):
+        """Display detailed bot system status"""
+        # Immediate defer to prevent Discord timeout
         try:
-            await ctx.respond("Processing...", ephemeral=True)
+            await ctx.defer()
         except discord.errors.NotFound:
-            pass  # Interaction expired
-
-            except Exception as e:
-
-                logger.error(f"Failed to defer interaction: {e}")
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
+            return
+            
         try:
-            await ctx.respond("Processing...", ephemeral=True)
-        except discord.errors.NotFound:
-            pass  # Interaction expired
+            # Get system information
+            cpu_percent = psutil.cpu_percent(interval=1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            
             embed = discord.Embed(
-                title="❓ Help & Commands",
-                description="Complete guide to Emerald's Killfeed Bot",
-                color=0x3498DB,
+                title="📊 Bot System Status",
+                color=0x00d38a,
                 timestamp=datetime.now(timezone.utc)
             )
             
             embed.add_field(
-                name="📊 Statistics",
-                value="`/stats` - Player statistics\n`/leaderboard` - Top players",
+                name="🖥️ CPU Usage",
+                value=f"{cpu_percent:.1f}%",
                 inline=True
             )
             
             embed.add_field(
-                name="🔧 Admin",
-                value="`/setchannel` - Configure channels\n`/status` - Bot status",
+                name="💾 Memory Usage",
+                value=f"{memory.percent:.1f}%\n({memory.used // 1024 // 1024}MB / {memory.total // 1024 // 1024}MB)",
                 inline=True
             )
             
             embed.add_field(
-                name="💰 Economy",
-                value="`/balance` - Check credits\n`/daily` - Daily rewards",
+                name="💿 Disk Usage",
+                value=f"{disk.percent:.1f}%\n({disk.used // 1024 // 1024 // 1024}GB / {disk.total // 1024 // 1024 // 1024}GB)",
                 inline=True
             )
             
-            embed.set_footer(text="Emerald's Killfeed Bot", icon_url=ctx.bot.user.display_avatar.url)
-        try:
-            await ctx.respond(embed=embed)
+            embed.add_field(
+                name="🌐 Network",
+                value=f"Latency: {round(self.bot.latency * 1000)}ms\nGuilds: {len(self.bot.guilds)}",
+                inline=True
+            )
+            
+            await ctx.followup.send(embed=embed)
+            
         except discord.errors.NotFound:
             pass  # Interaction expired
-            
         except Exception as e:
-            logger.error(f"Failed to show help: {e}")
-        try:
-            await ctx.respond("Failed to retrieve help information.", ephemeral=True)
-        except discord.errors.NotFound:
-            pass  # Interaction expired
-
-    
-
-    def _format_uptime(self) -> str:
-        """Format bot uptime in human readable format"""
-        try:
-            import psutil
-            import os
-
-            # Get process uptime
-            process = psutil.Process(os.getpid())
-            uptime_seconds = process.create_time()
-            current_time = datetime.now().timestamp()
-            uptime = int(current_time - uptime_seconds)
-
-            hours, remainder = divmod(uptime, 3600)
-            minutes, seconds = divmod(remainder, 60)
-
-            if hours > 0:
-                return f"{hours}h {minutes}m {seconds}s"
-            elif minutes > 0:
-                return f"{minutes}m {seconds}s"
-            else:
-                return f"{seconds}s"
-
-        except:
-            return "Unknown"
+            logger.error(f"Error in status command: {e}")
+            try:
+                await ctx.followup.send("Failed to retrieve system status.", ephemeral=True)
+            except:
+                pass
 
 def setup(bot):
+    """Load the Core cog"""
     bot.add_cog(Core(bot))
+    logger.info("Core cog loaded")

@@ -961,7 +961,7 @@ class Stats(discord.Cog):
                         description="Fetching player data...",
                         color=0x3498db
                     )
-                    await ctx.edit_original_response(embed=loading_embed)
+                    await ctx.followup.edit_message(message_id="@original", embed=loading_embed)
                     
                     # Try longer timeout
                     try:
@@ -972,8 +972,9 @@ class Stats(discord.Cog):
                             description="Database is currently slow. Please try again.",
                             color=0xe74c3c
                         )
-                        await ctx.edit_original_response(embed=error_embed)
-                        return, timeout=1.5)
+                        await ctx.followup.edit_message(message_id="@original", embed=error_embed)
+                        return
+                
                 logger.info(f"Fast query successful: {len(sessions)} sessions found")
                 
             except asyncio.TimeoutError:

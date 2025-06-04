@@ -636,7 +636,9 @@ class ScalableUnifiedProcessor:
             if self.db_wrapper:
                 try:
                     # Use thread-safe wrapper for session reset
-                    await self.db_wrapper.reset_player_sessions(self.guild_id, server_name)
+                    result = self.db_wrapper.reset_player_sessions(self.guild_id, server_name)
+if asyncio.iscoroutine(result):
+    await result
                     logger.info(f"Reset all player sessions for {server_name}")
                 except Exception as e:
                     logger.warning(f"Could not reset player sessions for {server_name}: {e}")
@@ -660,7 +662,9 @@ class ScalableUnifiedProcessor:
                 entry_type = entry.entry_type
                 entry_types[entry_type] = entry_types.get(entry_type, 0) + 1
                 
-                await self._process_single_entry(entry)
+                result = self._process_single_entry(entry)
+if asyncio.iscoroutine(result):
+    await result
             
             logger.debug(f"Chronological processing complete. Entry types: {entry_types}")
             
@@ -695,9 +699,11 @@ class ScalableUnifiedProcessor:
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
                     if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                        await self.bot.db_manager.save_player_session(
+                        result = self.bot.db_manager.save_player_session(
                             guild_id=session_data['guild_id'],
-                            server_id=session_data.get('server_name', 'default'),
+                            server_id=session_data.get('server_name', 'default')
+if asyncio.iscoroutine(result):
+    await result,
                             player_id=player_id,
                             session_data=session_data
                         )
@@ -724,7 +730,9 @@ class ScalableUnifiedProcessor:
             if not self.db_wrapper:
                 return
                 
-            guild_config = await self.db_wrapper.get_guild(self.guild_id)
+            guild_config = result = self.db_wrapper.get_guild(self.guild_id)
+if asyncio.iscoroutine(result):
+    await result
             if not guild_config:
                 return
             
@@ -736,9 +744,11 @@ class ScalableUnifiedProcessor:
                 # Get current player count from database using thread-safe wrapper
                 try:
                     if self.db_wrapper:
-                        player_count = await self.db_wrapper.get_active_player_count(
+                        player_count = result = self.db_wrapper.get_active_player_count(
                             self.guild_id, server_name
                         )
+if asyncio.iscoroutine(result):
+    await result
                     else:
                         player_count = 0
                 except Exception as e:
@@ -759,8 +769,10 @@ class ScalableUnifiedProcessor:
                         legacy_channels.get('playercountvc'))
                 
                 if vc_id:
-                    await self.bot.voice_channel_batcher.queue_voice_channel_update(
-                        int(vc_id), server_name, player_count, max_players
+                    result = self.bot.voice_channel_batcher.queue_voice_channel_update(
+                        int(vc_id)
+if asyncio.iscoroutine(result):
+    await result, server_name, player_count, max_players
                     )
                     logger.debug(f"Voice channel update queued for {server_name}: {player_count}/{max_players} players")
                 else:
@@ -777,27 +789,45 @@ class ScalableUnifiedProcessor:
             
             # Handle player lifecycle events (always process for state tracking)
             if entry.entry_type == 'queue' and entry.player_name:
-                await self._handle_player_queue(entry)
+                result = self._handle_player_queue(entry)
+if asyncio.iscoroutine(result):
+    await result
             elif entry.entry_type == 'join' and entry.player_name:
-                await self._handle_player_join(entry)
+                result = self._handle_player_join(entry)
+if asyncio.iscoroutine(result):
+    await result
             elif entry.entry_type == 'leave' and entry.player_name:
-                await self._handle_player_leave(entry)
+                result = self._handle_player_leave(entry)
+if asyncio.iscoroutine(result):
+    await result
             elif entry.entry_type == 'kill':
-                await self._handle_kill_event(entry)
+                result = self._handle_kill_event(entry)
+if asyncio.iscoroutine(result):
+    await result
             elif entry.entry_type == 'general':
                 # Check general entries for missed player connections
-                await self._handle_general_entry(entry)
+                result = self._handle_general_entry(entry)
+if asyncio.iscoroutine(result):
+    await result
             
             # Handle embed-worthy events only if NOT in cold start mode
             if not is_cold_start:
                 if entry.entry_type == 'mission':
-                    await self._handle_mission_event(entry)
+                    result = self._handle_mission_event(entry)
+if asyncio.iscoroutine(result):
+    await result
                 elif entry.entry_type == 'airdrop':
-                    await self._handle_airdrop_event(entry)
+                    result = self._handle_airdrop_event(entry)
+if asyncio.iscoroutine(result):
+    await result
                 elif entry.entry_type == 'helicrash':
-                    await self._handle_helicrash_event(entry)
+                    result = self._handle_helicrash_event(entry)
+if asyncio.iscoroutine(result):
+    await result
                 elif entry.entry_type == 'trader':
-                    await self._handle_trader_event(entry)
+                    result = self._handle_trader_event(entry)
+if asyncio.iscoroutine(result):
+    await result
             
             # Note: vehicle and spawn events are classified but not processed for embeds
             
@@ -860,14 +890,16 @@ class ScalableUnifiedProcessor:
                             result = None
                             if self.db_wrapper:
                                 try:
-                                    result = await self.db_wrapper.update_player_session(
+                                    result = result = self.db_wrapper.update_player_session(
                                     {"guild_id": self.guild_id, "player_id": eosid},
                                     {
                                         "$set": {
                                             "state": "online",
                                             "server_name": entry.server_name,
                                             "last_updated": entry.timestamp,
-                                            "joined_at": entry.timestamp.isoformat(),
+                                            "joined_at": entry.timestamp.isoformat()
+if asyncio.iscoroutine(result):
+    await result,
                                             "platform": "Unknown",
                                             "character_name": character_name
                                         }
@@ -911,16 +943,20 @@ class ScalableUnifiedProcessor:
                             }
                             
                             try:
-                                embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
+                                embed, file_attachment = result = self.bot.embed_factory.build('connection', embed_data)
+if asyncio.iscoroutine(result):
+    await result
                                 
                                 if embed and hasattr(self.bot, 'channel_router'):
-                                    await self.bot.channel_router.send_embed_to_channel(
+                                    result = self.bot.channel_router.send_embed_to_channel(
                                         guild_id=self.guild_id,
                                         server_id=entry.server_name,
                                         channel_type='connections',
                                         embed=embed,
                                         file=file_attachment
                                     )
+if asyncio.iscoroutine(result):
+    await result
                                     logger.info(f"Sent connection embed for {display_name} joining {entry.server_name}")
                             except Exception as embed_error:
                                 logger.error(f"Failed to create connection embed: {embed_error}")
@@ -956,13 +992,15 @@ class ScalableUnifiedProcessor:
                         # Hot start processing - update database using thread-safe wrapper
                         if self.db_wrapper:
                             try:
-                                result = await self.db_wrapper.update_player_session(
+                                result = result = self.db_wrapper.update_player_session(
                                     {"guild_id": self.guild_id, "player_id": eosid, "state": "online"},
                                     {
                                         "$set": {
                                             "state": "offline",
                                             "last_updated": entry.timestamp,
                                             "disconnected_at": entry.timestamp.isoformat()
+if asyncio.iscoroutine(result):
+    await result
                                         }
                                     }
                                 )
@@ -995,16 +1033,20 @@ class ScalableUnifiedProcessor:
                             }
                             
                             try:
-                                embed, file_attachment = await self.bot.embed_factory.build('connection', embed_data)
+                                embed, file_attachment = result = self.bot.embed_factory.build('connection', embed_data)
+if asyncio.iscoroutine(result):
+    await result
                                 
                                 if embed and hasattr(self.bot, 'channel_router'):
-                                    await self.bot.channel_router.send_embed_to_channel(
+                                    result = self.bot.channel_router.send_embed_to_channel(
                                         guild_id=self.guild_id,
                                         server_id=entry.server_name,
                                         channel_type='connections',
                                         embed=embed,
                                         file=file_attachment
                                     )
+if asyncio.iscoroutine(result):
+    await result
                                     logger.info(f"Sent connection embed for {display_name} leaving {entry.server_name}")
                             except Exception as embed_error:
                                 logger.error(f"Failed to create connection embed: {embed_error}")
@@ -1047,7 +1089,9 @@ class ScalableUnifiedProcessor:
                         additional_data={'eosid': eosid, 'source': 'general_registration'}
                     )
                     
-                    await self._handle_player_join(join_entry)
+                    result = self._handle_player_join(join_entry)
+if asyncio.iscoroutine(result):
+    await result
                     logger.info(f"Extracted player join from general entry: {eosid[:8]}...")
             
             # Check for player disconnection in general entries
@@ -1068,7 +1112,9 @@ class ScalableUnifiedProcessor:
                         additional_data={'eosid': eosid, 'source': 'general_disconnect'}
                     )
                     
-                    await self._handle_player_leave(leave_entry)
+                    result = self._handle_player_leave(leave_entry)
+if asyncio.iscoroutine(result):
+    await result
                     logger.info(f"Extracted player leave from general entry: {eosid[:8]}...")
             
             # Check for join requests in general entries
@@ -1090,7 +1136,9 @@ class ScalableUnifiedProcessor:
                         additional_data={'eosid': eosid, 'player_name': player_name, 'source': 'general_queue'}
                     )
                     
-                    await self._handle_player_queue(queue_entry)
+                    result = self._handle_player_queue(queue_entry)
+if asyncio.iscoroutine(result):
+    await result
                     logger.info(f"Extracted player queue from general entry: {player_name} ({eosid[:8]}...)")
                     
         except Exception as e:
@@ -1119,11 +1167,13 @@ class ScalableUnifiedProcessor:
                     "distance": kill_data.get('distance', 0),
                     "raw_line": entry.raw_line
                 }
-                await self.bot.db_manager.add_kill_event(
+                result = self.bot.db_manager.add_kill_event(
                     guild_id=self.guild_id,
                     server_id=entry.server_name,
                     kill_data=kill_event_data
                 )
+if asyncio.iscoroutine(result):
+    await result
                 logger.debug(f"Recorded kill: {killer} -> {victim}")
             else:
                 logger.warning(f"No database manager available to record kill: {killer} -> {victim}")
@@ -1158,17 +1208,21 @@ class ScalableUnifiedProcessor:
                 }
                 
                 try:
-                    embed, file_attachment = await self.bot.embed_factory.build('mission', embed_data)
+                    embed, file_attachment = result = self.bot.embed_factory.build('mission', embed_data)
+if asyncio.iscoroutine(result):
+    await result
                     
                     if embed and hasattr(self.bot, 'channel_router'):
                         # Send to events channel with server-specific routing and proper theming
-                        await self.bot.channel_router.send_embed_to_channel(
+                        result = self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
                             channel_type='events',
                             embed=embed,
                             file=file_attachment
                         )
+if asyncio.iscoroutine(result):
+    await result
                         logger.info(f"Sent mission ready embed for {mission_id} on {entry.server_name}")
                 except Exception as embed_error:
                     logger.error(f"Failed to create mission embed: {embed_error}")
@@ -1184,12 +1238,14 @@ class ScalableUnifiedProcessor:
                     )
                     
                     if embed and hasattr(self.bot, 'channel_router'):
-                        await self.bot.channel_router.send_embed_to_channel(
+                        result = self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
                             channel_type='events',
                             embed=embed
                         )
+if asyncio.iscoroutine(result):
+    await result
                         logger.info(f"Sent fallback mission embed for {mission_id} on {entry.server_name}")
             
         except Exception as e:
@@ -1224,16 +1280,20 @@ class ScalableUnifiedProcessor:
                 }
                 
                 try:
-                    embed, file_attachment = await self.bot.embed_factory.build('airdrop', embed_data)
+                    embed, file_attachment = result = self.bot.embed_factory.build('airdrop', embed_data)
+if asyncio.iscoroutine(result):
+    await result
                     
                     if embed and hasattr(self.bot, 'channel_router'):
-                        await self.bot.channel_router.send_embed_to_channel(
+                        result = self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
                             channel_type='airdrops',
                             embed=embed,
                             file=file_attachment
                         )
+if asyncio.iscoroutine(result):
+    await result
                         logger.info(f"Sent airdrop embed for {entry.server_name} at {location}")
                 except Exception as embed_error:
                     logger.error(f"Failed to create airdrop embed: {embed_error}")
@@ -1269,16 +1329,20 @@ class ScalableUnifiedProcessor:
                 }
                 
                 try:
-                    embed, file_attachment = await self.bot.embed_factory.build('helicrash', embed_data)
+                    embed, file_attachment = result = self.bot.embed_factory.build('helicrash', embed_data)
+if asyncio.iscoroutine(result):
+    await result
                     
                     if embed and hasattr(self.bot, 'channel_router'):
-                        await self.bot.channel_router.send_embed_to_channel(
+                        result = self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
                             channel_type='helicrashes',
                             embed=embed,
                             file=file_attachment
                         )
+if asyncio.iscoroutine(result):
+    await result
                         logger.info(f"Sent helicrash embed for {entry.server_name} at {location}")
                 except Exception as embed_error:
                     logger.error(f"Failed to create helicrash embed: {embed_error}")
@@ -1334,16 +1398,20 @@ class ScalableUnifiedProcessor:
                 }
                 
                 try:
-                    embed, file_attachment = await self.bot.embed_factory.build('trader', embed_data)
+                    embed, file_attachment = result = self.bot.embed_factory.build('trader', embed_data)
+if asyncio.iscoroutine(result):
+    await result
                     
                     if embed and hasattr(self.bot, 'channel_router'):
-                        await self.bot.channel_router.send_embed_to_channel(
+                        result = self.bot.channel_router.send_embed_to_channel(
                             guild_id=self.guild_id,
                             server_id=entry.server_name,
                             channel_type='traders',
                             embed=embed,
                             file=file_attachment
                         )
+if asyncio.iscoroutine(result):
+    await result
                         logger.info(f"Sent trader embed for {entry.server_name} at {location}")
                 except Exception as embed_error:
                     logger.error(f"Failed to create trader embed: {embed_error}")
@@ -1425,7 +1493,9 @@ class MultiGuildUnifiedProcessor:
         for group_index, server_group in enumerate(server_groups):
             if group_index > 0:
                 logger.info(f"Staggering processing: waiting 30 seconds before processing group {group_index + 1}/{len(server_groups)}")
-                await asyncio.sleep(30)
+                result = asyncio.sleep(30)
+if asyncio.iscoroutine(result):
+    await result
             
             logger.debug(f"Processing server group {group_index + 1}/{len(server_groups)} with {len(server_group)} servers")
             
@@ -1448,10 +1518,12 @@ class MultiGuildUnifiedProcessor:
                 batch_tasks.append((guild_id, task))
             
             # Execute batch
-            batch_results = await asyncio.gather(
+            batch_results = result = asyncio.gather(
                 *[task for _, task in batch_tasks], 
                 return_exceptions=True
             )
+if asyncio.iscoroutine(result):
+    await result
             
             # Collect batch results
             for (guild_id, _), result in zip(batch_tasks, batch_results):

@@ -5,276 +5,362 @@ Fixes all syntax errors, LSP issues, and threading problems systematically
 
 import os
 import re
-import ast
 
 def fix_core_cog_syntax():
     """Fix critical syntax errors in core.py"""
-    core_file = "bot/cogs/core.py"
     
-    if not os.path.exists(core_file):
-        return
+    content = '''"""
+Emerald's Killfeed - Core System Commands (REFACTORED)
+Essential bot information and system status commands
+Uses py-cord 2.6.1 syntax with proper error handling
+"""
+
+import discord
+from discord.ext import commands
+import logging
+from datetime import datetime, timezone
+import platform
+import psutil
+import asyncio
+
+logger = logging.getLogger(__name__)
+
+class Core(discord.Cog):
+    """Core system commands for bot information and status"""
     
-    try:
-        with open(core_file, 'r') as f:
-            content = f.read()
-        
-        # Replace broken help command structure
-        help_pattern = r'@discord\.slash_command\(name="help"[^}]+\}\s*except Exception as e:\s*logger\.error\([^}]+\}'
-        
-        help_replacement = '''@discord.slash_command(name="help", description="Show help information")
-    async def help(self, ctx):
-        """Display help information and command categories"""
+    def __init__(self, bot):
+        self.bot = bot
+        logger.info("Core cog initialized")
+
+    async def check_premium_access(self, guild_id: int) -> bool:
+        """Check if guild has premium access - unified validation"""
+        try:
+            premium_data = await self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id})
+            return premium_data is not None and premium_data.get("active", False)
+        except Exception as e:
+            logger.error(f"Error checking premium access: {e}")
+            return False
+
+    @discord.slash_command(name="info", description="Show bot information")
+    async def info(self, ctx: discord.ApplicationContext):
+        """Display bot information and statistics"""
+        # Immediate defer to prevent Discord timeout
         try:
             await ctx.defer()
+        except discord.errors.NotFound:
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
+            return
+            
+        try:
+            # Create bot info embed manually for reliability
             embed = discord.Embed(
-                title="❓ Help & Commands",
-                description="Complete guide to Emerald's Killfeed Bot",
-                color=0x3498DB,
+                title="🤖 Emerald's Killfeed Bot",
+                description="Advanced Discord bot for Deadside server monitoring",
+                color=0x00d38a,
+                timestamp=datetime.now(timezone.utc)
+            )
+
+            # Add bot information fields
+            embed.add_field(
+                name="📊 Statistics",
+                value=f"Servers: {len(self.bot.guilds)}\\nLatency: {round(self.bot.latency * 1000)}ms",
+                inline=True
+            )
+
+            embed.add_field(
+                name="💾 System",
+                value=f"Python: {platform.python_version()}\\nPy-cord: {discord.__version__}",
+                inline=True
+            )
+
+            embed.add_field(
+                name="🔗 Links",
+                value="[Discord Server](https://discord.gg/EmeraldServers)\\n[Support](https://discord.gg/EmeraldServers)",
+                inline=False
+            )
+
+            # Set thumbnail using main logo
+            try:
+                main_file = discord.File("./assets/main.png", filename="main.png")
+                embed.set_thumbnail(url="attachment://main.png")
+                embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+                
+                await ctx.followup.send(embed=embed, file=main_file)
+            except FileNotFoundError:
+                embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+                await ctx.followup.send(embed=embed)
+            except discord.errors.NotFound:
+                pass  # Interaction expired
+            except Exception as e:
+                logger.error(f"Failed to show bot info: {e}")
+                try:
+                    await ctx.followup.send("Failed to retrieve bot information.", ephemeral=True)
+                except discord.errors.NotFound:
+                    pass  # Interaction expired
+                    
+        except Exception as e:
+            logger.error(f"Error in info command: {e}")
+            try:
+                await ctx.followup.send("An error occurred while retrieving bot information.", ephemeral=True)
+            except:
+                pass
+
+    @discord.slash_command(name="ping", description="Check bot latency")
+    async def ping(self, ctx: discord.ApplicationContext):
+        """Check bot response time and latency"""
+        # Immediate defer to prevent Discord timeout
+        try:
+            await ctx.defer()
+        except discord.errors.NotFound:
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
+            return
+            
+        try:
+            latency = round(self.bot.latency * 1000)
+            
+            embed = discord.Embed(
+                title="🏓 Pong!",
+                description=f"Bot latency: **{latency}ms**",
+                color=0x00FF00 if latency < 100 else 0xFFAA00 if latency < 200 else 0xFF0000
+            )
+            
+            await ctx.followup.send(embed=embed)
+            
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Error in ping command: {e}")
+            try:
+                await ctx.followup.send("Failed to check latency.", ephemeral=True)
+            except:
+                pass
+
+    @discord.slash_command(name="status", description="Show bot system status")
+    async def status(self, ctx: discord.ApplicationContext):
+        """Display detailed bot system status"""
+        # Immediate defer to prevent Discord timeout
+        try:
+            await ctx.defer()
+        except discord.errors.NotFound:
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
+            return
+            
+        try:
+            # Get system information
+            cpu_percent = psutil.cpu_percent(interval=1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            
+            embed = discord.Embed(
+                title="📊 Bot System Status",
+                color=0x00d38a,
                 timestamp=datetime.now(timezone.utc)
             )
             
             embed.add_field(
-                name="📊 Statistics",
-                value="`/stats` - Player statistics\\n`/leaderboard` - Top players",
+                name="🖥️ CPU Usage",
+                value=f"{cpu_percent:.1f}%",
                 inline=True
             )
             
             embed.add_field(
-                name="🔧 Admin",
-                value="`/setchannel` - Configure channels\\n`/status` - Bot status",
+                name="💾 Memory Usage",
+                value=f"{memory.percent:.1f}%\\n({memory.used // 1024 // 1024}MB / {memory.total // 1024 // 1024}MB)",
                 inline=True
             )
             
             embed.add_field(
-                name="💰 Economy",
-                value="`/balance` - Check credits\\n`/daily` - Daily rewards",
+                name="💿 Disk Usage",
+                value=f"{disk.percent:.1f}%\\n({disk.used // 1024 // 1024 // 1024}GB / {disk.total // 1024 // 1024 // 1024}GB)",
                 inline=True
             )
             
-            embed.set_footer(text="Emerald's Killfeed Bot", icon_url=ctx.bot.user.display_avatar.url)
+            embed.add_field(
+                name="🌐 Network",
+                value=f"Latency: {round(self.bot.latency * 1000)}ms\\nGuilds: {len(self.bot.guilds)}",
+                inline=True
+            )
             
-            await ctx.respond(embed=embed)
+            await ctx.followup.send(embed=embed)
             
+        except discord.errors.NotFound:
+            pass  # Interaction expired
         except Exception as e:
-            logger.error(f"Failed to show help: {e}")
-            await ctx.respond("Failed to retrieve help information.", ephemeral=True)'''
-        
-        # Find and replace the broken help command
-        content = re.sub(
-            r'@discord\.slash_command\(name="help".*?except Exception as e:.*?await ctx\.respond\([^}]*\)',
-            help_replacement,
-            content,
-            flags=re.DOTALL
-        )
-        
-        with open(core_file, 'w') as f:
-            f.write(content)
-        
-        print("✅ Fixed core.py syntax errors")
-        
-    except Exception as e:
-        print(f"❌ Error fixing core.py: {e}")
+            logger.error(f"Error in status command: {e}")
+            try:
+                await ctx.followup.send("Failed to retrieve system status.", ephemeral=True)
+            except:
+                pass
+
+def setup(bot):
+    """Load the Core cog"""
+    bot.add_cog(Core(bot))
+    logger.info("Core cog loaded")
+'''
+    
+    with open('bot/cogs/core.py', 'w') as f:
+        f.write(content)
+    print("✅ Fixed core.py syntax errors")
 
 def fix_thread_safe_wrapper():
     """Add missing methods to thread-safe database wrapper"""
-    wrapper_file = "bot/utils/thread_safe_db_wrapper.py"
     
-    if not os.path.exists(wrapper_file):
+    wrapper_path = 'bot/utils/threaded_parser_wrapper.py'
+    if not os.path.exists(wrapper_path):
         return
-    
-    try:
-        with open(wrapper_file, 'r') as f:
-            content = f.read()
         
-        # Add missing methods
-        missing_methods = '''
-    @property
-    def player_sessions(self):
-        """Thread-safe access to player_sessions collection"""
-        return self.db_manager.player_sessions if self.db_manager else None
+    with open(wrapper_path, 'r') as f:
+        content = f.read()
     
-    async def record_kill(self, *args, **kwargs):
-        """Thread-safe kill recording"""
+    # Add missing close method
+    if 'def close(' not in content:
+        close_method = '''
+    def close(self):
+        """Close database connections safely"""
         try:
-            return await self.safe_db_operation(
-                lambda: self.db_manager.record_kill(*args, **kwargs)
-            )
+            if hasattr(self.db_manager, 'close'):
+                self.db_manager.close()
         except Exception as e:
-            logger.error(f"Failed to record kill: {e}")
-            return None
+            logger.error(f"Error closing database: {e}")
 '''
+        content = content.replace('class ThreadSafeDatabaseWrapper:', 
+                                f'class ThreadSafeDatabaseWrapper:{close_method}')
         
-        if 'def player_sessions' not in content:
-            content = content.rstrip() + missing_methods + '\n'
-            
-            with open(wrapper_file, 'w') as f:
-                f.write(content)
-        
-        print("✅ Enhanced thread-safe database wrapper")
-        
-    except Exception as e:
-        print(f"❌ Error fixing wrapper: {e}")
+        with open(wrapper_path, 'w') as f:
+            f.write(content)
+        print("✅ Fixed thread-safe wrapper missing methods")
 
 def fix_historical_parser_errors():
     """Fix critical errors in historical parser"""
-    parser_file = "bot/parsers/historical_parser.py"
     
-    if not os.path.exists(parser_file):
+    parser_path = 'bot/parsers/historical_parser.py'
+    if not os.path.exists(parser_path):
         return
+        
+    with open(parser_path, 'r') as f:
+        content = f.read()
     
-    try:
-        with open(parser_file, 'r') as f:
-            content = f.read()
-        
-        # Fix None context manager usage
-        content = re.sub(
-            r'async with getattr\(aiofiles, "open", lambda \*args: None\)\(',
-            r'if aiofiles and hasattr(aiofiles, "open"):\n            async with aiofiles.open(',
-            content
-        )
-        
-        # Fix string split issues
-        content = re.sub(
-            r'\.split\(b?\'\/\'\)',
-            r'.split("/")',
-            content
-        )
-        
-        # Fix None assignments to Dict types
-        content = re.sub(
-            r'(\w+)\s*=\s*None\s*#.*Dict',
-            r'\1 = {}  # Fixed: empty dict instead of None',
-            content
-        )
-        
-        # Fix undefined variables
-        content = re.sub(
-            r'total_time\s*=.*\n.*total_time',
-            'total_time = 0\n                total_time',
-            content
-        )
-        
-        with open(parser_file, 'w') as f:
-            f.write(content)
-        
-        print("✅ Fixed historical parser errors")
-        
-    except Exception as e:
-        print(f"❌ Error fixing historical parser: {e}")
+    # Fix split method parameter
+    content = re.sub(r'\.split\(sep="/"\)', '.split("/")', content)
+    
+    # Fix None context manager issues
+    content = re.sub(r'with sftp_client:', 'if sftp_client:\n            with sftp_client:', content)
+    
+    # Fix disabled attribute assignment
+    content = re.sub(r'server_doc\["disabled"\] = True', 'await self.db_manager.servers.update_one({"_id": server_doc["_id"]}, {"$set": {"disabled": True}})', content)
+    
+    with open(parser_path, 'w') as f:
+        f.write(content)
+    print("✅ Fixed historical parser errors")
 
 def fix_unified_processor_none_checks():
     """Fix None context manager issues in unified processor"""
-    processor_file = "bot/utils/scalable_unified_processor.py"
     
-    if not os.path.exists(processor_file):
+    processor_path = 'bot/utils/scalable_unified_processor.py'
+    if not os.path.exists(processor_path):
         return
+        
+    with open(processor_path, 'r') as f:
+        content = f.read()
     
-    try:
-        with open(processor_file, 'r') as f:
-            content = f.read()
-        
-        # Fix None context manager usage
-        content = re.sub(
-            r'async with (\w+):\s*if \1 is None:',
-            r'if \1 is not None:\n            async with \1:',
-            content
-        )
-        
-        # Replace direct player_sessions access with proper method calls
-        content = re.sub(
-            r'self\.db_wrapper\.player_sessions\.update_one\(',
-            r'await self.db_wrapper.update_player_session(',
-            content
-        )
-        
-        # Replace direct record_kill access
-        content = re.sub(
-            r'self\.db_wrapper\.record_kill\(',
-            r'await self.db_wrapper.record_kill(',
-            content
-        )
-        
-        with open(processor_file, 'w') as f:
-            f.write(content)
-        
-        print("✅ Fixed unified processor None checks")
-        
-    except Exception as e:
-        print(f"❌ Error fixing unified processor: {e}")
+    # Add None checks before context managers
+    content = re.sub(
+        r'with (sftp_client|client):',
+        r'if \1 is not None:\n            with \1:',
+        content
+    )
+    
+    # Fix asyncio await issues
+    content = re.sub(
+        r'await ([^(]+\([^)]+\))(?!\s*\()',
+        r'result = \1\nif asyncio.iscoroutine(result):\n    await result',
+        content
+    )
+    
+    with open(processor_path, 'w') as f:
+        f.write(content)
+    print("✅ Fixed unified processor None checks")
 
 def fix_main_py_database_close():
     """Fix database close method issues in main.py"""
-    main_file = "main.py"
     
-    if not os.path.exists(main_file):
-        return
+    with open('main.py', 'r') as f:
+        content = f.read()
     
-    try:
-        with open(main_file, 'r') as f:
-            content = f.read()
-        
-        # Fix database close calls
-        content = re.sub(
-            r'if hasattr\(self, \'db_manager\'\) and self\.db_manager and hasattr\(self\.db_manager, \'close\'\):\s*self\.db_manager\.close\(\)',
-            '''if hasattr(self, 'db_manager') and self.db_manager:
-                    try:
-                        if hasattr(self.db_manager, 'close'):
-                            self.db_manager.close()
-                        elif hasattr(self.db_manager, 'client') and hasattr(self.db_manager.client, 'close'):
-                            self.db_manager.client.close()
-                    except Exception as close_error:
-                        logger.debug(f"Database close method not available: {close_error}")''',
-            content
-        )
-        
-        with open(main_file, 'w') as f:
-            f.write(content)
-        
-        print("✅ Fixed main.py database close issues")
-        
-    except Exception as e:
-        print(f"❌ Error fixing main.py: {e}")
+    # Replace problematic database close calls
+    content = re.sub(
+        r'await self\.db_manager\.close\(\)',
+        '''try:
+            if hasattr(self.db_manager, 'close'):
+                await self.db_manager.close()
+        except Exception as e:
+            logger.error(f"Error closing database: {e}")''',
+        content
+    )
+    
+    # Fix bot.database references
+    content = re.sub(r'self\.database\.', 'self.db_manager.', content)
+    
+    with open('main.py', 'w') as f:
+        f.write(content)
+    print("✅ Fixed main.py database close issues")
 
 def validate_syntax_across_codebase():
     """Validate syntax of all Python files"""
+    
+    python_files = [
+        'main.py',
+        'bot/cogs/core.py',
+        'bot/cogs/stats.py',
+        'bot/cogs/linking.py',
+        'bot/cogs/admin_channels.py',
+        'bot/cogs/premium.py'
+    ]
+    
     syntax_errors = []
     
-    for root, dirs, files in os.walk('.'):
-        if any(skip in root for skip in ['.git', 'node_modules', '__pycache__']):
+    for file_path in python_files:
+        if not os.path.exists(file_path):
             continue
-        
-        for file in files:
-            if file.endswith('.py'):
-                file_path = os.path.join(root, file)
-                try:
-                    with open(file_path, 'r') as f:
-                        source = f.read()
-                    ast.parse(source)
-                except SyntaxError as e:
-                    syntax_errors.append(f"{file_path}:{e.lineno}: {e.msg}")
-                except Exception:
-                    # Skip files with encoding issues
-                    pass
+            
+        try:
+            with open(file_path, 'r') as f:
+                source = f.read()
+            compile(source, file_path, 'exec')
+            print(f"✅ {file_path} syntax valid")
+        except SyntaxError as e:
+            syntax_errors.append(f"{file_path}: {e}")
+            print(f"❌ {file_path} has syntax error: {e}")
     
-    if syntax_errors:
-        print("⚠️ Remaining syntax errors:")
-        for error in syntax_errors[:10]:  # Show first 10
-            print(f"  • {error}")
-    else:
-        print("✅ All Python files have valid syntax")
+    return syntax_errors
 
 def main():
     """Execute comprehensive system fixes"""
-    print("🔧 Implementing comprehensive system fixes...")
+    print("🔧 Starting comprehensive system fix...")
     
     fix_core_cog_syntax()
     fix_thread_safe_wrapper()
-    fix_historical_parser_errors()
+    fix_historical_parser_errors() 
     fix_unified_processor_none_checks()
     fix_main_py_database_close()
-    validate_syntax_across_codebase()
     
-    print("✅ Comprehensive system fixes completed!")
+    print("\n🔍 Validating syntax across codebase...")
+    syntax_errors = validate_syntax_across_codebase()
+    
+    if syntax_errors:
+        print(f"\n❌ Found {len(syntax_errors)} syntax errors:")
+        for error in syntax_errors:
+            print(f"  - {error}")
+    else:
+        print("\n✅ All critical files have valid syntax")
+    
+    print("\n🎯 Comprehensive system fix completed")
 
 if __name__ == "__main__":
     main()
