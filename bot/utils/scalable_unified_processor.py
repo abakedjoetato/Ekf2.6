@@ -591,11 +591,23 @@ class ScalableUnifiedProcessor:
         try:
             import asyncssh
             
-            # Get SSH credentials from server config (not environment variables)
-            ssh_host = server_config.get('ssh_host')
-            ssh_username = server_config.get('ssh_username') 
-            ssh_password = server_config.get('ssh_password')
-            ssh_port = server_config.get('ssh_port', 22)
+            # Priority order for SSH credentials:
+            # 1. sftp_credentials (preferred)
+            # 2. individual ssh_* fields
+            # 3. legacy host/username/password fields
+            
+            sftp_creds = server_config.get('sftp_credentials', {})
+            if sftp_creds:
+                ssh_host = sftp_creds.get('host', '').strip()
+                ssh_username = sftp_creds.get('username')
+                ssh_password = sftp_creds.get('password')
+                ssh_port = sftp_creds.get('port', 22)
+            else:
+                # Fallback to individual fields
+                ssh_host = server_config.get('ssh_host') or server_config.get('host')
+                ssh_username = server_config.get('ssh_username') or server_config.get('username')
+                ssh_password = server_config.get('ssh_password') or server_config.get('password')
+                ssh_port = server_config.get('ssh_port') or server_config.get('port', 22)
             
             if not all([ssh_host, ssh_username, ssh_password]):
                 logger.error(f"Server {server_config.get('server_name', 'Unknown')} missing SSH credentials in database")
