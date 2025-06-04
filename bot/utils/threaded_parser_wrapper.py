@@ -43,24 +43,32 @@ class ThreadedParserWrapper:
             return False
     
     def _sync_parser_run(self) -> bool:
-        """Synchronous parser execution for thread pool"""
+        """Synchronous parser execution for thread pool with proper event loop handling"""
         
         try:
-            # Handle different parser types
-            if hasattr(self.parser, 'run_log_parser'):
-                # For ScalableUnifiedParser
-                asyncio.run(self.parser.run_log_parser())
-            elif hasattr(self.parser, 'run_killfeed_parser'):
-                # For ScalableKillfeedParser
-                asyncio.run(self.parser.run_killfeed_parser())
-            elif hasattr(self.parser, 'process_historical_data'):
-                # For HistoricalParser
-                asyncio.run(self.parser.process_historical_data())
-            else:
-                logger.warning(f"Unknown parser type: {self.parser_name}")
-                return False
+            # Create new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                # Handle different parser types
+                if hasattr(self.parser, 'run_log_parser'):
+                    # For ScalableUnifiedParser
+                    loop.run_until_complete(self.parser.run_log_parser())
+                elif hasattr(self.parser, 'run_killfeed_parser'):
+                    # For ScalableKillfeedParser
+                    loop.run_until_complete(self.parser.run_killfeed_parser())
+                elif hasattr(self.parser, 'process_historical_data'):
+                    # For HistoricalParser
+                    loop.run_until_complete(self.parser.process_historical_data())
+                else:
+                    logger.warning(f"Unknown parser type: {self.parser_name}")
+                    return False
+                    
+                return True
                 
-            return True
+            finally:
+                loop.close()
             
         except Exception as e:
             logger.error(f"Sync parser execution failed: {e}")
@@ -100,7 +108,14 @@ class ThreadedSFTPOperations:
                 logger.error(f"SFTP connection failed: {e}")
                 raise
         
-        return asyncio.run(_async_connect())
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            return loop.run_until_complete(_async_connect())
+        finally:
+            loop.close()
     
     @staticmethod
     async def read_file_threaded(sftp_client, file_path: str) -> str:
@@ -126,7 +141,14 @@ class ThreadedSFTPOperations:
                 logger.error(f"File read failed for {file_path}: {e}")
                 raise
         
-        return asyncio.run(_async_read())
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            return loop.run_until_complete(_async_read())
+        finally:
+            loop.close()
 
 class ThreadedDatabaseOperations:
     """Thread-safe database operations wrapper"""
@@ -157,7 +179,14 @@ class ThreadedDatabaseOperations:
                 logger.error(f"Bulk write failed: {e}")
                 raise
         
-        return asyncio.run(_async_write())
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            return loop.run_until_complete(_async_write())
+        finally:
+            loop.close()
     
     @staticmethod
     async def aggregate_threaded(collection, pipeline: list) -> list:
@@ -183,7 +212,14 @@ class ThreadedDatabaseOperations:
                 logger.error(f"Aggregation failed: {e}")
                 raise
         
-        return asyncio.run(_async_aggregate())
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            return loop.run_until_complete(_async_aggregate())
+        finally:
+            loop.close()
 
 # Factory function for creating threaded parser wrappers
 def create_threaded_parser(parser_instance) -> ThreadedParserWrapper:

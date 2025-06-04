@@ -174,7 +174,12 @@ class Linking(discord.Cog):
     @alt.command(name="add", description="Add an alternate character")
     async def alt_add(self, ctx: discord.ApplicationContext, character: str):
         """Add an alternate character to your account"""
+        import asyncio
+        
         try:
+            # Immediate defer to prevent Discord timeout
+            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            
             guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
