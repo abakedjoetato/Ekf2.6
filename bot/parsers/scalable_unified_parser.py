@@ -107,8 +107,10 @@ class ScalableUnifiedParser:
             # Use dynamic path pattern: ./{host}_{server_id}/Logs/Deadside.log
             if server_config.get('log_path'):
                 log_file_path = f"{server_config['log_path']}/{log_file_name}"
+                logger.info(f"Using hardcoded log_path: {log_file_path}")
             else:
                 log_file_path = f"./{host}_{server_id}/Logs/{log_file_name}"
+                logger.info(f"Using dynamic path pattern: {log_file_path}")
             
             # Connect via SFTP using server-specific credentials with compatibility parameters
             try:
