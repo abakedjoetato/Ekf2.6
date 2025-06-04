@@ -86,57 +86,66 @@ class ScalableUnifiedParser:
         return results
     
     async def _fetch_server_logs(self, server_config: Dict) -> str:
-        """Fetch log data from server via SFTP using environment credentials"""
+        """Fetch log data from server via SFTP using server-specific credentials"""
         try:
             import asyncssh
-            import os
             
-            # Use environment variables for SSH connection
-            host = os.getenv('SSH_HOST')
-            username = os.getenv('SSH_USERNAME')
-            password = os.getenv('SSH_PASSWORD')
-            port = int(os.getenv('SSH_PORT', '22'))
+            # Get server-specific SSH credentials from server config
+            host = server_config.get('host') or server_config.get('sftp_host')
+            username = server_config.get('sftp_username') or server_config.get('username')
+            password = server_config.get('sftp_password') or server_config.get('password')
+            port = server_config.get('sftp_port', server_config.get('port', 22))
             
             if not host or not username or not password:
-                logger.debug(f"Missing SSH credentials in environment variables")
+                logger.debug(f"Missing SSH credentials for server {server_config.get('name', 'Unknown')}")
                 return ""
             
-            # Connect via SFTP
-            async with asyncssh.connect(
-                host, 
-                port=port,
-                username=username, 
-                password=password,
-                known_hosts=None
-            ) as conn:
-                async with conn.start_sftp_client() as sftp:
-                    # Look for Deadside.log in the server directory
-                    server_path = server_config.get('path', '/root/servers/79.127.236.1_7020/actual1')
-                    log_file_path = f"{server_path}/Deadside.log"
-                    
-                    try:
-                        # Check if file exists and get size
-                        file_stat = await sftp.stat(log_file_path)
-                        file_size = file_stat.size
-                        
-                        # Read last 20KB for recent events (reasonable size for connection logs)
-                        read_size = min(20480, file_size)  # 20KB
-                        start_pos = max(0, file_size - read_size)
-                        
-                        # Read the log data
-                        async with sftp.open(log_file_path, 'r') as f:
-                            await f.seek(start_pos)
-                            log_data = await f.read()
+            # Get log file path from server config
+            log_path = server_config.get('log_path', server_config.get('path', '/home/steam/dayzserver/profiles'))
+            log_file_name = server_config.get('log_file', 'Deadside.log')
+            log_file_path = f"{log_path}/{log_file_name}"
+            
+            # Connect via SFTP using server-specific credentials
+            try:
+                async with asyncssh.connect(
+                    host, 
+                    port=int(port),
+                    username=username, 
+                    password=password,
+                    known_hosts=None
+                ) as conn:
+                    async with conn.start_sftp_client() as sftp:
+                        try:
+                            # Check if file exists and get size
+                            file_stat = await sftp.stat(log_file_path)
+                            file_size = file_stat.size
                             
-                        logger.info(f"Fetched {len(log_data)} bytes from {server_config.get('name', 'Unknown')} log file")
-                        return log_data
-                        
-                    except FileNotFoundError:
-                        logger.debug(f"Log file not found: {log_file_path}")
-                        return ""
-                    except Exception as file_error:
-                        logger.error(f"Error reading log file {log_file_path}: {file_error}")
-                        return ""
+                            if file_size == 0:
+                                logger.debug(f"Log file is empty: {log_file_path}")
+                                return ""
+                            
+                            # Read last 50KB for recent events
+                            read_size = min(51200, file_size)  # 50KB
+                            start_pos = max(0, file_size - read_size)
+                            
+                            # Read the log data
+                            async with sftp.open(log_file_path, 'r') as f:
+                                await f.seek(start_pos)
+                                log_data = await f.read()
+                                
+                            logger.info(f"Fetched {len(log_data)} bytes from {server_config.get('name', 'Unknown')} ({host})")
+                            return log_data
+                            
+                        except FileNotFoundError:
+                            logger.debug(f"Log file not found: {log_file_path} on {host}")
+                            return ""
+                        except Exception as file_error:
+                            logger.error(f"Error reading log file {log_file_path} on {host}: {file_error}")
+                            return ""
+                            
+            except Exception as conn_error:
+                logger.error(f"SSH connection failed to {host}:{port} - {conn_error}")
+                return ""
                     
         except Exception as e:
             logger.error(f"Failed to fetch logs for server {server_config.get('name', 'Unknown')}: {e}")

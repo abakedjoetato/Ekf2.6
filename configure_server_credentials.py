@@ -3,85 +3,81 @@ Configure Server Credentials - Update database with environment variable referen
 """
 
 import asyncio
-import logging
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from bot.models.database import DatabaseManager
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 async def configure_server_credentials():
     """Configure server with SFTP credentials from environment variables"""
-    
     try:
         # Connect to database
-        mongo_uri = os.environ.get('MONGO_URI')
+        mongo_uri = os.getenv('MONGO_URI')
+        if not mongo_uri:
+            print("Missing MONGO_URI environment variable")
+            return
+        
         client = AsyncIOMotorClient(mongo_uri)
-        db_manager = DatabaseManager(client)
+        db = client.EmeraldDB
+        
+        guild_id = 1219706687980568769  # Emerald Servers
         
         # Get SSH credentials from environment
-        ssh_host = os.environ.get('SSH_HOST')
-        ssh_username = os.environ.get('SSH_USERNAME')
-        ssh_password = os.environ.get('SSH_PASSWORD')
-        ssh_port = int(os.environ.get('SSH_PORT', 22))
+        ssh_host = os.getenv('SSH_HOST')
+        ssh_username = os.getenv('SSH_USERNAME') 
+        ssh_password = os.getenv('SSH_PASSWORD')
+        ssh_port = os.getenv('SSH_PORT', '22')
         
         if not all([ssh_host, ssh_username, ssh_password]):
-            logger.error("Missing SSH credentials in environment variables")
-            return False
+            print("Missing SSH credentials in environment variables:")
+            print(f"  SSH_HOST: {'✓' if ssh_host else '✗'}")
+            print(f"  SSH_USERNAME: {'✓' if ssh_username else '✗'}")
+            print(f"  SSH_PASSWORD: {'✓' if ssh_password else '✗'}")
+            print(f"  SSH_PORT: {ssh_port}")
+            return
         
-        logger.info(f"Configuring server credentials for host: {ssh_host}")
-        
-        # Update the server configuration in database
-        guild_id = 1219706687980568769  # Emerald Servers guild
-        
-        # Find and update the server configuration
-        guild_config = await db_manager.guild_configs.find_one({'guild_id': guild_id})
-        
-        if not guild_config:
-            logger.error(f"No guild configuration found for guild {guild_id}")
-            return False
-        
-        servers = guild_config.get('servers', [])
-        if not servers:
-            logger.error("No servers configured in guild")
-            return False
-        
-        # Update the first server with SFTP credentials
-        server = servers[0]
-        server_id = server.get('server_id', '7020')
-        
-        # Configure SFTP credentials
-        server['sftp_credentials'] = {
-            'host': ssh_host,
-            'username': ssh_username,
-            'password': ssh_password,
-            'port': ssh_port
+        # Create server configuration
+        server_config = {
+            "name": "Emerald EU",
+            "server_id": "emerald_eu_main",
+            "enabled": True,
+            "host": ssh_host,
+            "sftp_host": ssh_host,
+            "sftp_username": ssh_username,
+            "sftp_password": ssh_password,
+            "sftp_port": int(ssh_port),
+            "port": int(ssh_port),
+            "log_path": "/root/servers/79.127.236.1_7020/actual1",
+            "log_file": "Deadside.log",
+            "path": "/root/servers/79.127.236.1_7020/actual1",
+            "killfeed_path": "/root/servers/79.127.236.1_7020/actual1/killfeed.csv"
         }
         
-        # Ensure paths are configured
-        if not server.get('log_path'):
-            server['log_path'] = '/home/steam/deadside/server/logs/DeadSide-game.log'
-        
-        if not server.get('killfeed_path'):
-            server['killfeed_path'] = '/home/steam/deadside/server/killfeed/killfeed.csv'
-        
-        # Update the database
-        await db_manager.guild_configs.update_one(
+        # Update guild configuration with server
+        result = await db.guilds.update_one(
             {'guild_id': guild_id},
-            {'$set': {'servers': servers}}
+            {
+                '$set': {
+                    'servers': [server_config],
+                    'name': 'Emerald Servers'
+                }
+            },
+            upsert=True
         )
         
-        logger.info(f"✅ Server {server_id} configured with SFTP credentials")
-        logger.info(f"   Host: {ssh_host}:{ssh_port}")
-        logger.info(f"   Log path: {server.get('log_path')}")
-        logger.info(f"   Killfeed path: {server.get('killfeed_path')}")
+        if result.modified_count > 0 or result.upserted_id:
+            print("✅ Server configuration updated successfully")
+            print(f"   Host: {ssh_host}")
+            print(f"   Username: {ssh_username}")
+            print(f"   Port: {ssh_port}")
+            print(f"   Log path: {server_config['log_path']}")
+        else:
+            print("❌ Failed to update server configuration")
         
-        return True
+        client.close()
         
     except Exception as e:
-        logger.error(f"Failed to configure server credentials: {e}")
-        return False
+        print(f"Configuration failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     asyncio.run(configure_server_credentials())
