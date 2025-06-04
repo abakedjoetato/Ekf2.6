@@ -100,7 +100,7 @@ class VoiceChannelManager:
             return None
             
     async def _get_server_info(self, guild_id: int, server_id: str) -> tuple[Optional[str], Optional[int]]:
-        """Get server name and max players from configuration"""
+        """Get server name and max players from configuration and live server data"""
         try:
             guild_config = await self.bot.db_manager.guild_configs.find_one({'guild_id': guild_id})
             if not guild_config:
@@ -110,7 +110,14 @@ class VoiceChannelManager:
             for server in servers:
                 if str(server.get('server_id')) == str(server_id) or str(server.get('_id')) == str(server_id):
                     server_name = server.get('server_name') or server.get('name')
-                    max_players = server.get('max_players') or server.get('player_limit')
+                    
+                    # Try to get max players from live server data first
+                    max_players = await self._parse_max_players_from_logs(guild_id, server_id)
+                    
+                    # Fallback to configured value if live data not available
+                    if not max_players:
+                        max_players = server.get('max_players') or server.get('player_limit')
+                    
                     return server_name, max_players
                     
             return None, None
@@ -119,6 +126,62 @@ class VoiceChannelManager:
             logger.error(f"Error getting server info: {e}")
             return None, None
             
+    async def _parse_max_players_from_logs(self, guild_id: int, server_id: str) -> Optional[int]:
+        """Parse max player count from Deadside.log command line"""
+        try:
+            import re
+            from bot.utils.connection_pool import ConnectionPool
+            
+            # Get server SSH configuration
+            guild_config = await self.bot.db_manager.guild_configs.find_one({'guild_id': guild_id})
+            if not guild_config:
+                return None
+                
+            servers = guild_config.get('servers', [])
+            server_config = None
+            for server in servers:
+                if str(server.get('server_id')) == str(server_id) or str(server.get('_id')) == str(server_id):
+                    server_config = server
+                    break
+                    
+            if not server_config:
+                return None
+                
+            # Get SSH connection details
+            ssh_host = server_config.get('ssh_host')
+            ssh_port = server_config.get('ssh_port', 22)
+            ssh_username = server_config.get('ssh_username')
+            ssh_password = server_config.get('ssh_password')
+            
+            if not all([ssh_host, ssh_username, ssh_password]):
+                return None
+                
+            # Connect and read log file
+            connection_pool = ConnectionPool()
+            sftp = await connection_pool.get_connection(ssh_host, ssh_port, ssh_username, ssh_password)
+            
+            log_path = server_config.get('log_path', f"./{ssh_host}_{server_id}/Logs/Deadside.log")
+            
+            # Read recent log content (last 50 lines should contain command line)
+            async with sftp.open(log_path, 'r') as f:
+                content = await f.read()
+                lines = content.split('\n')[-50:]  # Check last 50 lines
+                
+            # Look for LogInit command line with playersmaxcount
+            for line in lines:
+                if 'LogInit: Command Line:' in line and 'playersmaxcount=' in line:
+                    match = re.search(r'-playersmaxcount=(\d+)', line)
+                    if match:
+                        max_count = int(match.group(1))
+                        logger.info(f"Parsed max players from logs: {max_count}")
+                        return max_count
+                        
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Could not parse max players from logs: {e}")
+            return None
+    
     async def _get_server_name(self, guild_id: int, server_id: str) -> Optional[str]:
         """Get server name from configuration"""
         server_name, _ = await self._get_server_info(guild_id, server_id)
