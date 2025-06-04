@@ -941,7 +941,12 @@ class Stats(discord.Cog):
     @discord.slash_command(name="online", description="Show currently online players")
     async def online(self, ctx: discord.ApplicationContext):
         """Show currently online players"""
-        await ctx.defer()
+        try:
+            await ctx.defer()
+        except discord.errors.NotFound:
+            # Interaction expired before defer, try to respond directly
+            logger.warning("Interaction expired during defer, attempting direct response")
+            return
         
         try:
             import asyncio
@@ -952,14 +957,24 @@ class Stats(discord.Cog):
                 
             guild_id = ctx.guild.id
             
-            # Simple database query with basic timeout
+            # Optimized database query with minimal timeout
             try:
-                cursor = self.bot.db_manager.player_sessions.find(
-                    {'guild_id': guild_id, 'state': 'online'},
-                    {'character_name': 1, 'server_name': 1, 'joined_at': 1, '_id': 0}
-                ).limit(50)
+                # Use aggregate pipeline for better performance
+                pipeline = [
+                    {'$match': {'guild_id': guild_id, 'state': 'online'}},
+                    {'$project': {
+                        'character_name': 1, 
+                        'player_name': 1,
+                        'server_name': 1, 
+                        'server_id': 1,
+                        'joined_at': 1, 
+                        '_id': 0
+                    }},
+                    {'$limit': 50}
+                ]
                 
-                sessions = await asyncio.wait_for(cursor.to_list(length=50), timeout=3.0)
+                cursor = self.bot.db_manager.player_sessions.aggregate(pipeline)
+                sessions = await asyncio.wait_for(cursor.to_list(length=50), timeout=2.0)
                 
             except asyncio.TimeoutError:
                 embed = discord.Embed(

@@ -528,8 +528,12 @@ class UnifiedLogParser:
                 legacy_channels = guild_config.get('channels', {})
                 
                 # Priority: server-specific -> default server -> legacy channels
-                vc_id = (server_specific.get('playercountvc') or 
+                # Support both voice_counter (new) and playercountvc (legacy) keys
+                vc_id = (server_specific.get('voice_counter') or 
+                        server_specific.get('playercountvc') or 
+                        default_server.get('voice_counter') or
                         default_server.get('playercountvc') or 
+                        legacy_channels.get('voice_counter') or
                         legacy_channels.get('playercountvc'))
                 
                 if vc_id and hasattr(self.bot, 'voice_channel_batcher'):
