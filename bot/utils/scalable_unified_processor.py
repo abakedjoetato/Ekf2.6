@@ -346,3 +346,283 @@ class ScalableUnifiedProcessor:
             'vehicle_deleted': 'events'
         }
         return mapping.get(event_type)
+
+    async def process_log_data_cold_start(self, server_config: Dict[str, Any], guild_id: int) -> List[Dict[str, Any]]:
+        """Process all log data chronologically from beginning for cold start"""
+        try:
+            # Fetch all log data from server
+            log_data = await self._fetch_server_logs(server_config)
+            if not log_data:
+                return []
+            
+            events = []
+            for line in log_data.split('\n'):
+                parsed = self.parse_log_line(line)
+                if parsed:
+                    parsed['guild_id'] = guild_id
+                    parsed['server_id'] = server_config.get('server_id', 'default')
+                    parsed['server_name'] = server_config.get('server_name', 'Unknown')
+                    events.append(parsed)
+            
+            # Sort chronologically
+            events.sort(key=lambda x: x.get('timestamp', ''))
+            return events
+            
+        except Exception as e:
+            logger.error(f"Error in cold start processing: {e}")
+            return []
+    
+    async def process_log_data_hot_start(self, server_config: Dict[str, Any], guild_id: int, last_timestamp: Optional[str]) -> List[Dict[str, Any]]:
+        """Process only new log data since last timestamp for hot start"""
+        try:
+            # Fetch all log data from server
+            log_data = await self._fetch_server_logs(server_config)
+            if not log_data:
+                return []
+            
+            events = []
+            for line in log_data.split('\n'):
+                parsed = self.parse_log_line(line)
+                if parsed:
+                    # Only include events newer than last timestamp
+                    if last_timestamp and parsed.get('timestamp', '') <= last_timestamp:
+                        continue
+                        
+                    parsed['guild_id'] = guild_id
+                    parsed['server_id'] = server_config.get('server_id', 'default')
+                    parsed['server_name'] = server_config.get('server_name', 'Unknown')
+                    events.append(parsed)
+            
+            # Sort chronologically
+            events.sort(key=lambda x: x.get('timestamp', ''))
+            return events
+            
+        except Exception as e:
+            logger.error(f"Error in hot start processing: {e}")
+            return []
+    
+    async def update_player_sessions_cold(self, events: List[Dict[str, Any]], guild_id: int, server_id: str):
+        """Update player sessions for cold start - no embeds sent"""
+        try:
+            for event in events:
+                if event.get('type') == 'connection':
+                    await self._update_single_player_session(event, send_embeds=False)
+            
+            logger.info(f"Cold start: Updated player sessions for {len(events)} events")
+            
+        except Exception as e:
+            logger.error(f"Error updating player sessions in cold start: {e}")
+    
+    async def send_connection_embeds_batch(self, state_changes: List[Dict[str, Any]]):
+        """Send connection embeds using batch sending"""
+        try:
+            from bot.utils.channel_router import ChannelRouter
+            import discord
+            from datetime import datetime, timezone
+            
+            channel_router = ChannelRouter(self.bot)
+            
+            for change in state_changes:
+                if change['old_state'] == 'queued' and change['new_state'] == 'online':
+                    # Player connected
+                    embed = discord.Embed(
+                        title="🟢 Player Connected",
+                        description=f"**{change['player_name']}** joined the server",
+                        color=0x00FF00,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
+                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
+                    
+                    await channel_router.send_embed_to_channel(
+                        guild_id=change['guild_id'],
+                        server_id=change['server_id'],
+                        channel_type='killfeed',
+                        embed=embed
+                    )
+                
+                elif change['old_state'] == 'online' and change['new_state'] == 'offline':
+                    # Player disconnected
+                    embed = discord.Embed(
+                        title="🔴 Player Disconnected",
+                        description=f"**{change['player_name']}** left the server",
+                        color=0xFF0000,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
+                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
+                    
+                    await channel_router.send_embed_to_channel(
+                        guild_id=change['guild_id'],
+                        server_id=change['server_id'],
+                        channel_type='killfeed',
+                        embed=embed
+                    )
+                    
+        except Exception as e:
+            logger.error(f"Error sending connection embeds batch: {e}")
+    
+    async def send_event_embeds_batch(self, game_events: List[Dict[str, Any]]):
+        """Send game event embeds using batch sending"""
+        try:
+            from bot.utils.channel_router import ChannelRouter
+            import discord
+            from datetime import datetime, timezone
+            
+            channel_router = ChannelRouter(self.bot)
+            
+            for event in game_events:
+                embed = self._create_event_embed(event)
+                if embed:
+                    channel_type = self._get_channel_type_for_event(event.get('event'))
+                    
+                    await channel_router.send_embed_to_channel(
+                        guild_id=event['guild_id'],
+                        server_id=event['server_id'],
+                        channel_type=channel_type,
+                        embed=embed
+                    )
+                    
+        except Exception as e:
+            logger.error(f"Error sending event embeds batch: {e}")
+    
+    def _create_event_embed(self, event: Dict[str, Any]) -> Optional[Any]:
+        """Create Discord embed for game event"""
+        try:
+            import discord
+            from datetime import datetime, timezone
+            
+            event_type = event.get('event')
+            
+            if event_type == 'mission_start':
+                embed = discord.Embed(
+                    title="🎯 Mission Started",
+                    description=f"Mission **{event.get('mission_name', 'Unknown')}** is now active",
+                    color=0x00FF00,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            elif event_type == 'mission_end':
+                embed = discord.Embed(
+                    title="🎯 Mission Ended",
+                    description=f"Mission **{event.get('mission_name', 'Unknown')}** has ended",
+                    color=0xFF0000,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            elif event_type == 'airdrop':
+                embed = discord.Embed(
+                    title="📦 Airdrop Incoming",
+                    description="An airdrop is being deployed",
+                    color=0x0099FF,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            else:
+                return None
+                
+            embed.add_field(name="Server", value=event.get('server_name', 'Unknown'), inline=True)
+            return embed
+            
+        except Exception as e:
+            logger.error(f"Error creating event embed: {e}")
+            return None
+    
+    def _get_channel_type_for_event(self, event_type: str) -> str:
+        """Get appropriate channel type for event"""
+        if event_type in ['mission_start', 'mission_end']:
+            return 'missions'
+        elif event_type == 'airdrop':
+            return 'events'
+        else:
+            return 'events'
+    
+    async def _update_single_player_session(self, event: Dict[str, Any], send_embeds: bool = True):
+        """Update a single player session based on connection event"""
+        try:
+            from datetime import timezone
+            
+            eos_id = event.get('eos_id')
+            if not eos_id:
+                return
+                
+            event_type = event.get('event')
+            
+            if event_type == 'player_queue':
+                # Player joined queue
+                await self.bot.db_manager.player_sessions.update_one(
+                    {'eos_id': eos_id, 'guild_id': event['guild_id'], 'server_id': event['server_id']},
+                    {
+                        '$set': {
+                            'state': 'queued',
+                            'player_name': event.get('player_name', 'Unknown'),
+                            'last_updated': datetime.now(timezone.utc)
+                        }
+                    },
+                    upsert=True
+                )
+                
+            elif event_type == 'player_connect':
+                # Player connected
+                await self.bot.db_manager.player_sessions.update_one(
+                    {'eos_id': eos_id, 'guild_id': event['guild_id'], 'server_id': event['server_id']},
+                    {
+                        '$set': {
+                            'state': 'online',
+                            'last_updated': datetime.now(timezone.utc)
+                        }
+                    }
+                )
+                
+            elif event_type == 'player_disconnect':
+                # Player disconnected
+                await self.bot.db_manager.player_sessions.update_one(
+                    {'eos_id': eos_id, 'guild_id': event['guild_id'], 'server_id': event['server_id']},
+                    {
+                        '$set': {
+                            'state': 'offline',
+                            'last_updated': datetime.now(timezone.utc)
+                        }
+                    }
+                )
+                
+        except Exception as e:
+            logger.error(f"Error updating player session: {e}")
+
+    async def _fetch_server_logs(self, server_config: Dict[str, Any]) -> str:
+        """Fetch log data from server via SFTP using server-specific credentials"""
+        try:
+            import asyncssh
+            import os
+            
+            # Get SSH credentials from environment (server-specific)
+            ssh_host = os.getenv('SSH_HOST')
+            ssh_username = os.getenv('SSH_USERNAME')
+            ssh_password = os.getenv('SSH_PASSWORD')
+            ssh_port = int(os.getenv('SSH_PORT', 22))
+            
+            if not all([ssh_host, ssh_username, ssh_password]):
+                logger.error("SSH credentials not configured")
+                return ""
+            
+            # Get log path from server config
+            log_path = server_config.get('log_path', '/home/deadside/79.127.236.1_7020/actual1/Deadside/Saved/Logs/Deadside.log')
+            
+            # Connect to server via SFTP
+            async with asyncssh.connect(
+                ssh_host,
+                port=ssh_port,
+                username=ssh_username,
+                password=ssh_password,
+                known_hosts=None
+            ) as conn:
+                async with conn.start_sftp_client() as sftp:
+                    # Read the log file
+                    try:
+                        async with sftp.open(log_path, 'r') as f:
+                            log_data = await f.read()
+                            return log_data
+                    except Exception as e:
+                        logger.error(f"Failed to read log file {log_path}: {e}")
+                        return ""
+                        
+        except Exception as e:
+            logger.error(f"Error fetching server logs: {e}")
+            return ""

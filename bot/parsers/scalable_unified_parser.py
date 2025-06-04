@@ -41,20 +41,40 @@ class ScalableUnifiedParser:
             # Determine cold vs hot start mode for each guild
             for guild_id, servers in guild_configs.items():
                 try:
-                    # Check if parser state exists for this guild
-                    parser_state = await self.bot.db_manager.parser_states.find_one({
+                    # Check if parser state exists for this guild AND all its servers
+                    guild_parser_state = await self.bot.db_manager.parser_states.find_one({
                         'guild_id': guild_id,
                         'parser_type': 'unified'
                     })
                     
-                    is_cold_start = not parser_state
-                    mode = "COLD" if is_cold_start else "HOT"
+                    # Check if any servers are new (don't have parser state)
+                    new_servers = []
+                    existing_servers = []
                     
-                    logger.info(f"🔧 Guild {guild_id}: {mode} START mode")
+                    for server_config in servers:
+                        server_id = server_config.get('server_id', 'default')
+                        server_parser_state = await self.bot.db_manager.parser_states.find_one({
+                            'guild_id': guild_id,
+                            'server_id': server_id,
+                            'parser_type': 'unified'
+                        })
+                        
+                        if server_parser_state:
+                            existing_servers.append(server_config)
+                        else:
+                            new_servers.append(server_config)
                     
-                    # Process guild with appropriate mode
-                    processor = ScalableUnifiedProcessor(self.bot)
-                    await self._process_guild_with_mode(guild_id, servers, processor, is_cold_start)
+                    # Process new servers with COLD start
+                    if new_servers:
+                        logger.info(f"🔧 Guild {guild_id}: COLD START for {len(new_servers)} new servers")
+                        processor = ScalableUnifiedProcessor(self.bot)
+                        await self._process_guild_with_mode(guild_id, new_servers, processor, is_cold_start=True)
+                    
+                    # Process existing servers with HOT start
+                    if existing_servers:
+                        logger.info(f"🔧 Guild {guild_id}: HOT START for {len(existing_servers)} existing servers")
+                        processor = ScalableUnifiedProcessor(self.bot)
+                        await self._process_guild_with_mode(guild_id, existing_servers, processor, is_cold_start=False)
                     
                 except Exception as e:
                     logger.error(f"Failed to process guild {guild_id}: {e}")
