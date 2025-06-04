@@ -694,14 +694,14 @@ class ScalableUnifiedProcessor:
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
-                    if self.db_wrapper and hasattr(self.db_wrapper, 'player_sessions'):
-                        result = await self.db_wrapper.player_sessions.replace_one(
-                            {'guild_id': session_data['guild_id'], 'player_id': player_id},
-                            session_data,
-                            upsert=True
+                    if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
+                        await self.bot.db_manager.save_player_session(
+                            guild_id=session_data['guild_id'],
+                            server_id=session_data.get('server_name', 'default'),
+                            player_id=player_id,
+                            session_data=session_data
                         )
-                        if result.upserted_id or result.modified_count > 0:
-                            committed_count += 1
+                        committed_count += 1
                 except Exception as e:
                     failed_count += 1
                     logger.error(f"Failed to commit player state {player_id[:8]}...: {e}")
@@ -1111,14 +1111,18 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Record the kill
+                kill_event_data = {
+                    "killer": killer,
+                    "victim": victim,
+                    "weapon": weapon,
+                    "timestamp": entry.timestamp,
+                    "distance": kill_data.get('distance', 0),
+                    "raw_line": entry.raw_line
+                }
                 await self.bot.db_manager.add_kill_event(
                     guild_id=self.guild_id,
-                    killer_name=killer,
-                    victim_name=victim,
-                    weapon=weapon,
-                    server_name=entry.server_name,
-                    timestamp=entry.timestamp,
-                    distance=kill_data.get('distance', 0)
+                    server_id=entry.server_name,
+                    kill_data=kill_event_data
                 )
                 logger.debug(f"Recorded kill: {killer} -> {victim}")
             else:

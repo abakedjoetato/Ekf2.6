@@ -416,9 +416,10 @@ class HistoricalParser:
                 buffer_size = 1024 * 1024  # 1MB buffer
                 file_content = ""
 
-                async with getattr(sftp_client, "open", lambda *args: None)(file_path, 'r') as f:
-                    while True:
-                        chunk = await f.read(buffer_size)
+                if sftp_client:
+                    async with sftp_client.open(file_path, 'r') as f:
+                        while True:
+                            chunk = await f.read(buffer_size)
                         if not chunk:
                             break
 
