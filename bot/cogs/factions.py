@@ -25,6 +25,8 @@ class Factions(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
@@ -38,6 +40,8 @@ class Factions(discord.Cog):
     async def check_premium_server(self, guild_id: int) -> bool:
         """Check if guild has premium access for faction features"""
         try:
+
+            pass
             # Factions is guild-wide premium feature - check if guild has any premium access
             return await self.bot.db_manager.has_premium_access(guild_id)
         except Exception as e:
@@ -54,6 +58,8 @@ class Factions(discord.Cog):
     async def generate_faction_stats(self, guild_id: int, member_ids: List[int]) -> Dict[str, Any]:
         """Generate combined stats for faction members using correct data structure"""
         try:
+
+            pass
             total_kills = 0
             total_deaths = 0
             total_distance = 0.0
@@ -101,6 +107,8 @@ class Factions(discord.Cog):
     async def autocomplete_faction_name(self, ctx: discord.AutocompleteContext):
         """Autocomplete callback for faction names"""
         try:
+
+            pass
             guild_id = ctx.interaction.guild_id
 
             # Get all factions for this guild
@@ -123,6 +131,8 @@ class Factions(discord.Cog):
     async def calculate_faction_stats(self, guild_id: int, faction_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate combined stats for all faction members"""
         try:
+
+            pass
             combined_stats = {
                 'total_kills': 0,
                 'total_deaths': 0,
@@ -181,6 +191,8 @@ class Factions(discord.Cog):
     async def faction_create(self, ctx: discord.ApplicationContext, name: str, tag: str = ""):
         """Create a new faction"""
         try:
+
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
@@ -307,6 +319,8 @@ class Factions(discord.Cog):
     async def faction_invite(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Invite a user to join your faction"""
         try:
+
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
@@ -405,6 +419,8 @@ class Factions(discord.Cog):
     async def faction_join(self, ctx: discord.ApplicationContext, faction_name: str):
         """Join a faction by name"""
         try:
+
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
@@ -496,6 +512,8 @@ class Factions(discord.Cog):
     async def faction_leave(self, ctx: discord.ApplicationContext):
         """Leave your current faction"""
         try:
+
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
@@ -571,6 +589,8 @@ class Factions(discord.Cog):
     async def faction_info(self, ctx: discord.ApplicationContext, faction_name: str = ""):
         """View detailed information about a faction"""
         try:
+
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
@@ -616,6 +636,8 @@ class Factions(discord.Cog):
 
             # Get leader info
             try:
+
+                pass
                 leader = await self.bot.fetch_user(faction['leader_id'])
                 leader_name = leader.mention
             except:
@@ -637,6 +659,8 @@ class Factions(discord.Cog):
             created_at = faction.get('created_at')
             if created_at and isinstance(created_at, datetime):
                 try:
+
+                    pass
                     # Ensure timezone-aware datetime
                     if created_at.tzinfo is None:
                         created_at = created_at.replace(tzinfo=timezone.utc)
@@ -714,6 +738,8 @@ class Factions(discord.Cog):
     async def faction_stats(self, ctx: discord.ApplicationContext, faction_name: str = ""):
         """View detailed faction statistics"""
         try:
+
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             discord_id = ctx.user.id
 
@@ -799,6 +825,8 @@ class Factions(discord.Cog):
     async def faction_list(self, ctx: discord.ApplicationContext):
         """List all factions in the guild"""
         try:
+
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
 
             # Check premium access

@@ -29,6 +29,8 @@ class Parsers(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
@@ -48,6 +50,8 @@ class Parsers(discord.Cog):
     async def parser_status(self, ctx: discord.ApplicationContext):
         """Check the status of all parsers"""
         try:
+
+            pass
             embed = discord.Embed(
                 title="🔍 Parser Status",
                 description="Current status of all data parsers",
@@ -112,6 +116,8 @@ class Parsers(discord.Cog):
     async def parser_refresh(self, ctx: discord.ApplicationContext, server: str = "default"):
         """Manually trigger a data refresh for a server"""
         try:
+
+            pass
             guild_id = ctx.guild.id
 
             # Check if server exists in guild config - fixed database call
@@ -140,6 +146,8 @@ class Parsers(discord.Cog):
             # Trigger historical refresh with Discord progress updates
             if hasattr(self.bot, 'historical_parser') and self.bot.historical_parser:
                 try:
+
+                    pass
                     # Get server config for the historical parser
                     servers = guild_config.get('servers', [])
                     server_config = None
@@ -190,6 +198,8 @@ class Parsers(discord.Cog):
     async def parser_stats(self, ctx: discord.ApplicationContext):
         """Display parser performance statistics"""
         try:
+
+            pass
             guild_id = ctx.guild.id
 
             embed = discord.Embed(
@@ -201,6 +211,8 @@ class Parsers(discord.Cog):
 
             # Get recent parsing stats from database - fixed database calls
             try:
+
+                pass
                 # Count recent killfeed entries (last 24 hours)
                 recent_kills = await self.bot.db_manager.killfeed.count_documents({
                     'guild_id': guild_id,
@@ -331,6 +343,7 @@ class Parsers(discord.Cog):
         """Check parser status and player tracking"""
         try:
 
+            pass
             embed = discord.Embed(
                 title="Parser Status Report",
                 color=0x0099FF
@@ -391,6 +404,8 @@ class Parsers(discord.Cog):
     async def refresh_playercount(self, ctx: discord.ApplicationContext):
         """Reset player counts and trigger immediate cold start"""
         try:
+
+            pass
             await ctx.defer()
 
             if not hasattr(self.bot, 'unified_log_parser') or not self.bot.unified_log_parser:
@@ -424,6 +439,8 @@ class Parsers(discord.Cog):
 
             # Trigger immediate cold start
             try:
+
+                pass
                 await parser.run_log_parser()
                 
                 embed = discord.Embed(

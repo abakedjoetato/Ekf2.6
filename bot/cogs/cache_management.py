@@ -23,6 +23,8 @@ class CacheManagement(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
@@ -46,6 +48,9 @@ class CacheManagement(discord.Cog):
             return
         
         try:
+
+        
+            pass
             # Get cache statistics
             if hasattr(self.bot.db_manager, 'get_cache_stats'):
                 stats = await self.bot.db_manager.get_cache_stats()
@@ -122,6 +127,9 @@ class CacheManagement(discord.Cog):
             return
         
         try:
+
+        
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             
             # Confirm action
@@ -167,6 +175,9 @@ class CacheManagement(discord.Cog):
             return
         
         try:
+
+        
+            pass
             # Perform cleanup
             if hasattr(self.bot.db_manager, 'cleanup_cache'):
                 cleaned_count = await self.bot.db_manager.cleanup_cache()
@@ -198,6 +209,9 @@ class CacheManagement(discord.Cog):
             return
         
         try:
+
+        
+            pass
             guild_id = ctx.guild.id if ctx.guild else 0
             
             # Refresh premium cache

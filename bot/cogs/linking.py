@@ -21,6 +21,8 @@ class Linking(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access"""
         try:
+
+            pass
             premium_data = await self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id})
             return premium_data is not None and premium_data.get("active", False)
         except Exception as e:
@@ -36,7 +38,21 @@ class Linking(discord.Cog):
         try:
 
         
-            if not ctx.guild:
+            pass
+            # IMMEDIATE defer - must be first line to prevent timeout
+
+            await ctx.defer()
+
+            
+
+            try:
+
+
+            
+
+                pass
+                if not ctx.guild:
+        
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
@@ -51,6 +67,8 @@ class Linking(discord.Cog):
             
             # Check if character exists in database
             try:
+
+                pass
                 character_exists = await asyncio.wait_for(
                     self.bot.db_manager.kill_events.find_one({
                         "guild_id": guild_id,
@@ -82,6 +100,8 @@ class Linking(discord.Cog):
             
             # Create or update linking
             try:
+
+                pass
                 await asyncio.wait_for(
                     self.bot.db_manager.user_characters.update_one(
                         {"guild_id": guild_id, "user_id": user_id},
@@ -115,6 +135,8 @@ class Linking(discord.Cog):
         except Exception as e:
             logger.error(f"Error in link command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while linking character.", ephemeral=True)
             except:
                 pass
@@ -128,7 +150,21 @@ class Linking(discord.Cog):
         try:
 
         
-            if not ctx.guild:
+            pass
+            # IMMEDIATE defer - must be first line to prevent timeout
+
+            await ctx.defer()
+
+            
+
+            try:
+
+
+            
+
+                pass
+                if not ctx.guild:
+        
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
@@ -137,6 +173,8 @@ class Linking(discord.Cog):
             
             # Remove character from user's linked characters
             try:
+
+                pass
                 result = await asyncio.wait_for(
                     self.bot.db_manager.user_characters.update_one(
                         {"guild_id": guild_id, "user_id": user_id},
@@ -171,6 +209,8 @@ class Linking(discord.Cog):
         except Exception as e:
             logger.error(f"Error in unlink command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while unlinking character.", ephemeral=True)
             except:
                 pass
@@ -184,7 +224,21 @@ class Linking(discord.Cog):
         try:
 
         
-            if not ctx.guild:
+            pass
+            # IMMEDIATE defer - must be first line to prevent timeout
+
+            await ctx.defer()
+
+            
+
+            try:
+
+
+            
+
+                pass
+                if not ctx.guild:
+        
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
@@ -193,6 +247,8 @@ class Linking(discord.Cog):
             
             # Get user's linked characters
             try:
+
+                pass
                 user_data = await asyncio.wait_for(
                     self.bot.db_manager.user_characters.find_one({
                         "guild_id": guild_id,
@@ -230,6 +286,8 @@ class Linking(discord.Cog):
         except Exception as e:
             logger.error(f"Error in linked command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while retrieving linked characters.", ephemeral=True)
             except:
                 pass

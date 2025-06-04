@@ -32,6 +32,8 @@ class Economy(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
@@ -49,6 +51,8 @@ class Economy(discord.Cog):
     async def check_premium_server(self, guild_id: int, server_id: str = "default") -> bool:
         """Check if guild has premium access for economy features"""
         try:
+
+            pass
             # Economy is guild-wide premium feature - check if guild has any premium access
             return await self.bot.db_manager.has_premium_access(guild_id)
         except Exception as e:
@@ -59,6 +63,8 @@ class Economy(discord.Cog):
                               amount: int, event_type: str, description: str):
         """Add wallet transaction event for tracking"""
         try:
+
+            pass
             await self.bot.db_manager.add_wallet_event(
                 guild_id, discord_id, amount, event_type, description
             )
@@ -68,12 +74,22 @@ class Economy(discord.Cog):
     @discord.slash_command(name="balance", description="Check your wallet balance")
     async def balance(self, ctx: discord.ApplicationContext):
         """Check user's wallet balance"""
-        try:
-            if not ctx.guild:
         # IMMEDIATE defer - must be first line to prevent timeout
         await ctx.defer()
         
-                await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+        try:
+
+        
+            pass
+            # IMMEDIATE defer - must be first line to prevent timeout
+
+            await ctx.defer()
+
+            
+
+        try:
+            if not ctx.guild:
+                await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
                 return
                 
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -115,8 +131,13 @@ class Economy(discord.Cog):
     async def work(self, ctx: discord.ApplicationContext):
         """Work command to earn money"""
         try:
+
+            pass
             if not ctx.guild:
         # IMMEDIATE defer - must be first line to prevent timeout
+        
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
         
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
@@ -168,6 +189,8 @@ class Economy(discord.Cog):
                        user: discord.Member, amount: int):
         """Give money to a user (admin only)"""
         try:
+
+            pass
             if not ctx.guild:
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return

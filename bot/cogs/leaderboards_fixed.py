@@ -42,6 +42,8 @@ class LeaderboardsFixed(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
@@ -62,8 +64,11 @@ class LeaderboardsFixed(discord.Cog):
                          server: discord.Option(str, "Server to view stats for", required=False)):
         """Display properly themed leaderboard"""
         await ctx.defer()
-
+        
         try:
+
+        
+            pass
             if not ctx.guild:
 
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
@@ -114,6 +119,8 @@ class LeaderboardsFixed(discord.Cog):
     async def get_player_faction(self, guild_id: int, player_name: str) -> Optional[str]:
         """Get player's faction tag if they have one"""
         try:
+
+            pass
             # First find the Discord ID for this player name
             player_link = await self.bot.db_manager.players.find_one({
                 "guild_id": guild_id,
@@ -201,6 +208,8 @@ class LeaderboardsFixed(discord.Cog):
     async def get_top_kills(self, guild_id: int, server_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get top killers for a specific server"""
         try:
+
+            pass
             query = {
                 "guild_id": guild_id,
                 "kills": {"$gt": 0}
@@ -219,6 +228,8 @@ class LeaderboardsFixed(discord.Cog):
     async def create_themed_leaderboard(self, guild_id: int, server_id: str, stat_type: str, server_name: str) -> Tuple[Optional[discord.Embed], Optional[discord.File]]:
         """Create properly themed leaderboard using EmbedFactory"""
         try:
+
+            pass
             # Themed title pools for each stat type
             title_pools = {
                 'kills': ["Top Operators", "Elite Eliminators", "Death Dealers", "Blood Money Rankings"],

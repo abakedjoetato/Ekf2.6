@@ -43,6 +43,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def automated_leaderboard_task(self):
         """Run automated leaderboard updates every 60 minutes"""
         try:
+
+            pass
             logger.info("Running automated leaderboard update...")
 
             # Get all guilds with leaderboard channels configured (either server-specific or guild default)
@@ -58,6 +60,8 @@ class AutomatedLeaderboard(discord.Cog):
 
             for guild_config in guilds_with_leaderboard:
                 try:
+
+                    pass
                     await self.update_guild_leaderboard(guild_config)
                 except Exception as e:
                     guild_id = guild_config.get('guild_id', 'Unknown')
@@ -76,6 +80,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def initial_leaderboard_check(self):
         """Check if leaderboards are missing and create only if needed"""
         try:
+
+            pass
             # Get all guilds with leaderboard channels configured
             guilds_cursor = self.bot.db_manager.guilds.find({
                 "$or": [
@@ -89,6 +95,8 @@ class AutomatedLeaderboard(discord.Cog):
 
             for guild_config in guilds_with_leaderboard:
                 try:
+
+                    pass
                     # Only create if missing
                     missing = await self.check_missing_leaderboards(guild_config)
                     if missing:
@@ -106,6 +114,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def check_missing_leaderboards(self, guild_config: Dict[str, Any]) -> bool:
         """Check if leaderboard messages are missing in the channel"""
         try:
+
+            pass
             guild_id = guild_config['guild_id']
             guild = self.bot.get_guild(guild_id)
             if not guild:
@@ -132,6 +142,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_leaderboard_channel(self, guild_config: Dict[str, Any]):
         """Get the configured leaderboard channel"""
         try:
+
+            pass
             guild_id = guild_config['guild_id']
             guild = self.bot.get_guild(guild_id)
             if not guild:
@@ -160,6 +172,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_kills(self, guild_id: int, limit: int = 10, server_id: str = None):
         """Get top killers for automated leaderboard"""
         try:
+
+            pass
             query = {
                 "guild_id": guild_id,
                 "kills": {"$gt": 0}
@@ -179,6 +193,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def _collect_leaderboard_data(self, guild_id: int, server_id: str = None) -> Dict[str, Any]:
         """Collect all leaderboard data from correct database collections"""
         try:
+
+            pass
             data = {}
             
             # Base query for filtering
@@ -233,6 +249,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def update_guild_leaderboard(self, guild_config: Dict[str, Any], force_create: bool = False):
         """Update leaderboard for a specific guild"""
         try:
+
+            pass
             guild_id = guild_config['guild_id']
             guild = self.bot.get_guild(guild_id)
             if not guild:
@@ -252,6 +270,8 @@ class AutomatedLeaderboard(discord.Cog):
 
             # Create one consolidated leaderboard for all servers in the guild
             try:
+
+                pass
                 # Create consolidated leaderboard for the entire guild (all servers combined)
                 embed, file_attachment = await self.create_consolidated_leaderboard(
                     guild_id, None, "All Servers"
@@ -266,6 +286,8 @@ class AutomatedLeaderboard(discord.Cog):
                     if existing_message:
                         # Edit existing message (without file attachments to avoid errors)
                         try:
+
+                            pass
                             await existing_message.edit(embed=embed)
                             logger.info(f"Updated existing consolidated leaderboard")
                         except Exception as edit_error:
@@ -287,6 +309,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_stored_leaderboard_message_id(self, guild_id: int, channel_id: int) -> Optional[int]:
         """Get stored leaderboard message ID from database for persistence across restarts"""
         try:
+
+            pass
             stored_data = await self.bot.db_manager.leaderboard_messages.find_one({
                 "guild_id": guild_id,
                 "channel_id": channel_id,
@@ -300,6 +324,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def store_leaderboard_message_id(self, guild_id: int, channel_id: int, message_id: int):
         """Store leaderboard message ID in database for persistence across restarts"""
         try:
+
+            pass
             await self.bot.db_manager.leaderboard_messages.update_one(
                 {
                     "guild_id": guild_id,
@@ -324,11 +350,15 @@ class AutomatedLeaderboard(discord.Cog):
     async def find_existing_leaderboard_message(self, channel, server_name: str):
         """Find existing leaderboard message using stored ID for persistence across restarts"""
         try:
+
+            pass
             # First try to get stored message ID from database
             stored_message_id = await self.get_stored_leaderboard_message_id(channel.guild.id, channel.id)
             
             if stored_message_id:
                 try:
+
+                    pass
                     # Try to fetch the stored message
                     stored_message = await channel.fetch_message(stored_message_id)
                     # Verify it's still a valid leaderboard message
@@ -361,6 +391,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def post_new_leaderboard_message(self, channel, embed, file_attachment):
         """Post a new leaderboard message and store ID for persistence across restarts"""
         try:
+
+            pass
             message = None
             if hasattr(self.bot, 'advanced_rate_limiter') and self.bot.advanced_rate_limiter:
                 from bot.utils.advanced_rate_limiter import MessagePriority
@@ -387,6 +419,8 @@ class AutomatedLeaderboard(discord.Cog):
         """Check if guild has premium access"""
         # Automated leaderboards is guild-wide premium feature - requires at least 1 premium server
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
@@ -408,6 +442,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def create_consolidated_leaderboard(self, guild_id: int, server_id: str, server_name: str):
         """Create consolidated leaderboard with top performers from each category"""
         try:
+
+            pass
             # Get top players for each category using the same methods as leaderboards_fixed
             from bot.cogs.leaderboards_fixed import LeaderboardsFixed
 
@@ -527,6 +563,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_kdr(self, guild_id: int, limit: int, server_id: str = None) -> List[Dict[str, Any]]:
         """Get top KDR players"""
         try:
+
+            pass
             query = {
                 "guild_id": guild_id,
                 "kills": {"$gte": 1}
@@ -554,6 +592,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_distance(self, guild_id: int, limit: int, server_id: str = None) -> List[Dict[str, Any]]:
         """Get top distance players"""
         try:
+
+            pass
             query = {
                 "guild_id": guild_id,
                 "personal_best_distance": {"$gt": 0}
@@ -572,6 +612,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_streaks(self, guild_id: int, limit: int, server_id: str = None) -> List[Dict[str, Any]]:
         """Get top streak players"""
         try:
+
+            pass
             query = {
                 "guild_id": guild_id,
                 "longest_streak": {"$gt": 0}
@@ -590,6 +632,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_weapons(self, guild_id: int, limit: int, server_id: str = None) -> List[Dict[str, Any]]:
         """Get top weapons by kill count - using same method as working /leaderboard weapons"""
         try:
+
+            pass
             # Use exact same query as working leaderboard command
             cursor = self.bot.db_manager.kill_events.find({
                 "guild_id": guild_id,
@@ -626,6 +670,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_factions(self, guild_id: int, limit: int = 1, server_id: str = None) -> List[Dict[str, Any]]:
         """Get top factions by total kills - aggregate stats from all members including alts"""
         try:
+
+            pass
             # Get all factions for this guild first
             factions_cursor = self.bot.db_manager.factions.find({"guild_id": guild_id})
             all_factions = await factions_cursor.to_list(length=None)
@@ -692,6 +738,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_player_faction(self, guild_id: int, player_name: str) -> Optional[str]:
         """Get player's faction tag if they have one"""
         try:
+
+            pass
             # First find the Discord ID for this player name
             player_link = await self.bot.db_manager.players.find_one({
                 "guild_id": guild_id,
@@ -725,6 +773,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_deaths(self, guild_id: int, limit: int) -> List[Dict[str, Any]]:
         """Get players with most deaths"""
         try:
+
+            pass
             cursor = self.bot.db_manager.pvp_data.find({
                 "guild_id": guild_id,
                 "deaths": {"$gt": 0}
@@ -740,6 +790,8 @@ class AutomatedLeaderboard(discord.Cog):
     async def get_top_faction(self, guild_id: int, limit: int) -> List[Dict[str, Any]]:
         """Get top faction"""
         try:
+
+            pass
             factions_cursor = self.bot.db_manager.factions.find({"guild_id": guild_id})
             all_factions = await factions_cursor.to_list(length=None)
 

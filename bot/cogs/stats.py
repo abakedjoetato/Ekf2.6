@@ -36,6 +36,8 @@ class Stats(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
@@ -54,6 +56,7 @@ class Stats(discord.Cog):
         if not ctx.guild:
             try:
 
+                pass
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                     await ctx.respond("❌ This command must be used in a server", ephemeral=True)
@@ -127,6 +130,9 @@ class Stats(discord.Cog):
         logger.debug(f"Getting combined stats for characters: {player_characters} in guild {guild_id}")
 
         try:
+
+
+            pass
             if not player_characters:
                 logger.warning("No player characters provided for stats calculation")
                 return combined_stats
@@ -134,6 +140,8 @@ class Stats(discord.Cog):
             # Get stats from all servers or specific server
             for character in player_characters:
                 try:
+
+                    pass
                     query = {
                         'guild_id': guild_id,
                         'player_name': character
@@ -191,11 +199,16 @@ class Stats(discord.Cog):
 
             # Get weapon statistics and rivals/nemesis
             try:
+
+                pass
                 await self._calculate_weapon_stats(guild_id or 0, player_characters, combined_stats, server_id)
             except Exception as weapon_error:
                 logger.error(f"Error calculating weapon stats: {weapon_error}")
 
             try:
+
+
+                pass
                 await self._calculate_rivals_nemesis(guild_id or 0, player_characters, combined_stats, server_id)
             except Exception as rival_error:
                 logger.error(f"Error calculating rivals/nemesis: {rival_error}")
@@ -212,6 +225,8 @@ class Stats(discord.Cog):
                                     combined_stats: Dict[str, Any], server_id: str = "default"):
         """Calculate weapon statistics from kill events (excludes suicides)"""
         try:
+
+            pass
             weapon_counts = {}
 
             for character in player_characters:
@@ -244,6 +259,8 @@ class Stats(discord.Cog):
                                       combined_stats: Dict[str, Any], server_id: str = "default"):
         """Calculate enhanced rivalry intelligence"""
         try:
+
+            pass
             kills_against = {}
             deaths_to = {}
 
@@ -311,9 +328,13 @@ class Stats(discord.Cog):
         import asyncio
         
         try:
+
+        
+            pass
             # Immediate defer to prevent Discord timeout
             try:
 
+                pass
                 await ctx.defer()
 
             except discord.errors.NotFound:
@@ -331,6 +352,7 @@ class Stats(discord.Cog):
             if not ctx.guild:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond("This command can only be used in a server!", ephemeral=True)
@@ -367,6 +389,7 @@ class Stats(discord.Cog):
                     if not server_found:
                         try:
 
+                            pass
                             if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                                 await ctx.respond("Server not found for this guild.", ephemeral=True)
@@ -391,6 +414,7 @@ class Stats(discord.Cog):
                 if not resolve_result:
                     try:
 
+                        pass
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                             await ctx.respond(
@@ -422,6 +446,8 @@ class Stats(discord.Cog):
                     if user_id_str.startswith('!'):
                         user_id_str = user_id_str[1:]
                     try:
+
+                        pass
                         user_id = int(user_id_str)
                         user_mention = ctx.guild.get_member(user_id)
                     except ValueError:
@@ -433,6 +459,7 @@ class Stats(discord.Cog):
                     if not resolve_result:
                         try:
 
+                            pass
                             if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                                 await ctx.respond(
@@ -462,6 +489,7 @@ class Stats(discord.Cog):
                     if not resolve_result:
                         try:
 
+                            pass
                             if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                                 await ctx.respond(
@@ -487,6 +515,9 @@ class Stats(discord.Cog):
                     player_characters, display_name = resolve_result
 
             try:
+
+
+                pass
                 pass
             except discord.errors.NotFound:
                 # Interaction already expired, respond immediately
@@ -530,6 +561,9 @@ class Stats(discord.Cog):
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
                 
                 try:
+
+                
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
                         await ctx.respond(embed=embed, file=weaponstats_file)
                     else:
@@ -568,6 +602,7 @@ class Stats(discord.Cog):
             if file:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed, file=file)
@@ -586,6 +621,7 @@ class Stats(discord.Cog):
             else:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed)
@@ -608,6 +644,7 @@ class Stats(discord.Cog):
                 logger.error(f"Database timeout in /stats command for guild {ctx.guild.id if ctx.guild else 0}")
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
@@ -630,6 +667,7 @@ class Stats(discord.Cog):
                 if ctx.response.is_done():
                     try:
 
+                        pass
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                             await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
@@ -648,6 +686,7 @@ class Stats(discord.Cog):
                 else:
                     try:
 
+                        pass
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                             await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
@@ -667,6 +706,8 @@ class Stats(discord.Cog):
     async def _validate_player_data(self, guild_id: int, player_characters: List[str], server_id: str = None) -> bool:
         """Validate that player data exists in the database"""
         try:
+
+            pass
             for character in player_characters:
                 # Check if player has any data in pvp_data
                 pvp_exists = await self.bot.db_manager.pvp_data.find_one({
@@ -692,9 +733,12 @@ class Stats(discord.Cog):
     async def compare(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Compare your stats with another player"""
         try:
+
+            pass
             if not ctx.guild:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond("This command can only be used in a server!", ephemeral=True)
@@ -719,6 +763,7 @@ class Stats(discord.Cog):
             if user1.id == user2.id:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond("You can't compare stats with yourself!", ephemeral=True)
@@ -743,6 +788,7 @@ class Stats(discord.Cog):
             if not player1_data or not isinstance(player1_data, dict):
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(
@@ -769,6 +815,7 @@ class Stats(discord.Cog):
             if not player2_data or not isinstance(player2_data, dict):
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(
@@ -795,6 +842,7 @@ class Stats(discord.Cog):
             try:
 
 
+                pass
                 await ctx.defer()
 
 
@@ -833,6 +881,7 @@ class Stats(discord.Cog):
             if file_attachment:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed, file=file_attachment)
@@ -851,6 +900,7 @@ class Stats(discord.Cog):
             else:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed)
@@ -871,6 +921,7 @@ class Stats(discord.Cog):
             logger.error(f"Failed to compare stats: {e}")
             try:
 
+                pass
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                     await ctx.respond("Failed to compare statistics.", ephemeral=True)
@@ -896,13 +947,19 @@ class Stats(discord.Cog):
         # IMMEDIATE defer - must be first line to prevent timeout
         await ctx.defer()
         
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
         logger.info(f"Starting /online command for guild {ctx.guild.id if ctx.guild else 'None'}")
         
         try:
-            
+
+        
+            pass
             if not ctx.guild:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond("This command can only be used in a server!", ephemeral=True)
@@ -927,6 +984,9 @@ class Stats(discord.Cog):
             sessions = []
             
             try:
+
+            
+                pass
                 # Try immediate fast query first
                 logger.info("Attempting fast database query")
                 cursor = self.bot.db_manager.player_sessions.find(
@@ -936,6 +996,8 @@ class Stats(discord.Cog):
                 
                 sessions = []
                 try:
+
+                    pass
                     sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=1.0)
                 except asyncio.TimeoutError:
                     # Respond immediately with loading message, then update
@@ -948,6 +1010,8 @@ class Stats(discord.Cog):
                     
                     # Try longer timeout
                     try:
+
+                        pass
                         sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=5.0)
                     except asyncio.TimeoutError:
                         error_embed = discord.Embed(
@@ -970,6 +1034,7 @@ class Stats(discord.Cog):
                 )
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed, ephemeral=True)
@@ -996,6 +1061,7 @@ class Stats(discord.Cog):
                 )
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed, ephemeral=True)
@@ -1016,6 +1082,8 @@ class Stats(discord.Cog):
             # Load thumbnail asset
             file_path = "./assets/Connections.png"
             try:
+
+                pass
                 file = discord.File(file_path, filename="Connections.png")
             except FileNotFoundError:
                 file = None
@@ -1035,6 +1103,8 @@ class Stats(discord.Cog):
                 session_time = ""
                 if joined_at:
                     try:
+
+                        pass
                         if isinstance(joined_at, str):
                             join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
                         else:
@@ -1110,6 +1180,7 @@ class Stats(discord.Cog):
             if file:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed, file=file)
@@ -1128,6 +1199,7 @@ class Stats(discord.Cog):
             else:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond(embed=embed)
@@ -1154,6 +1226,7 @@ class Stats(discord.Cog):
                 logger.error(f"Database timeout in /online command for guild {ctx.guild.id if ctx.guild else 0}")
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond("Database query timed out. Please try again in a moment.", ephemeral=True)
@@ -1172,6 +1245,7 @@ class Stats(discord.Cog):
             else:
                 try:
 
+                    pass
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                         await ctx.respond("Failed to fetch online players. Please try again.", ephemeral=True)
@@ -1252,6 +1326,7 @@ class Stats(discord.Cog):
         connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
         try:
 
+            pass
             if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                 await ctx.respond(embed=embed, file=connections_file)
@@ -1345,6 +1420,7 @@ class Stats(discord.Cog):
         connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
         try:
 
+            pass
             if hasattr(ctx, 'response') and not ctx.response.is_done():
 
                 await ctx.respond(embed=embed, file=connections_file)

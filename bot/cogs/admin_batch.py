@@ -20,6 +20,8 @@ class AdminBatch(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
@@ -50,6 +52,8 @@ class AdminBatch(discord.Cog):
         server_id = "default"  # Default server for batch stats
         """Show current batch sender statistics"""
         try:
+
+            pass
             await ctx.defer()
             guild_id = ctx.guild_id
 
@@ -139,6 +143,8 @@ class AdminBatch(discord.Cog):
         guild_id = ctx.guild.id
         server_id = server_id or "default"  # Use provided or default
         try:
+
+            pass
             guild_id = ctx.guild_id
             server_key = f"{guild_id}_{server_id}"
 

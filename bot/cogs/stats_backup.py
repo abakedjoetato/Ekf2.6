@@ -36,6 +36,8 @@ class Stats(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
@@ -111,6 +113,9 @@ class Stats(discord.Cog):
         logger.debug(f"Getting combined stats for characters: {player_characters} in guild {guild_id}")
 
         try:
+
+
+            pass
             if not player_characters:
                 logger.warning("No player characters provided for stats calculation")
                 return combined_stats
@@ -118,6 +123,8 @@ class Stats(discord.Cog):
             # Get stats from all servers or specific server
             for character in player_characters:
                 try:
+
+                    pass
                     query = {
                         'guild_id': guild_id,
                         'player_name': character
@@ -175,11 +182,16 @@ class Stats(discord.Cog):
 
             # Get weapon statistics and rivals/nemesis
             try:
+
+                pass
                 await self._calculate_weapon_stats(guild_id or 0, player_characters, combined_stats, server_id)
             except Exception as weapon_error:
                 logger.error(f"Error calculating weapon stats: {weapon_error}")
 
             try:
+
+
+                pass
                 await self._calculate_rivals_nemesis(guild_id or 0, player_characters, combined_stats, server_id)
             except Exception as rival_error:
                 logger.error(f"Error calculating rivals/nemesis: {rival_error}")
@@ -196,6 +208,8 @@ class Stats(discord.Cog):
                                     combined_stats: Dict[str, Any], server_id: str = "default"):
         """Calculate weapon statistics from kill events (excludes suicides)"""
         try:
+
+            pass
             weapon_counts = {}
 
             for character in player_characters:
@@ -228,6 +242,8 @@ class Stats(discord.Cog):
                                       combined_stats: Dict[str, Any], server_id: str = "default"):
         """Calculate enhanced rivalry intelligence"""
         try:
+
+            pass
             kills_against = {}
             deaths_to = {}
 
@@ -293,6 +309,8 @@ class Stats(discord.Cog):
                    server: discord.Option(str, "Server to view stats for", required=False) = None):
         """View PvP statistics for yourself, another user, or a player name"""
         try:
+
+            pass
             if not ctx.guild:
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
@@ -336,6 +354,8 @@ class Stats(discord.Cog):
                     if user_id_str.startswith('!'):
                         user_id_str = user_id_str[1:]
                     try:
+
+                        pass
                         user_id = int(user_id_str)
                         user_mention = ctx.guild.get_member(user_id)
                     except ValueError:
@@ -429,6 +449,8 @@ class Stats(discord.Cog):
     async def _validate_player_data(self, guild_id: int, player_characters: List[str], server_id: str = None) -> bool:
         """Validate that player data exists in the database"""
         try:
+
+            pass
             for character in player_characters:
                 # Check if player has any data in pvp_data
                 pvp_exists = await self.bot.db_manager.pvp_data.find_one({
@@ -454,6 +476,8 @@ class Stats(discord.Cog):
     async def compare(self, ctx: discord.ApplicationContext, user: discord.Member):
         """Compare your stats with another player"""
         try:
+
+            pass
             if not ctx.guild:
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
@@ -514,7 +538,22 @@ class Stats(discord.Cog):
     async def online(self, ctx: discord.ApplicationContext):
         """Show currently online players for a specific server"""
         try:
-            if not ctx.guild:
+
+            pass
+            # IMMEDIATE defer - must be first line to prevent timeout
+
+            await ctx.defer()
+
+            
+
+            try:
+
+
+            
+
+                pass
+                if not ctx.guild:
+        
                 await ctx.respond("This command can only be used in a server!", ephemeral=True)
                 return
 
@@ -528,6 +567,8 @@ class Stats(discord.Cog):
 
             # Get active players from the database with fallback to voice channel data
             try:
+
+                pass
                 if server_name:
                     # Show players for specific server
                     server_id = ServerAutocomplete.get_server_id_from_name(server_name, servers)
@@ -539,6 +580,9 @@ class Stats(discord.Cog):
                     server_players = []
                     
                     try:
+
+                    
+                        pass
                         # Direct database query
                         sessions = await self.bot.db_manager.player_sessions.find({
                             'guild_id': guild_id,
@@ -565,6 +609,8 @@ class Stats(discord.Cog):
                     if not server_players:
                         # Try to get current player count from voice channel manager
                         try:
+
+                            pass
                             if hasattr(self.bot, 'voice_channel_batch') and self.bot.voice_channel_batch:
                                 count = await self.bot.voice_channel_batch.get_current_player_count(guild_id, server_name)
                                 if count and count > 0:
@@ -632,6 +678,8 @@ class Stats(discord.Cog):
                         if joined_at:
                             if isinstance(joined_at, str):
                                 try:
+
+                                    pass
                                     join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
                                 except:
                                     pass

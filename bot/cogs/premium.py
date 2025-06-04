@@ -27,6 +27,8 @@ class Premium(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access"""
         try:
+
+            pass
             premium_data = await self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id})
             return premium_data is not None and premium_data.get("active", False)
         except Exception as e:
@@ -40,9 +42,15 @@ class Premium(discord.Cog):
         await ctx.defer()
         
         try:
+
+        
+            pass
             pass
             # Check if user is bot owner
             if not self.is_bot_owner(ctx.user.id):
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
                 await ctx.followup.send("Only the bot owner can use this command!", ephemeral=True)
                 return
 
@@ -53,6 +61,8 @@ class Premium(discord.Cog):
             
             # Set as home server with premium access
             try:
+
+                pass
                 await asyncio.wait_for(
                     self.bot.db_manager.premium_guilds.update_one(
                         {"guild_id": guild_id},
@@ -86,6 +96,8 @@ class Premium(discord.Cog):
         except Exception as e:
             logger.error(f"Error in sethome command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while setting home server.", ephemeral=True)
             except:
                 pass
@@ -97,7 +109,23 @@ class Premium(discord.Cog):
         await ctx.defer()
         
         try:
-            if not ctx.guild:
+
+        
+            pass
+            # IMMEDIATE defer - must be first line to prevent timeout
+
+            await ctx.defer()
+
+            
+
+            try:
+
+
+            
+
+                pass
+                if not ctx.guild:
+        
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
@@ -105,6 +133,8 @@ class Premium(discord.Cog):
             
             # Check premium status
             try:
+
+                pass
                 premium_data = await asyncio.wait_for(
                     self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id}),
                     timeout=3.0
@@ -144,6 +174,8 @@ class Premium(discord.Cog):
         except Exception as e:
             logger.error(f"Error in premium_status command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while checking premium status.", ephemeral=True)
             except:
                 pass

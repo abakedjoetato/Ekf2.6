@@ -34,6 +34,8 @@ class ServerAutocomplete:
     async def autocomplete_server_name(ctx: discord.AutocompleteContext):
         """Autocomplete for server names (guild-scoped only)"""
         try:
+
+            pass
             guild_id = ctx.interaction.guild.id if ctx.interaction.guild else None
             if not guild_id:
                 return []
@@ -67,6 +69,8 @@ class ServerAutocomplete:
     async def autocomplete_server_name_with_guild(ctx: discord.AutocompleteContext):
         """Autocomplete for server names (cross-guild for premium management)"""
         try:
+
+            pass
             # Check if user is bot owner or in home server
             is_owner = False
             home_guild = False

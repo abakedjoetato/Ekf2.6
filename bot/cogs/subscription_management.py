@@ -29,6 +29,8 @@ class SubscriptionManagement(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             elif hasattr(self.bot, 'db_manager') and hasattr(self.bot.db_manager, 'has_premium_access'):
@@ -74,6 +76,9 @@ class SubscriptionManagement(discord.Cog):
             return
             
         try:
+
+            
+            pass
             guild_id_int = int(guild_id)
             
             # Verify guild exists and bot is in it
@@ -110,6 +115,8 @@ class SubscriptionManagement(discord.Cog):
     async def view_home_guild(self, ctx: discord.ApplicationContext):
         """View current Home Guild configuration"""
         try:
+
+            pass
             # Get home guild from database
             home_config = await self.bot.db_manager.bot_config.find_one({"_id": "home_guild"})
             
@@ -162,6 +169,9 @@ class SubscriptionManagement(discord.Cog):
             return
             
         try:
+
+            
+            pass
             guild_id_int = int(guild_id)
             
             # Verify guild exists
@@ -214,6 +224,8 @@ class SubscriptionManagement(discord.Cog):
                                 reason: discord.Option(str, "Reason for removing slot", required=False)):
         """Remove 1 premium server slot from a guild"""
         try:
+
+            pass
             guild_id_int = int(guild_id)
             
             # Verify guild exists
@@ -272,6 +284,8 @@ class SubscriptionManagement(discord.Cog):
                               guild_id: discord.Option(str, "Guild ID to view (optional - defaults to current guild)", required=False)):
         """View premium limits and usage for a guild"""
         try:
+
+            pass
             # Use current guild if no guild_id provided
             target_guild_id = int(guild_id) if guild_id else ctx.guild.id if ctx.guild else None
             
@@ -333,6 +347,8 @@ class SubscriptionManagement(discord.Cog):
     async def list_subscriptions(self, ctx: discord.ApplicationContext):
         """List all guild premium limits"""
         try:
+
+            pass
             # Get all premium limits from database
             limits_cursor = self.bot.db_manager.premium_limits.find({})
             limits = await limits_cursor.to_list(length=None)
@@ -413,6 +429,8 @@ class SubscriptionManagement(discord.Cog):
                                                              autocomplete=ServerAutocomplete.autocomplete_server_name)):
         """Activate premium for a server (guild admins only)"""
         try:
+
+            pass
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
@@ -467,6 +485,8 @@ class SubscriptionManagement(discord.Cog):
                                                                autocomplete=ServerAutocomplete.autocomplete_server_name)):
         """Deactivate premium for a server (guild admins only)"""
         try:
+
+            pass
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Resolve server_id from name if needed
@@ -520,6 +540,8 @@ class SubscriptionManagement(discord.Cog):
                                                            autocomplete=ServerAutocomplete.autocomplete_server_name, required=False)):
         """View premium status for servers"""
         try:
+
+            pass
             guild_id = (ctx.guild.id if ctx.guild else None)
             
             # Get guild config for server names

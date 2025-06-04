@@ -24,6 +24,8 @@ class Core(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access - unified validation"""
         try:
+
+            pass
             premium_data = await self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id})
             return premium_data is not None and premium_data.get("active", False)
         except Exception as e:
@@ -37,10 +39,16 @@ class Core(discord.Cog):
         await ctx.defer()
         
         try:
+
+        
+            pass
             pass
             # Create bot info embed manually for reliability
             embed = discord.Embed(
         # IMMEDIATE defer - must be first line to prevent timeout
+        
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
         
                 title="🤖 Emerald's Killfeed Bot",
                 description="Advanced Discord bot for Deadside server monitoring",
@@ -69,6 +77,8 @@ class Core(discord.Cog):
 
             # Set thumbnail using main logo
             try:
+
+                pass
                 main_file = discord.File("./assets/main.png", filename="main.png")
                 embed.set_thumbnail(url="attachment://main.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
@@ -82,6 +92,8 @@ class Core(discord.Cog):
             except Exception as e:
                 logger.error(f"Failed to show bot info: {e}")
                 try:
+
+                    pass
                     await ctx.followup.send("Failed to retrieve bot information.", ephemeral=True)
                 except discord.errors.NotFound:
                     pass  # Interaction expired
@@ -89,6 +101,8 @@ class Core(discord.Cog):
         except Exception as e:
             logger.error(f"Error in info command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while retrieving bot information.", ephemeral=True)
             except:
                 pass
@@ -100,10 +114,16 @@ class Core(discord.Cog):
         await ctx.defer()
         
         try:
+
+        
+            pass
             pass
             latency = round(self.bot.latency * 1000)
             
             embed = discord.Embed(
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
                 title="🏓 Pong!",
                 description=f"Bot latency: **{latency}ms**",
                 color=0x00FF00 if latency < 100 else 0xFFAA00 if latency < 200 else 0xFF0000
@@ -116,6 +136,8 @@ class Core(discord.Cog):
         except Exception as e:
             logger.error(f"Error in ping command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("Failed to check latency.", ephemeral=True)
             except:
                 pass
@@ -127,9 +149,15 @@ class Core(discord.Cog):
         await ctx.defer()
         
         try:
+
+        
+            pass
             pass
             # Get system information
             cpu_percent = 0.0  # psutil not available
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
             memory = type("obj", (object,), {"percent": 0.0, "used": 0, "total": 1024*1024*1024})()
             disk = type("obj", (object,), {"percent": 0.0, "used": 0, "total": 1024*1024*1024*10})()
             
@@ -170,6 +198,8 @@ class Core(discord.Cog):
         except Exception as e:
             logger.error(f"Error in status command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("Failed to retrieve system status.", ephemeral=True)
             except:
                 pass

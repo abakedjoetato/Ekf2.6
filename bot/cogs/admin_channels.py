@@ -21,6 +21,8 @@ class AdminChannels(discord.Cog):
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access"""
         try:
+
+            pass
             premium_data = await self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id})
             return premium_data is not None and premium_data.get("active", False)
         except Exception as e:
@@ -33,8 +35,11 @@ class AdminChannels(discord.Cog):
         """Setup killfeed channel for death notifications"""
         # Immediate defer to prevent Discord timeout
         await ctx.defer()
-            
+        
         try:
+
+        
+            pass
             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
@@ -43,6 +48,8 @@ class AdminChannels(discord.Cog):
             
             # Update channel configuration
             try:
+
+                pass
                 await asyncio.wait_for(
                     self.bot.db_manager.channel_configs.update_one(
                         {"guild_id": guild_id},
@@ -75,6 +82,8 @@ class AdminChannels(discord.Cog):
         except Exception as e:
             logger.error(f"Error in setup_killfeed command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while configuring killfeed channel.", ephemeral=True)
             except:
                 pass
@@ -85,8 +94,11 @@ class AdminChannels(discord.Cog):
         """Setup events channel for mission/helicrash notifications"""
         # IMMEDIATE defer - must be first line to prevent timeout
         await ctx.defer()
-            
+        
         try:
+
+        
+            pass
             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
@@ -95,6 +107,8 @@ class AdminChannels(discord.Cog):
             
             # Update channel configuration
             try:
+
+                pass
                 await asyncio.wait_for(
                     self.bot.db_manager.channel_configs.update_one(
                         {"guild_id": guild_id},
@@ -127,6 +141,8 @@ class AdminChannels(discord.Cog):
         except Exception as e:
             logger.error(f"Error in setup_events command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while configuring events channel.", ephemeral=True)
             except:
                 pass
@@ -137,8 +153,11 @@ class AdminChannels(discord.Cog):
         """View current channel configuration"""
         # Immediate defer to prevent Discord timeout
         await ctx.defer()
-            
+        
         try:
+
+        
+            pass
             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
@@ -147,6 +166,8 @@ class AdminChannels(discord.Cog):
             
             # Get channel configuration
             try:
+
+                pass
                 config = await asyncio.wait_for(
                     self.bot.db_manager.channel_configs.find_one({"guild_id": guild_id}),
                     timeout=3.0
@@ -188,6 +209,8 @@ class AdminChannels(discord.Cog):
         except Exception as e:
             logger.error(f"Error in view_config command: {e}")
             try:
+
+                pass
                 await ctx.followup.send("An error occurred while retrieving configuration.", ephemeral=True)
             except:
                 pass
