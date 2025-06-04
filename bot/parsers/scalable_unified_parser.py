@@ -213,7 +213,10 @@ class ScalableUnifiedParser:
                 'servers': {'$exists': True, '$not': {'$size': 0}}
             })
             
-            async for guild_doc in cursor:
+            # Convert async cursor to list to avoid event loop conflicts in threads
+            guild_docs = await cursor.to_list(length=None)
+            
+            for guild_doc in guild_docs:
                 guild_id = guild_doc.get('guild_id')
                 servers = guild_doc.get('servers', [])
                 
