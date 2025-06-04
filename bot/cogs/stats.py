@@ -1014,90 +1014,20 @@ class Stats(discord.Cog):
             
             embed.set_footer(text="Updated every 3 minutes")
             
-            if file:
-                try:
-
-                    pass
-                    if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(embed=embed, file=file)
-
-                    else:
-
-                        await ctx.followup.send(embed=embed, file=file)
-
-                except discord.errors.NotFound:
-
-                    logger.warning("Interaction expired, cannot send response")
-
-                except Exception as e:
-
-                    logger.error(f"Failed to send response: {e}")
-            else:
-                try:
-
-                    pass
-                    if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(embed=embed)
-
-                    else:
-
-                        await ctx.followup.send(embed=embed)
-
-                except discord.errors.NotFound:
-
-                    logger.warning("Interaction expired, cannot send response")
-
-                except Exception as e:
-
-                    logger.error(f"Failed to send response: {e}")
+            # Send response
+            try:
+                await ctx.followup.send(embed=embed)
+            except discord.errors.NotFound:
+                logger.warning("Interaction expired, cannot send online response")
+            except Exception as e:
+                logger.error(f"Failed to send online response: {e}")
             
         except Exception as e:
-            import asyncio
             logger.error(f"Error in /online command: {e}")
-            import traceback
-            logger.error(f"Stack trace: {traceback.format_exc()}")
-            
-            if isinstance(e, asyncio.TimeoutError):
-                logger.error(f"Database timeout in /online command for guild {ctx.guild.id if ctx.guild else 0}")
-                try:
-
-                    pass
-                    if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Database query timed out. Please try again in a moment.", ephemeral=True)
-
-                    else:
-
-                        await ctx.followup.send("Database query timed out. Please try again in a moment.", ephemeral=True)
-
-                except discord.errors.NotFound:
-
-                    logger.warning("Interaction expired, cannot send response")
-
-                except Exception as e:
-
-                    logger.error(f"Failed to send response: {e}")
-            else:
-                try:
-
-                    pass
-                    if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Failed to fetch online players. Please try again.", ephemeral=True)
-
-                    else:
-
-                        await ctx.followup.send("Failed to fetch online players. Please try again.", ephemeral=True)
-
-                except discord.errors.NotFound:
-
-                    logger.warning("Interaction expired, cannot send response")
-
-                except Exception as e:
-
-                    logger.error(f"Failed to send response: {e}")
+            try:
+                await ctx.followup.send("An error occurred while retrieving online players.", ephemeral=True)
+            except:
+                pass
 
     async def _display_single_server_players(self, ctx, server_name: str, server_players: list):
         """Display players for a single specific server"""

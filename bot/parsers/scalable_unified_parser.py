@@ -63,7 +63,18 @@ class ScalableUnifiedParser:
                     log_data = await self._fetch_server_logs(server)
                     if log_data:
                         events = await processor.process_log_data(log_data, server)
-                        guild_results.extend(events)
+                        if events:
+                            # Update player sessions based on connection events
+                            await processor.update_player_sessions(events)
+                            
+                            # Send event embeds for game events
+                            await processor.send_event_embeds(events)
+                            
+                            # Update voice channel with current player count
+                            await self._update_voice_channel_for_server(guild_id, server)
+                            
+                            guild_results.extend(events)
+                            logger.info(f"Processed {len(events)} events for {server.get('name', 'Unknown')}")
                 
                 results[guild_id] = guild_results
                 
@@ -74,10 +85,46 @@ class ScalableUnifiedParser:
         return results
     
     async def _fetch_server_logs(self, server_config: Dict) -> str:
-        """Fetch log data from server (simplified for now)"""
+        """Fetch log data from server via SFTP"""
         try:
-            # Return empty string for now - actual SFTP implementation would go here
-            return ""
+            from bot.utils.sftp_manager import get_sftp_connection
+            
+            # Get SFTP connection details
+            host = server_config.get('host')
+            username = server_config.get('sftp_username')
+            password = server_config.get('sftp_password')
+            log_path = server_config.get('log_path', '/home/steam/dayzserver/profiles/deathlogs')
+            
+            if not host or not username or not password:
+                logger.debug(f"Missing SFTP credentials for server {server_config.get('name', 'Unknown')}")
+                return ""
+            
+            # Connect and fetch recent log data
+            async with get_sftp_connection(host, username, password) as sftp:
+                # Look for Deadside.log files (main log file)
+                log_file_path = f"{log_path}/Deadside.log"
+                
+                try:
+                    # Get file info first
+                    file_stat = await sftp.stat(log_file_path)
+                    file_size = file_stat.size
+                    
+                    # Read last 50KB for recent events (adjust as needed)
+                    read_size = min(51200, file_size)  # 50KB
+                    start_pos = max(0, file_size - read_size)
+                    
+                    # Read the log data
+                    async with sftp.open(log_file_path, 'r') as f:
+                        await f.seek(start_pos)
+                        log_data = await f.read()
+                        
+                    logger.debug(f"Fetched {len(log_data)} bytes from {server_config.get('name', 'Unknown')} log")
+                    return log_data
+                    
+                except FileNotFoundError:
+                    logger.debug(f"Log file not found: {log_file_path}")
+                    return ""
+                    
         except Exception as e:
             logger.error(f"Failed to fetch logs for server {server_config.get('name', 'Unknown')}: {e}")
             return ""
