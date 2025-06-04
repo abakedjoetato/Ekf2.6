@@ -21,24 +21,25 @@ class ScalableUnifiedProcessor:
         self.event_patterns = self._compile_event_patterns()
     
     def _compile_connection_patterns(self) -> Dict[str, re.Pattern]:
-        """Compile regex patterns for connection events - Updated for Deadside server format"""
+        """Compile regex patterns for connection events - Real Deadside server format"""
         return {
-            # Look for actual Deadside connection patterns (need to research these)
-            'player_connect': re.compile(r'LogSFPS.*Player.*connected', re.IGNORECASE),
-            'player_disconnect': re.compile(r'LogSFPS.*Player.*disconnected', re.IGNORECASE),
-            'player_login': re.compile(r'LogSFPS.*Player.*join', re.IGNORECASE),
-            'player_logout': re.compile(r'LogSFPS.*Player.*leave', re.IGNORECASE),
-            # Generic patterns for any player-related logs
-            'player_activity': re.compile(r'LogSFPS.*Player.*', re.IGNORECASE)
+            # Queue state - player joining
+            'player_queue': re.compile(r'LogNet: Join request: /Game/Maps/world_[^?]*\?.*?login=([^?]+).*?eosid=\|([a-f0-9]+).*?Name=([^?]+)', re.IGNORECASE),
+            # Connected state - player registered 
+            'player_connect': re.compile(r'LogOnline: Warning: Player \|([a-f0-9]+) successfully registered!', re.IGNORECASE),
+            # Disconnected state - player left
+            'player_disconnect': re.compile(r'LogNet: UChannel::Close:.*UniqueId: EOS:\|([a-f0-9]+)', re.IGNORECASE)
         }
     
     def _compile_event_patterns(self) -> Dict[str, re.Pattern]:
-        """Compile regex patterns for game events"""
+        """Compile regex patterns for game events - Updated for real Deadside server format"""
         return {
-            'mission_start': re.compile(r'Mission ([^:]+): (\w+) Event'),
-            'helicopter_crash': re.compile(r'Helicopter crash site spawned'),
-            'airdrop': re.compile(r'Airdrop.*spawned'),
-            'trader': re.compile(r'Trader.*event')
+            'mission_start': re.compile(r'LogSFPS: Mission (\w+) switched to READY', re.IGNORECASE),
+            'mission_end': re.compile(r'LogSFPS: Mission (\w+) switched to WAITING', re.IGNORECASE),
+            'airdrop': re.compile(r'LogSFPS: AirDrop switched to Dropping', re.IGNORECASE),
+            'patrol_active': re.compile(r'LogSFPS: PatrolPoint (\w+) switched to ACTIVE', re.IGNORECASE),
+            'patrol_initial': re.compile(r'LogSFPS: PatrolPoint (\w+) switched to INITIAL', re.IGNORECASE),
+            'vehicle_deleted': re.compile(r'LogSFPS: .*Del vehicle.*Total (\d+)', re.IGNORECASE)
         }
     
     def parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
@@ -69,14 +70,35 @@ class ScalableUnifiedProcessor:
             for event_type, pattern in self.connection_patterns.items():
                 match = pattern.search(message)
                 if match:
-                    return {
-                        'timestamp': timestamp,
-                        'type': 'connection',
-                        'event': event_type,
-                        'player_name': match.group(1),
-                        'player_id': match.group(2) if len(match.groups()) > 1 else None,
-                        'raw_message': message
-                    }
+                    if event_type == 'player_queue':
+                        # Queue: login=PlayerName, eosid=PlayerID, Name=PlayerName
+                        return {
+                            'timestamp': timestamp,
+                            'type': 'connection',
+                            'event': event_type,
+                            'player_name': match.group(3),  # Name field
+                            'login_name': match.group(1),   # Login field
+                            'eos_id': match.group(2),       # EOS ID
+                            'raw_message': message
+                        }
+                    elif event_type == 'player_connect':
+                        # Connect: Player |EOS_ID successfully registered
+                        return {
+                            'timestamp': timestamp,
+                            'type': 'connection',
+                            'event': event_type,
+                            'eos_id': match.group(1),
+                            'raw_message': message
+                        }
+                    elif event_type == 'player_disconnect':
+                        # Disconnect: UniqueId: EOS:|EOS_ID
+                        return {
+                            'timestamp': timestamp,
+                            'type': 'connection',
+                            'event': event_type,
+                            'eos_id': match.group(1),
+                            'raw_message': message
+                        }
             
             # Check event patterns
             for event_type, pattern in self.event_patterns.items():
@@ -131,58 +153,151 @@ class ScalableUnifiedProcessor:
         return events
     
     async def update_player_sessions(self, events: List[Dict[str, Any]]) -> bool:
-        """Update player session states based on connection events"""
+        """Update player session states based on connection events using EOS ID tracking"""
         if not self.bot.db_manager:
             return False
         
         try:
+            state_changes = []  # Track actual state changes for embed sending
+            
             for event in events:
                 if event['type'] != 'connection':
                     continue
                 
-                player_name = event['player_name']
+                eos_id = event.get('eos_id')
                 guild_id = event['guild_id']
-                server_name = event['server_name']
+                server_id = event['server_id']
                 timestamp = event['timestamp']
+                event_type = event['event']
                 
-                if event['event'] in ['player_connect', 'player_login']:
-                    # Player connected
+                if not eos_id:
+                    continue
+                
+                # Get current player state
+                current_session = await self.bot.db_manager.player_sessions.find_one({
+                    'eos_id': eos_id,
+                    'guild_id': guild_id,
+                    'server_id': server_id
+                })
+                
+                current_state = current_session.get('state', 'offline') if current_session else 'offline'
+                new_state = current_state
+                player_data = {}
+                
+                if event_type == 'player_queue':
+                    # Player is queuing to join
+                    new_state = 'queued'
+                    player_data = {
+                        'eos_id': eos_id,
+                        'player_name': event.get('player_name', 'Unknown'),
+                        'login_name': event.get('login_name', 'Unknown'),
+                        'guild_id': guild_id,
+                        'server_id': server_id,
+                        'state': 'queued',
+                        'queued_at': timestamp,
+                        'last_seen': timestamp
+                    }
+                    
+                elif event_type == 'player_connect':
+                    # Player successfully registered (queued -> online)
+                    new_state = 'online'
+                    player_data = {
+                        'state': 'online',
+                        'joined_at': timestamp,
+                        'last_seen': timestamp
+                    }
+                    
+                elif event_type == 'player_disconnect':
+                    # Player disconnected (online -> offline)
+                    new_state = 'offline'
+                    player_data = {
+                        'state': 'offline',
+                        'left_at': timestamp,
+                        'last_seen': timestamp
+                    }
+                
+                # Only update if state actually changed
+                if new_state != current_state:
                     await self.bot.db_manager.player_sessions.update_one(
                         {
-                            'character_name': player_name,
+                            'eos_id': eos_id,
                             'guild_id': guild_id,
-                            'server_name': server_name
+                            'server_id': server_id
                         },
-                        {
-                            '$set': {
-                                'state': 'online',
-                                'joined_at': timestamp,
-                                'last_seen': timestamp
-                            }
-                        },
+                        {'$set': player_data},
                         upsert=True
                     )
                     
-                elif event['event'] in ['player_disconnect', 'player_logout']:
-                    # Player disconnected
-                    await self.bot.db_manager.player_sessions.update_one(
-                        {
-                            'character_name': player_name,
-                            'guild_id': guild_id,
-                            'server_name': server_name
-                        },
-                        {
-                            '$set': {
-                                'state': 'offline',
-                                'last_seen': timestamp
-                            }
-                        }
-                    )
+                    # Track state change for embed sending
+                    state_changes.append({
+                        'eos_id': eos_id,
+                        'player_name': event.get('player_name') or (current_session.get('player_name', 'Unknown') if current_session else 'Unknown'),
+                        'old_state': current_state,
+                        'new_state': new_state,
+                        'timestamp': timestamp,
+                        'guild_id': guild_id,
+                        'server_id': server_id
+                    })
+                    
+                    logger.info(f"Player state change: {eos_id[:8]}... {current_state} -> {new_state}")
+            
+            # Send embeds for actual state changes
+            if state_changes:
+                await self._send_connection_embeds(state_changes)
             
             return True
             
         except Exception as e:
             logger.error(f"Failed to update player sessions: {e}")
+            return False
+    
+    async def _send_connection_embeds(self, state_changes: List[Dict[str, Any]]) -> bool:
+        """Send connection embeds only for actual state changes"""
+        try:
+            from bot.utils.channel_router import ChannelRouter
+            
+            channel_router = ChannelRouter(self.bot)
+            
+            for change in state_changes:
+                # Only send embeds for specific state transitions
+                if change['old_state'] == 'queued' and change['new_state'] == 'online':
+                    # Player connected (queued -> online)
+                    embed_data = {
+                        'type': 'connection',
+                        'event': 'player_connected',
+                        'player_name': change['player_name'],
+                        'eos_id': change['eos_id'],
+                        'timestamp': change['timestamp'],
+                        'guild_id': change['guild_id'],
+                        'server_id': change['server_id']
+                    }
+                    await channel_router.route_embed(
+                        embed_type='killfeed',
+                        guild_id=change['guild_id'],
+                        embed_data=embed_data
+                    )
+                
+                elif change['old_state'] == 'online' and change['new_state'] == 'offline':
+                    # Player disconnected (online -> offline)
+                    embed_data = {
+                        'type': 'connection',
+                        'event': 'player_disconnected',
+                        'player_name': change['player_name'],
+                        'eos_id': change['eos_id'],
+                        'timestamp': change['timestamp'],
+                        'guild_id': change['guild_id'],
+                        'server_id': change['server_id']
+                    }
+                    await channel_router.route_embed(
+                        embed_type='killfeed',
+                        guild_id=change['guild_id'],
+                        embed_data=embed_data
+                    )
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to send connection embeds: {e}")
             return False
     
     async def send_event_embeds(self, events: List[Dict[str, Any]]) -> bool:
