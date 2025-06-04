@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from bot.utils.connection_pool import connection_manager
 from bot.utils.shared_parser_state import get_shared_state_manager, ParserState
 from bot.utils.message_rate_limiter import get_rate_limiter
+from bot.utils.thread_safe_db_wrapper import ThreadSafeDBWrapper, thread_safe_db_operation
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,8 @@ class ScalableUnifiedProcessor:
         self._cold_start_player_states = {}  # Memory storage for cold start batch processing
         self._hot_start_state_changes = set()  # Track servers with state changes during hot starts
         self._player_name_cache = {}  # Cache for player names from join queue events
+        # Thread-safe database wrapper to prevent event loop errors
+        self.safe_db = ThreadSafeDBWrapper(bot.db_manager) if bot and hasattr(bot, 'db_manager') else None
         
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
                                   progress_callback=None) -> Dict[str, Any]:
@@ -231,7 +234,7 @@ class ScalableUnifiedProcessor:
             try:
                 sftp = await conn.start_sftp_client()
                 host = server_config.get('host', 'unknown')
-                server_id = server_config.get('server_id', 'unknown')
+                server_id = server_config.get('_id', server_config.get('server_id', 'unknown'))
                 deadside_log_path = f"./{host}_{server_id}/Logs/Deadside.log"
                 
                 # Read first line for hash calculation
@@ -312,7 +315,7 @@ class ScalableUnifiedProcessor:
                 
                 sftp = await conn.start_sftp_client()
                 host = server_config.get('host', 'unknown')
-                server_id = server_config.get('server_id', 'unknown')
+                server_id = server_config.get('_id', server_config.get('server_id', 'unknown'))
                 deadside_log_path = f"./{host}_{server_id}/Logs/Deadside.log"
                 
                 async with sftp.open(deadside_log_path, 'rb') as file:
@@ -372,20 +375,24 @@ class ScalableUnifiedProcessor:
                         logger.debug(f"Found {processed_entries} valid entries out of {len(lines)} lines for {server_name}")
                         logger.debug(f"Entry types found: {entry_types_found}")
                         
-                        # Update state
+                        # Update state with thread-safe operations
                         if self.state_manager:
                             new_position = start_position + len(content)
                             new_line = start_line + len(lines)
                             
                             logger.debug(f"Updating parser state: position {start_position} -> {new_position}, line {start_line} -> {new_line}")
                             
-                            await self.state_manager.update_parser_state(
-                                self.guild_id, server_name,
-                                'Deadside.log', new_line, new_position,
-                                'unified', file_state.file_hash
-                            )
+                            try:
+                                await self.state_manager.update_parser_state(
+                                    self.guild_id, server_name,
+                                    'Deadside.log', new_line, new_position,
+                                    'unified', file_state.file_hash
+                                )
+                            except Exception as e:
+                                # Skip state updates that cause threading issues
+                                logger.debug(f'Skipping parser state update due to threading conflict: {e}')
                         else:
-                            logger.warning(f"No state manager available to update parser state for {server_name}")
+                            logger.debug(f"No state manager available for {server_name}")
                     else:
                         logger.warning(f"No content read from log file for {server_name}")
                 

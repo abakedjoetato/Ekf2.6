@@ -103,7 +103,10 @@ class SharedParserStateManager:
                 'server_name': server_name
             })
             
-            await client.close()
+            try:
+                await client.close()
+            except Exception:
+                pass  # Client may already be closed
             
             if state_doc:
                 return ParserState(
@@ -160,7 +163,10 @@ class SharedParserStateManager:
                 upsert=True
             )
             
-            await client.close()
+            try:
+                await client.close()
+            except Exception:
+                pass  # Client may already be closed
             logger.debug(f"Updated parser state for {guild_id}/{server_name} by {parser_type}")
             return True
             
