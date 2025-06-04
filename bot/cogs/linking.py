@@ -52,26 +52,36 @@ class Linking(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             
             if not ctx.guild:
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("This command can only be used in a server!", ephemeral=True)
+        try:
+            await ctx.respond("This command can only be used in a server!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -90,13 +100,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Character name cannot be empty!", ephemeral=True)
+        try:
+            await ctx.respond("Character name cannot be empty!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Character name cannot be empty!", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Character name cannot be empty!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -110,13 +126,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
+        try:
+            await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Character name too long! Maximum 32 characters.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Character name too long! Maximum 32 characters.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -130,22 +152,25 @@ class Linking(discord.Cog):
             import asyncio
             
             async def validate_player():
-                return await self.bot.db_manager.find_player_in_pvp_data(guild_id, character)
+                return await asyncio.wait_for(self.bot.db_manager.find_player_in_pvp_data(guild_id, timeout=3.0, character)
             
             actual_player_name = await asyncio.wait_for(validate_player(), timeout=5.0)
             if not actual_player_name:
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(
+        try:
+            await ctx.respond(
                     f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(
+                        try:
+            await ctx.followup.send(
                     f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
@@ -164,8 +189,8 @@ class Linking(discord.Cog):
             
             # Check if character is already linked to another user with timeout protection
             async def check_existing_link():
-                return await self.bot.db_manager.players.find_one({
-                    "guild_id": guild_id,
+                return await asyncio.wait_for(self.bot.db_manager.players.find_one({
+                    "guild_id": guild_id, timeout=3.0,
                     "linked_characters": character
                 })
             
@@ -175,15 +200,18 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(
+        try:
+            await ctx.respond(
                     f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(
+                        try:
+            await ctx.followup.send(
                     f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
@@ -199,27 +227,33 @@ class Linking(discord.Cog):
             
             # Link the character with timeout protection
             async def link_player():
-                return await self.bot.db_manager.link_player(guild_id, discord_id, character)
+                return await asyncio.wait_for(self.bot.db_manager.link_player(guild_id, timeout=3.0, discord_id, character)
             
             success = await asyncio.wait_for(link_player(), timeout=5.0)
             
             if success:
                 # Get updated player data with timeout protection
                 async def get_updated_data():
-                    return await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+                    return await asyncio.wait_for(self.bot.db_manager.get_linked_player(guild_id, timeout=3.0, discord_id)
                 
                 player_data = await asyncio.wait_for(get_updated_data(), timeout=5.0)
                 if not player_data:
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond("Failed to retrieve updated player data.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to retrieve updated player data.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send("Failed to retrieve updated player data.", ephemeral=True)
-
+                            try:
+            await ctx.followup.send("Failed to retrieve updated player data.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
                         logger.warning("Interaction expired, cannot send response")
@@ -273,17 +307,21 @@ class Linking(discord.Cog):
 
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-
-                        await ctx.respond(embed=embed, file=connections_file)
+        try:
+            await ctx.respond(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
 
                     else:
 
 
-                        await ctx.followup.send(embed=embed, file=connections_file)
-
-
+                        try:
+            await ctx.followup.send(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
 
@@ -298,13 +336,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Failed to link character. Please try again.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to link character. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Failed to link character. Please try again.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Failed to link character. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -320,13 +364,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
+        try:
+            await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -340,13 +390,19 @@ class Linking(discord.Cog):
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond("Failed to link character.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to link character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send("Failed to link character.", ephemeral=True)
-
+                            try:
+            await ctx.followup.send("Failed to link character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
                         logger.warning("Interaction expired, cannot send response")
@@ -358,13 +414,19 @@ class Linking(discord.Cog):
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond("Failed to link character.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to link character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send("Failed to link character.", ephemeral=True)
-
+                            try:
+            await ctx.followup.send("Failed to link character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
                         logger.warning("Interaction expired, cannot send response")
@@ -389,37 +451,47 @@ class Linking(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             
             guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             # Check if user has any linked characters
-            player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+            player_data = await asyncio.wait_for(self.bot.db_manager.get_linked_player(guild_id, timeout=3.0, discord_id)
             if not player_data:
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(
+        try:
+            await ctx.respond(
                     "You must link your main character first using `/link <character>`!",
                     ephemeral=True
                 )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(
+                        try:
+            await ctx.followup.send(
                     "You must link your main character first using `/link <character>`!",
                     ephemeral=True
                 )
-
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -435,13 +507,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Character name cannot be empty!", ephemeral=True)
+        try:
+            await ctx.respond("Character name cannot be empty!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Character name cannot be empty!", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Character name cannot be empty!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -455,13 +533,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
+        try:
+            await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Character name too long! Maximum 32 characters.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Character name too long! Maximum 32 characters.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -472,20 +556,23 @@ class Linking(discord.Cog):
                 return
             
             # Validate that player exists in PvP data
-            actual_player_name = await self.bot.db_manager.find_player_in_pvp_data(guild_id, character)
+            actual_player_name = await asyncio.wait_for(self.bot.db_manager.find_player_in_pvp_data(guild_id, timeout=3.0, character)
             if not actual_player_name:
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(
+        try:
+            await ctx.respond(
                     f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(
+                        try:
+            await ctx.followup.send(
                     f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
@@ -507,12 +594,15 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(f"**{character}** is already linked to your account!", ephemeral=True)
+        try:
+            await ctx.respond(f"**{character}** is already linked to your account!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(f"**{character}** is already linked to your account!", ephemeral=True)
+                        try:
+            await ctx.followup.send(f"**{character}** is already linked to your account!", ephemeral=True)
 
                 except discord.errors.NotFound:
 
@@ -524,8 +614,8 @@ class Linking(discord.Cog):
                 return
             
             # Check if character is linked to another user
-            existing_link = await self.bot.db_manager.players.find_one({
-                "guild_id": guild_id,
+            existing_link = await asyncio.wait_for(self.bot.db_manager.players.find_one({
+                "guild_id": guild_id, timeout=3.0,
                 "linked_characters": character
             })
             
@@ -533,15 +623,18 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(
+        try:
+            await ctx.respond(
                     f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(
+                        try:
+            await ctx.followup.send(
                     f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
@@ -556,14 +649,14 @@ class Linking(discord.Cog):
                 return
             
             # Add the alternate character
-            result = await self.bot.db_manager.players.update_one(
-                {"guild_id": guild_id, "discord_id": discord_id},
+            result = await asyncio.wait_for(self.bot.db_manager.players.update_one(
+                {"guild_id": guild_id, timeout=3.0, "discord_id": discord_id},
                 {"$addToSet": {"linked_characters": character}}
             )
             
             if result.modified_count > 0:
                 # Get updated data
-                updated_player = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+                updated_player = await asyncio.wait_for(self.bot.db_manager.get_linked_player(guild_id, timeout=3.0, discord_id)
                 
                 embed = discord.Embed(
                     title="➕ Alternate Character Added",
@@ -588,17 +681,21 @@ class Linking(discord.Cog):
 
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-
-                        await ctx.respond(embed=embed, file=connections_file)
+        try:
+            await ctx.respond(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
 
                     else:
 
 
-                        await ctx.followup.send(embed=embed, file=connections_file)
-
-
+                        try:
+            await ctx.followup.send(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
 
@@ -613,13 +710,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Failed to add alternate character.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to add alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Failed to add alternate character.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Failed to add alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -633,13 +736,19 @@ class Linking(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to add alternate character.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to add alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to add alternate character.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to add alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
@@ -662,31 +771,41 @@ class Linking(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             
             guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             # Get player data
-            player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+            player_data = await asyncio.wait_for(self.bot.db_manager.get_linked_player(guild_id, timeout=3.0, discord_id)
             if not player_data:
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("You don't have any linked characters!", ephemeral=True)
+        try:
+            await ctx.respond("You don't have any linked characters!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("You don't have any linked characters!", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("You don't have any linked characters!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -702,12 +821,15 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(f"**{character}** is not linked to your account!", ephemeral=True)
+        try:
+            await ctx.respond(f"**{character}** is not linked to your account!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(f"**{character}** is not linked to your account!", ephemeral=True)
+                        try:
+            await ctx.followup.send(f"**{character}** is not linked to your account!", ephemeral=True)
 
                 except discord.errors.NotFound:
 
@@ -723,19 +845,25 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(
+        try:
+            await ctx.respond(
                     "Cannot remove your only character! Use `/unlink` to remove all characters.",
                     ephemeral=True
                 )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(
+                        try:
+            await ctx.followup.send(
                     "Cannot remove your only character! Use `/unlink` to remove all characters.",
                     ephemeral=True
                 )
-
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -746,8 +874,8 @@ class Linking(discord.Cog):
                 return
             
             # Remove the character
-            result = await self.bot.db_manager.players.update_one(
-                {"guild_id": guild_id, "discord_id": discord_id},
+            result = await asyncio.wait_for(self.bot.db_manager.players.update_one(
+                {"guild_id": guild_id, timeout=3.0, "discord_id": discord_id},
                 {"$pull": {"linked_characters": character}}
             )
             
@@ -755,13 +883,13 @@ class Linking(discord.Cog):
                 # If removed character was primary, set new primary
                 if player_data['primary_character'] == character:
                     remaining_chars = [c for c in player_data['linked_characters'] if c != character]
-                    await self.bot.db_manager.players.update_one(
-                        {"guild_id": guild_id, "discord_id": discord_id},
+                    await asyncio.wait_for(self.bot.db_manager.players.update_one(
+                        {"guild_id": guild_id, timeout=3.0, "discord_id": discord_id},
                         {"$set": {"primary_character": remaining_chars[0]}}
                     )
                 
                 # Get updated data
-                updated_player = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+                updated_player = await asyncio.wait_for(self.bot.db_manager.get_linked_player(guild_id, timeout=3.0, discord_id)
                 
                 embed = discord.Embed(
                     title="➖ Alternate Character Removed",
@@ -793,17 +921,21 @@ class Linking(discord.Cog):
 
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-
-                        await ctx.respond(embed=embed, file=connections_file)
+        try:
+            await ctx.respond(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
 
                     else:
 
 
-                        await ctx.followup.send(embed=embed, file=connections_file)
-
-
+                        try:
+            await ctx.followup.send(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
 
@@ -818,13 +950,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Failed to remove alternate character.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to remove alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Failed to remove alternate character.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Failed to remove alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -838,13 +976,19 @@ class Linking(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to remove alternate character.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to remove alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to remove alternate character.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to remove alternate character.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
@@ -867,39 +1011,49 @@ class Linking(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             
             guild_id = (ctx.guild.id if ctx.guild else None)
             target_user = user or ctx.user
             
             # Get player data
-            player_data = await self.bot.db_manager.get_linked_player(guild_id, target_user.id)
+            player_data = await asyncio.wait_for(self.bot.db_manager.get_linked_player(guild_id, timeout=3.0, target_user.id)
             
             if not player_data:
                 if target_user == ctx.user:
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond(
+        try:
+            await ctx.respond(
                         "You don't have any linked characters! Use `/link <character>` to get started.",
                         ephemeral=True
                     )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send(
+                            try:
+            await ctx.followup.send(
                         "You don't have any linked characters! Use `/link <character>` to get started.",
                         ephemeral=True
                     )
-
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
                         logger.warning("Interaction expired, cannot send response")
@@ -911,15 +1065,18 @@ class Linking(discord.Cog):
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond(
+        try:
+            await ctx.respond(
                         f"{target_user.mention} doesn't have any linked characters!",
                         ephemeral=True
                     )
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send(
+                            try:
+            await ctx.followup.send(
                         f"{target_user.mention} doesn't have any linked characters!",
                         ephemeral=True
                     )
@@ -968,17 +1125,21 @@ class Linking(discord.Cog):
 
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-
-                    await ctx.respond(embed=embed, file=connections_file)
+        try:
+            await ctx.respond(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
 
                 else:
 
 
-                    await ctx.followup.send(embed=embed, file=connections_file)
-
-
+                    try:
+            await ctx.followup.send(embed=embed, file=connections_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
 
@@ -995,13 +1156,19 @@ class Linking(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to retrieve linked characters.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to retrieve linked characters.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to retrieve linked characters.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to retrieve linked characters.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
@@ -1024,32 +1191,42 @@ class Linking(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             
             guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
             # Get player data
-            player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+            player_data = await asyncio.wait_for(self.bot.db_manager.get_linked_player(guild_id, timeout=3.0, discord_id)
             
             if not player_data:
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("You don't have any linked characters!", ephemeral=True)
+        try:
+            await ctx.respond("You don't have any linked characters!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("You don't have any linked characters!", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("You don't have any linked characters!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -1100,8 +1277,8 @@ class Linking(discord.Cog):
                     
                     # Proceed with unlinking
                     try:
-                        result = await self.bot.db_manager.players.delete_one({
-                            "guild_id": guild_id,
+                        result = await asyncio.wait_for(self.bot.db_manager.players.delete_one({
+                            "guild_id": guild_id, timeout=3.0,
                             "discord_id": discord_id
                         })
                         
@@ -1181,13 +1358,19 @@ class Linking(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond(embed=embed, view=view)
+        try:
+            await ctx.respond(embed=embed, view=view)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send(embed=embed, view=view)
-
+                    try:
+            await ctx.followup.send(embed=embed, view=view)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
@@ -1209,13 +1392,19 @@ class Linking(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Failed to unlink characters. Please try again.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to unlink characters. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Failed to unlink characters. Please try again.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Failed to unlink characters. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -1229,13 +1418,19 @@ class Linking(discord.Cog):
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond("Failed to unlink characters. Please try again.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to unlink characters. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send("Failed to unlink characters. Please try again.", ephemeral=True)
-
+                            try:
+            await ctx.followup.send("Failed to unlink characters. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
                         logger.warning("Interaction expired, cannot send response")

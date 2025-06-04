@@ -1,87 +1,143 @@
-#!/usr/bin/env python3
 """
-Fix Online Command - Comprehensive solution for rate limiting and database issues
+Comprehensive fix for /online command "Unknown interaction" error
 """
-import asyncio
-import os
-import sys
-import motor.motor_asyncio
 
-async def fix_online_command():
-    """Fix the online command issues comprehensively"""
+import os
+import re
+
+def fix_online_command():
+    """Fix the /online command with proper interaction handling"""
     
-    print("Fixing Online Command Issues")
-    print("=" * 40)
+    # Read the current stats.py file
+    with open('bot/cogs/stats.py', 'r') as f:
+        content = f.read()
     
-    # Connect to MongoDB directly
-    mongo_client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGO_URI'))
-    db = mongo_client['deadside_pvp_tracker']
+    # Find the online command and replace it entirely
+    online_command_pattern = r'@discord\.slash_command\(description="View currently online players"\)\s*async def online\(self, ctx: discord\.ApplicationContext\):.*?(?=@discord\.slash_command|\Z)'
     
-    guild_id = 1315008007830650941
+    # New online command implementation
+    new_online_command = '''@discord.slash_command(description="View currently online players")
+    async def online(self, ctx: discord.ApplicationContext):
+        """Show currently online players"""
+        import asyncio
+        logger.info(f"Starting /online command for guild {ctx.guild.id if ctx.guild else 'None'}")
+        
+        # Immediate defer to prevent Discord timeout
+        try:
+            await ctx.defer()
+            logger.info("Context deferred successfully")
+        except discord.errors.NotFound:
+            logger.error("Interaction already expired before defer")
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
+            return
+        
+        try:
+            if not ctx.guild:
+                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+                return
+                
+            guild_id = ctx.guild.id
+            logger.info(f"Processing /online for guild {guild_id}")
+            
+            # Fast database query with timeout protection
+            sessions = []
+            try:
+                logger.info("Attempting database query")
+                cursor = self.bot.db_manager.player_sessions.find(
+                    {'guild_id': guild_id, 'state': 'online'},
+                    {'character_name': 1, 'server_name': 1, '_id': 0}
+                ).limit(10)
+                
+                sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=2.0)
+                logger.info(f"Query successful: {len(sessions)} sessions found")
+                
+            except asyncio.TimeoutError:
+                logger.warning("Database query timed out")
+                embed = discord.Embed(
+                    title="🌐 Online Players",
+                    description="Database is currently slow. Please try again in a moment.",
+                    color=0xFFAA00
+                )
+                await ctx.followup.send(embed=embed, ephemeral=True)
+                return
+                
+            except Exception as e:
+                logger.error(f"Database query failed: {e}")
+                embed = discord.Embed(
+                    title="❌ Error",
+                    description="Unable to fetch player data. Please try again.",
+                    color=0xFF0000
+                )
+                await ctx.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Create response embed
+            if not sessions:
+                embed = discord.Embed(
+                    title="🌐 Online Players",
+                    description="No players are currently online.",
+                    color=0x808080
+                )
+            else:
+                # Group by server
+                servers = {}
+                for session in sessions:
+                    server_name = session.get('server_name', 'Unknown Server')
+                    character_name = session.get('character_name', 'Unknown Player')
+                    
+                    if server_name not in servers:
+                        servers[server_name] = []
+                    servers[server_name].append(character_name)
+                
+                embed = discord.Embed(
+                    title="🌐 Online Players",
+                    description=f"Found {len(sessions)} players online",
+                    color=0x00FF00
+                )
+                
+                for server_name, players in servers.items():
+                    player_list = "\\n".join([f"• {player}" for player in players[:10]])
+                    embed.add_field(
+                        name=f"🎮 {server_name}",
+                        value=player_list,
+                        inline=False
+                    )
+            
+            embed.set_footer(text="Real-time player data")
+            
+            # Send response
+            try:
+                await ctx.followup.send(embed=embed)
+                logger.info("Response sent successfully")
+            except discord.errors.NotFound:
+                logger.warning("Interaction expired, cannot send response")
+            except Exception as e:
+                logger.error(f"Failed to send response: {e}")
+                
+        except Exception as e:
+            logger.error(f"Error in /online command: {e}")
+            try:
+                error_embed = discord.Embed(
+                    title="❌ Command Error",
+                    description="An unexpected error occurred. Please try again.",
+                    color=0xFF0000
+                )
+                await ctx.followup.send(embed=error_embed, ephemeral=True)
+            except:
+                pass  # Interaction may have expired
+
+'''
     
-    try:
-        # Check player sessions collection structure
-        print("Checking player sessions data structure...")
-        
-        # Get sample documents to understand structure
-        sample_docs = []
-        async for doc in db.player_sessions.find({'guild_id': guild_id}).limit(5):
-            sample_docs.append(doc)
-        
-        if sample_docs:
-            print(f"Found {len(sample_docs)} sample documents")
-            for i, doc in enumerate(sample_docs):
-                print(f"  Document {i+1}:")
-                print(f"    Guild ID: {doc.get('guild_id')} (type: {type(doc.get('guild_id'))})")
-                print(f"    Server name: {doc.get('server_name')}")
-                print(f"    Player name: {doc.get('player_name')}")
-                print(f"    Status: {doc.get('status')}")
-                print(f"    Fields: {list(doc.keys())}")
-        else:
-            print("No documents found in player_sessions collection")
-        
-        # Count online players
-        online_query = {
-            'guild_id': guild_id,
-            'status': 'online'
-        }
-        
-        online_count = await db.player_sessions.count_documents(online_query)
-        print(f"Current online players: {online_count}")
-        
-        # Check if there are any active sessions
-        if online_count > 0:
-            print("Found active player sessions:")
-            async for session in db.player_sessions.find(online_query).limit(10):
-                player_name = session.get('player_name', 'Unknown')
-                server_name = session.get('server_name', 'Unknown')
-                print(f"  {player_name} on {server_name}")
-        
-        # Fix rate limiting by clearing command sync cooldown
-        cooldown_file = "command_sync_cooldown.txt"
-        if os.path.exists(cooldown_file):
-            print("Removing command sync cooldown file...")
-            os.remove(cooldown_file)
-            print("Command sync cooldown cleared")
-        else:
-            print("No command sync cooldown file found")
-        
-        # Check command hash file
-        hash_file = "command_hash.txt"
-        if os.path.exists(hash_file):
-            print("Command hash file exists - commands should be stable")
-        else:
-            print("No command hash file - commands may need initial sync")
-        
-        print("Online command fix completed successfully")
-        
-    except Exception as e:
-        print(f"Fix failed: {e}")
-        import traceback
-        traceback.print_exc()
+    # Replace the command
+    content = re.sub(online_command_pattern, new_online_command, content, flags=re.DOTALL)
     
-    finally:
-        mongo_client.close()
+    # Write the fixed file
+    with open('bot/cogs/stats.py', 'w') as f:
+        f.write(content)
+    
+    print("✅ Fixed /online command with proper interaction handling")
 
 if __name__ == "__main__":
-    asyncio.run(fix_online_command())
+    fix_online_command()

@@ -535,29 +535,13 @@ class Stats(discord.Cog):
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
                 
                 try:
-
-                
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                
                         await ctx.respond(embed=embed, file=weaponstats_file)
-
-                
                     else:
-
-                
                         await ctx.followup.send(embed=embed, file=weaponstats_file)
-
-                
                 except discord.errors.NotFound:
-
-                
                     logger.warning("Interaction expired, cannot send response")
-
-                
                 except Exception as e:
-
-                
                     logger.error(f"Failed to send response: {e}")
                 return
 

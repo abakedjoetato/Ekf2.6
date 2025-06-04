@@ -69,11 +69,16 @@ class Core(discord.Cog):
             main_file = discord.File("./assets/main.png", filename="main.png")
             embed.set_thumbnail(url="attachment://main.png")
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
+        try:
             await ctx.respond(embed=embed, file=main_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
         except Exception as e:
             logger.error(f"Failed to show bot info: {e}")
+        try:
             await ctx.respond("Failed to retrieve bot information.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
     @discord.slash_command(name="ping", description="Check bot latency")
     async def ping(self, ctx):
@@ -86,14 +91,18 @@ class Core(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             latency = round(self.bot.latency * 1000)
 
             embed = discord.Embed(
@@ -118,12 +127,17 @@ class Core(discord.Cog):
             )
 
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
+        try:
             await ctx.respond(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
         except Exception as e:
             logger.error(f"Failed to ping: {e}")
+        try:
             await ctx.respond("Failed to check latency.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
     @discord.slash_command(name="help", description="Show help information")
     async def help(self, ctx):
@@ -136,14 +150,18 @@ class Core(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             embed = discord.Embed(
                 title="❓ Help & Commands",
                 description="Complete guide to Emerald's Killfeed Bot",
@@ -170,11 +188,17 @@ class Core(discord.Cog):
             )
             
             embed.set_footer(text="Emerald's Killfeed Bot", icon_url=ctx.bot.user.display_avatar.url)
+        try:
             await ctx.respond(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             
         except Exception as e:
             logger.error(f"Failed to show help: {e}")
+        try:
             await ctx.respond("Failed to retrieve help information.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
     
 

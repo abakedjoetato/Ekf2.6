@@ -70,14 +70,18 @@ class AdminChannels(discord.Cog):
             except discord.errors.NotFound:
 
                 # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             except Exception as e:
 
                 logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
+        try:
+            await ctx.respond("Processing...", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             
             guild_id = (ctx.guild.id if ctx.guild else None)
             channel_config = self.channel_types[channel_type]
@@ -115,13 +119,19 @@ class AdminChannels(discord.Cog):
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond(embed=embed, ephemeral=True)
+        try:
+            await ctx.respond(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send(embed=embed, ephemeral=True)
-
+                            try:
+            await ctx.followup.send(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
                         logger.warning("Interaction expired, cannot send response")
@@ -143,13 +153,19 @@ class AdminChannels(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(embed=embed, ephemeral=True)
+        try:
+            await ctx.respond(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(embed=embed, ephemeral=True)
-
+                        try:
+            await ctx.followup.send(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -188,13 +204,19 @@ class AdminChannels(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
+        try:
+            await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -208,13 +230,19 @@ class AdminChannels(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Database operation failed. Please try again.", ephemeral=True)
+        try:
+            await ctx.respond("Database operation failed. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Database operation failed. Please try again.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Database operation failed. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -283,17 +311,21 @@ class AdminChannels(discord.Cog):
 
             
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-            
-                    await ctx.respond(embed=embed)
+        try:
+            await ctx.respond(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             
                 else:
 
             
-                    await ctx.followup.send(embed=embed)
-
-            
+                    try:
+            await ctx.followup.send(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
             
@@ -312,13 +344,19 @@ class AdminChannels(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to configure channel.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to configure channel.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to configure channel.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to configure channel.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
@@ -374,12 +412,15 @@ class AdminChannels(discord.Cog):
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+        try:
+            await ctx.respond(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+                            try:
+            await ctx.followup.send(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
 
                     except discord.errors.NotFound:
 
@@ -419,13 +460,19 @@ class AdminChannels(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(embed=embed, ephemeral=True)
+        try:
+            await ctx.respond(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(embed=embed, ephemeral=True)
-
+                        try:
+            await ctx.followup.send(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -439,13 +486,19 @@ class AdminChannels(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("No valid channels provided to configure.", ephemeral=True)
+        try:
+            await ctx.respond("No valid channels provided to configure.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("No valid channels provided to configure.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("No valid channels provided to configure.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -488,17 +541,21 @@ class AdminChannels(discord.Cog):
 
             
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-            
-                    await ctx.respond(embed=embed)
+        try:
+            await ctx.respond(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             
                 else:
 
             
-                    await ctx.followup.send(embed=embed)
-
-            
+                    try:
+            await ctx.followup.send(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
             
@@ -517,13 +574,19 @@ class AdminChannels(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to configure channels.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to configure channels.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to configure channels.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to configure channels.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
@@ -553,13 +616,19 @@ class AdminChannels(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(embed=embed, ephemeral=True)
+        try:
+            await ctx.respond(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(embed=embed, ephemeral=True)
-
+                        try:
+            await ctx.followup.send(embed=embed, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -618,17 +687,21 @@ class AdminChannels(discord.Cog):
 
             
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-            
-                    await ctx.respond(embed=embed)
+        try:
+            await ctx.respond(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             
                 else:
 
             
-                    await ctx.followup.send(embed=embed)
-
-            
+                    try:
+            await ctx.followup.send(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
             
@@ -647,13 +720,19 @@ class AdminChannels(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to clear channel configurations.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to clear channel configurations.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to clear channel configurations.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to clear channel configurations.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
@@ -732,17 +811,21 @@ class AdminChannels(discord.Cog):
 
             
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-            
-                    await ctx.respond(embed=embed)
+        try:
+            await ctx.respond(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
             
                 else:
 
             
-                    await ctx.followup.send(embed=embed)
-
-            
+                    try:
+            await ctx.followup.send(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
             
@@ -759,13 +842,19 @@ class AdminChannels(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to retrieve channel configuration.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to retrieve channel configuration.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to retrieve channel configuration.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to retrieve channel configuration.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")

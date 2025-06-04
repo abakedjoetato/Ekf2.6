@@ -39,12 +39,18 @@ class Premium(discord.Cog):
         try:
             # Check if user is bot owner
             if not self.is_bot_owner(ctx.user.id):
-                await ctx.respond("Only the bot owner can use this command!", ephemeral=True)
+        try:
+            await ctx.respond("Only the bot owner can use this command!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
                 return
 
             guild_id = ctx.guild.id if ctx.guild else None
             if not guild_id:
-                await ctx.respond("This command must be used in a server!", ephemeral=True)
+        try:
+            await ctx.respond("This command must be used in a server!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
                 return
 
             # Update or create guild as home server
@@ -86,12 +92,17 @@ class Premium(discord.Cog):
             main_file = discord.File("./assets/main.png", filename="main.png")
             embed.set_thumbnail(url="attachment://main.png")
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
+        try:
             await ctx.respond(embed=embed, file=main_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
         except Exception as e:
             logger.error(f"Failed to set home server: {e}")
+        try:
             await ctx.respond("Failed to set home server.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
     gameserver = discord.SlashCommandGroup("gameserver", "Game server management commands")
 
@@ -265,7 +276,10 @@ class Premium(discord.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.respond("This guild is not configured!", ephemeral=True)
+        try:
+            await ctx.respond("This guild is not configured!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
                 return
 
             servers = guild_config.get('servers', [])
@@ -283,7 +297,10 @@ class Premium(discord.Cog):
                     inline=False
                 )
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-                await ctx.respond(embed=embed)
+        try:
+            await ctx.respond(embed=embed)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
                 return
 
             # Create server list embed
@@ -313,12 +330,17 @@ class Premium(discord.Cog):
             main_file = discord.File("./assets/main.png", filename="main.png")
             embed.set_thumbnail(url="attachment://main.png")
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
+        try:
             await ctx.respond(embed=embed, file=main_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
         except Exception as e:
             logger.error(f"Failed to list servers: {e}")
+        try:
             await ctx.respond("Failed to list servers. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
     @gameserver.command(name="remove", description="Remove a server from this guild")
     @discord.default_permissions(administrator=True)
@@ -333,7 +355,10 @@ class Premium(discord.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.respond("This guild is not configured!", ephemeral=True)
+        try:
+            await ctx.respond("This guild is not configured!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
                 return
 
             # Find server in the guild config
@@ -349,7 +374,10 @@ class Premium(discord.Cog):
                     break
 
             if not server_found:
-                await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+        try:
+            await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
                 return
 
             # Remove server from guild config
@@ -366,14 +394,22 @@ class Premium(discord.Cog):
                 main_file = discord.File("./assets/main.png", filename="main.png")
                 embed.set_thumbnail(url="attachment://main.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
-                await ctx.respond(embed=embed, file=main_file)
+        try:
+            await ctx.respond(embed=embed, file=main_file)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
             else:
-                await ctx.respond("Failed to remove server. Please try again.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to remove server. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
         except Exception as e:
             logger.error(f"Failed to remove server: {e}")
+        try:
             await ctx.respond("Failed to remove server. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
     @gameserver.command(name="refresh", description="Refresh data for a server")
     @discord.default_permissions(administrator=True)
@@ -394,13 +430,19 @@ class Premium(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("This guild is not configured!", ephemeral=True)
+        try:
+            await ctx.respond("This guild is not configured!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("This guild is not configured!", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("This guild is not configured!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -428,12 +470,15 @@ class Premium(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+        try:
+            await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+                        try:
+            await ctx.followup.send(f"Server **{server_id}** not found in this guild!", ephemeral=True)
 
                 except discord.errors.NotFound:
 
@@ -470,17 +515,21 @@ class Premium(discord.Cog):
 
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-
-                            await ctx.respond(embed=embed, file=main_file, ephemeral=True)
+        try:
+            await ctx.respond(embed=embed, file=main_file, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
 
                         else:
 
 
-                            await ctx.followup.send(embed=embed, file=main_file, ephemeral=True)
-
-
+                            try:
+            await ctx.followup.send(embed=embed, file=main_file, ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
 
@@ -497,13 +546,19 @@ class Premium(discord.Cog):
                     try:
 
                         if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                            await ctx.respond("Failed to trigger server refresh. Please try again.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to trigger server refresh. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                         else:
 
-                            await ctx.followup.send("Failed to trigger server refresh. Please try again.", ephemeral=True)
-
+                            try:
+            await ctx.followup.send("Failed to trigger server refresh. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                     except discord.errors.NotFound:
 
                         logger.warning("Interaction expired, cannot send response")
@@ -515,13 +570,19 @@ class Premium(discord.Cog):
                 try:
 
                     if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("Parser system not available for refresh.", ephemeral=True)
+        try:
+            await ctx.respond("Parser system not available for refresh.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                     else:
 
-                        await ctx.followup.send("Parser system not available for refresh.", ephemeral=True)
-
+                        try:
+            await ctx.followup.send("Parser system not available for refresh.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
                 except discord.errors.NotFound:
 
                     logger.warning("Interaction expired, cannot send response")
@@ -535,13 +596,19 @@ class Premium(discord.Cog):
             try:
 
                 if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                    await ctx.respond("Failed to refresh server. Please try again.", ephemeral=True)
+        try:
+            await ctx.respond("Failed to refresh server. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
 
                 else:
 
-                    await ctx.followup.send("Failed to refresh server. Please try again.", ephemeral=True)
-
+                    try:
+            await ctx.followup.send("Failed to refresh server. Please try again.", ephemeral=True)
+        except discord.errors.NotFound:
+            pass  # Interaction expired
+        except Exception as e:
+            logger.error(f"Failed to send followup: {e}")
             except discord.errors.NotFound:
 
                 logger.warning("Interaction expired, cannot send response")
