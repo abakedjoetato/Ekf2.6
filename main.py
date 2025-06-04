@@ -101,7 +101,8 @@ class EmeraldKillfeedBot(commands.Bot):
             intents=intents,
             help_command=None,
             status=discord.Status.online,
-            activity=discord.Game(name="Emerald's Killfeed v2.0")
+            activity=discord.Game(name="Emerald's Killfeed v2.0"),
+            auto_sync_commands=False  # Disable automatic command syncing
         )
 
         # Initialize variables
