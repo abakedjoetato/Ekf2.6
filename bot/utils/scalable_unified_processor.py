@@ -115,13 +115,9 @@ class ScalableUnifiedProcessor:
             for event_type, pattern in self.event_patterns.items():
                 match = pattern.search(message)
                 if match:
-                    return {
-                        'timestamp': timestamp,
-                        'type': 'event',
-                        'event': event_type,
-                        'details': match.groups(),
-                        'raw_message': message
-                    }
+                    # Apply advanced normalization for events
+                    normalized_event = self._normalize_event_data(event_type, match.groups(), timestamp, message)
+                    return normalized_event
             
             return None
             
@@ -407,6 +403,67 @@ class ScalableUnifiedProcessor:
             'vehicle_del': 'events'
         }
         return mapping.get(event_type, 'events')
+    
+    def _normalize_event_data(self, event_type: str, match_groups: tuple, timestamp: datetime, raw_message: str) -> Dict[str, Any]:
+        """Advanced normalization for mission and event data"""
+        normalized = {
+            'timestamp': timestamp,
+            'type': 'event',
+            'event': event_type,
+            'details': match_groups,
+            'raw_message': raw_message
+        }
+        
+        # Mission normalization
+        if event_type in ['mission_start', 'mission_end']:
+            mission_name = match_groups[0] if match_groups else 'Unknown Mission'
+            # Normalize mission names for consistent display
+            normalized['mission_name'] = self._normalize_mission_name(mission_name)
+            normalized['mission_state'] = 'READY' if event_type == 'mission_start' else 'WAITING'
+            normalized['mission_level'] = self._extract_mission_level(mission_name)
+            
+        # Airdrop normalization
+        elif event_type in ['airdrop_flying', 'airdrop_dropping', 'airdrop_dead']:
+            normalized['airdrop_state'] = event_type.split('_')[1].upper()  # FLYING, DROPPING, DEAD
+            normalized['event_priority'] = 'high' if event_type == 'airdrop_dropping' else 'medium'
+            
+        # Vehicle event normalization
+        elif event_type in ['vehicle_add', 'vehicle_del']:
+            vehicle_count = int(match_groups[0]) if match_groups and match_groups[0].isdigit() else 0
+            normalized['vehicle_count'] = vehicle_count
+            normalized['vehicle_action'] = 'added' if event_type == 'vehicle_add' else 'removed'
+            
+        return normalized
+    
+    def _normalize_mission_name(self, mission_name: str) -> str:
+        """Normalize mission names for consistent display"""
+        # Remove GA_ prefix and convert to readable format
+        if mission_name.startswith('GA_'):
+            mission_name = mission_name[3:]
+        
+        # Convert underscores to spaces and capitalize
+        parts = mission_name.split('_')
+        normalized_parts = []
+        
+        for part in parts:
+            if part.lower() == 'mis' or part.lower().startswith('mis'):
+                continue  # Skip mission indicators
+            if part.isdigit():
+                normalized_parts.append(f"#{part}")
+            else:
+                normalized_parts.append(part.capitalize())
+        
+        return ' '.join(normalized_parts) if normalized_parts else mission_name
+    
+    def _extract_mission_level(self, mission_name: str) -> int:
+        """Extract mission difficulty level from name"""
+        # Look for numbers in mission name that indicate level
+        import re
+        numbers = re.findall(r'\d+', mission_name)
+        if numbers:
+            # Use the last number as level indicator
+            return min(int(numbers[-1]), 5)  # Cap at level 5
+        return 1  # Default level
 
     async def process_log_data_cold_start(self, server_config: Dict[str, Any], guild_id: int) -> List[Dict[str, Any]]:
         """Process all log data chronologically from beginning for cold start"""
@@ -460,67 +517,6 @@ class ScalableUnifiedProcessor:
             
         except Exception as e:
             logger.error(f"Error in hot start processing: {e}")
-            return []
-    
-    async def process_log_data_cold_start(self, server_config: Dict[str, Any], guild_id: int) -> List[Dict[str, Any]]:
-        """Process log data for cold start - chronological processing without embeds"""
-        try:
-            server_id = server_config.get('server_id', 'default')
-            server_name = server_config.get('server_name', 'Unknown')
-            
-            logger.info(f"Cold start: Connecting to {server_name}")
-            
-            # Use same connection method as hot start
-            host = server_config.get('host')
-            port = server_config.get('port', 22)
-            username = server_config.get('username')
-            
-            async with asyncssh.connect(
-                host=host,
-                port=port,
-                username=username,
-                password=server_config.get('password'),
-                known_hosts=None,
-                server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521'],
-                kex_algs=['diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521'],
-                encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com']
-            ) as conn:
-                logger.info(f"Cold start: Connected to {server_name}")
-                
-                # Use dynamic log path
-                log_path = f"./{host}_{server_config.get('game_port', 7020)}/Logs/Deadside.log"
-                logger.info(f"Cold start: Reading complete log file {log_path}")
-                
-                try:
-                    async with conn.start_sftp_client() as sftp:
-                        # Read entire log file chronologically
-                        async with sftp.open(log_path, 'r') as f:
-                            log_content = await f.read()
-                            log_lines = log_content.splitlines()
-                        
-                        all_events = []
-                        
-                        # Process all lines chronologically
-                        for line_number, line in enumerate(log_lines, 1):
-                            parsed_event = self.parse_log_line(line.strip())
-                            if parsed_event:
-                                parsed_event.update({
-                                    'guild_id': guild_id,
-                                    'server_id': server_id,
-                                    'server_name': server_name,
-                                    'line_number': line_number
-                                })
-                                all_events.append(parsed_event)
-                        
-                        logger.info(f"Cold start: Processed {len(all_events)} events from {len(log_lines)} log lines")
-                        return all_events
-                        
-                except Exception as sftp_error:
-                    logger.error(f"Cold start: SFTP read error for {server_name}: {sftp_error}")
-                    return []
-            
-        except Exception as e:
-            logger.error(f"Cold start: Error processing {server_config.get('server_name', 'Unknown')}: {e}")
             return []
     
     async def update_player_sessions_cold(self, events: List[Dict[str, Any]], guild_id: int, server_id: str):
@@ -640,16 +636,14 @@ class ScalableUnifiedProcessor:
             channel_router = ChannelRouter(self.bot)
             
             for event in game_events:
-                # Use embed factory for consistent formatting
-                embed = embed_factory.create_event_embed(event)
-                if embed:
-                    channel_type = self._get_channel_type_for_event(event.get('event') or 'events')
-                    
+                # Use advanced normalization and embed factory for consistent formatting
+                embed_data, channel_type = await self._create_event_embed(event)
+                if embed_data:
                     await channel_router.send_embed_to_channel(
                         guild_id=event['guild_id'],
                         server_id=event['server_id'],
                         channel_type=channel_type,
-                        embed=embed
+                        embed=embed_data
                     )
                     
         except Exception as e:
