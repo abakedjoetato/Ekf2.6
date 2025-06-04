@@ -39,7 +39,7 @@ class VoiceChannelManager:
             if not server_name:
                 server_name = f"Server {server_id}"
             if not max_players:
-                max_players = 60  # Default Deadside server size
+                max_players = 50  # Correct Deadside server size from playersmaxcount=50
                 
             # Format channel name: "Server Name | current/max" or "Server Name | current/max 🕑queued"
             if queued_count > 0:
@@ -111,12 +111,8 @@ class VoiceChannelManager:
                 if str(server.get('server_id')) == str(server_id) or str(server.get('_id')) == str(server_id):
                     server_name = server.get('server_name') or server.get('name')
                     
-                    # Try to get max players from live server data first
-                    max_players = await self._parse_max_players_from_logs(guild_id, server_id)
-                    
-                    # Fallback to configured value if live data not available
-                    if not max_players:
-                        max_players = server.get('max_players') or server.get('player_limit')
+                    # Use correct max player count for Deadside servers
+                    max_players = server.get('max_players') or server.get('player_limit') or 50
                     
                     return server_name, max_players
                     
