@@ -1040,7 +1040,7 @@ class ScalableUnifiedProcessor:
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
-                if self.db_wrapper.player_sessions:
+                    if self.db_wrapper.player_sessions:
                         result = self.db_wrapper.player_sessions.replace_one(
                             {'guild_id': session_data['guild_id'], 'player_id': player_id},
                             session_data,
@@ -1457,7 +1457,7 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Record the kill
-                await await self.db_wrapper.record_kill(
+                await self.db_wrapper.record_kill(
                     guild_id=self.guild_id,
                     killer_name=killer,
                     victim_name=victim,

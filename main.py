@@ -273,9 +273,9 @@ class EmeraldKillfeedBot(commands.Bot):
                 logger.info(f"Syncing {len(commands)} commands to guild: {guild.name}")
                 
                 try:
-                    # Use the correct py-cord 2.6.1 sync method
+                    # Try global sync first
                     synced = await self.sync_commands()
-                    logger.info(f"✅ Guild commands synced successfully: {len(synced) if synced else 0} commands")
+                    logger.info(f"✅ Global commands synced successfully: {len(synced) if synced else 0} commands")
                     
                     # Set protective cooldown after successful sync
                     cooldown_time = datetime.utcnow() + timedelta(hours=6)
@@ -284,18 +284,46 @@ class EmeraldKillfeedBot(commands.Bot):
                         
                 except discord.HTTPException as e:
                     if e.status == 429:
-                        # Rate limited - set long cooldown
-                        cooldown_time = datetime.utcnow() + timedelta(hours=12)
-                        with open(cooldown_file, 'w') as f:
-                            f.write(cooldown_time.isoformat())
-                        logger.info("✅ Commands loaded and ready (rate limited, using cached)")
+                        # Rate limited on global sync - try per-guild fallback
+                        logger.info("Global sync rate limited, attempting per-guild fallback...")
+                        try:
+                            # Sync commands to specific guild as fallback
+                            synced = await self.sync_commands(guild_ids=[guild.id])
+                            logger.info(f"✅ Per-guild commands synced successfully: {len(synced) if synced else 0} commands")
+                            
+                            # Set shorter cooldown for guild-specific sync
+                            cooldown_time = datetime.utcnow() + timedelta(hours=2)
+                            with open(cooldown_file, 'w') as f:
+                                f.write(cooldown_time.isoformat())
+                                
+                        except discord.HTTPException as guild_e:
+                            if guild_e.status == 429:
+                                # Both global and guild sync rate limited
+                                cooldown_time = datetime.utcnow() + timedelta(hours=12)
+                                with open(cooldown_file, 'w') as f:
+                                    f.write(cooldown_time.isoformat())
+                                logger.info("✅ Commands loaded and ready (both syncs rate limited, using cached)")
+                            else:
+                                logger.error(f"Guild sync HTTP error: {guild_e}")
+                                cooldown_time = datetime.utcnow() + timedelta(hours=2)
+                                with open(cooldown_file, 'w') as f:
+                                    f.write(cooldown_time.isoformat())
+                                logger.info("✅ Commands loaded and ready (guild sync error, using cached)")
                     else:
                         logger.error(f"HTTP error during command sync: {e}")
-                        # Set moderate cooldown on other HTTP errors
-                        cooldown_time = datetime.utcnow() + timedelta(hours=2)
-                        with open(cooldown_file, 'w') as f:
-                            f.write(cooldown_time.isoformat())
-                        logger.info("✅ Commands loaded and ready (HTTP error, using cached)")
+                        # Try guild fallback for other HTTP errors
+                        try:
+                            synced = await self.sync_commands(guild_ids=[guild.id])
+                            logger.info(f"✅ Per-guild fallback sync successful: {len(synced) if synced else 0} commands")
+                            cooldown_time = datetime.utcnow() + timedelta(hours=2)
+                            with open(cooldown_file, 'w') as f:
+                                f.write(cooldown_time.isoformat())
+                        except Exception as fallback_e:
+                            logger.error(f"Guild fallback sync failed: {fallback_e}")
+                            cooldown_time = datetime.utcnow() + timedelta(hours=2)
+                            with open(cooldown_file, 'w') as f:
+                                f.write(cooldown_time.isoformat())
+                            logger.info("✅ Commands loaded and ready (all syncs failed, using cached)")
             else:
                 logger.warning("Guild not found, skipping command sync")
                 
