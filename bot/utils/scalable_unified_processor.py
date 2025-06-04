@@ -587,9 +587,10 @@ class ScalableUnifiedProcessor:
             logger.error(f"Error updating player session: {e}")
 
     async def _fetch_server_logs(self, server_config: Dict[str, Any]) -> str:
-        """Fetch log data from server via SFTP using server-specific credentials"""
+        """Fetch log data from server via SFTP using robust connection strategies"""
         try:
             import asyncssh
+            from bot.utils.connection_pool import connection_manager
             
             # Priority order for SSH credentials:
             # 1. sftp_credentials (preferred)
@@ -618,14 +619,17 @@ class ScalableUnifiedProcessor:
             
             logger.info(f"Connecting to {ssh_host}:{ssh_port} as {ssh_username} for {server_config.get('server_name', 'Unknown')}")
             
-            # Connect to server via SFTP
-            async with asyncssh.connect(
-                ssh_host,
-                port=ssh_port,
-                username=ssh_username,
-                password=ssh_password,
-                known_hosts=None
-            ) as conn:
+            # Create connection config for the robust connection manager
+            connection_config = {
+                'host': ssh_host,
+                'port': ssh_port,
+                'username': ssh_username,
+                'password': ssh_password
+            }
+            
+            # Use the same robust connection manager as killfeed parser
+            guild_id = server_config.get('guild_id', 1219706687980568769)
+            async with connection_manager.get_connection(guild_id, connection_config) as conn:
                 async with conn.start_sftp_client() as sftp:
                     # Read the log file
                     try:
