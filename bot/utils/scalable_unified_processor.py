@@ -415,7 +415,7 @@ class ScalableUnifiedProcessor:
             'raw_message': raw_message
         }
         
-        # Mission normalization with level filtering
+        # Mission normalization with level and state filtering
         if event_type in ['mission_start', 'mission_end']:
             mission_name = match_groups[0] if match_groups else 'Unknown Mission'
             mission_level = self._extract_mission_level(mission_name)
@@ -424,15 +424,41 @@ class ScalableUnifiedProcessor:
             if mission_level < 3:
                 return None  # Skip low-level missions
             
+            # Only output missions in READY state (mission_start), skip WAITING state
+            if event_type == 'mission_end':
+                return None  # Skip mission end events
+            
             # Normalize mission names for consistent display
             normalized['mission_name'] = self._normalize_mission_name(mission_name)
-            normalized['mission_state'] = 'READY' if event_type == 'mission_start' else 'WAITING'
+            normalized['mission_state'] = 'READY'
             normalized['mission_level'] = mission_level
             
-        # Airdrop normalization
+        # Airdrop normalization - only output when Flying (spawn event)
         elif event_type in ['airdrop_flying', 'airdrop_dropping', 'airdrop_dead']:
-            normalized['airdrop_state'] = event_type.split('_')[1].upper()  # FLYING, DROPPING, DEAD
-            normalized['event_priority'] = 'high' if event_type == 'airdrop_dropping' else 'medium'
+            # Only output airdrop when it starts flying (spawn event), skip other states
+            if event_type != 'airdrop_flying':
+                return None  # Skip dropping and dead states
+            
+            normalized['airdrop_state'] = 'FLYING'
+            normalized['event_priority'] = 'high'
+            
+        # Helicrash normalization - only output when spawning/ready
+        elif event_type in ['helicrash_ready', 'helicrash_crash']:
+            # Only output helicrash when it becomes ready (spawn event), skip crash state
+            if event_type != 'helicrash_ready':
+                return None  # Skip crash events
+            
+            normalized['helicrash_state'] = 'READY'
+            normalized['event_priority'] = 'high'
+            
+        # Trader normalization - only output when arriving/spawning
+        elif event_type in ['trader_arrival', 'trader_departure']:
+            # Only output trader when arriving (spawn event), skip departure
+            if event_type != 'trader_arrival':
+                return None  # Skip departure events
+            
+            normalized['trader_state'] = 'ARRIVED'
+            normalized['event_priority'] = 'medium'
             
         # Vehicle event normalization
         elif event_type in ['vehicle_add', 'vehicle_del']:
