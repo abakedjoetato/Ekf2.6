@@ -401,6 +401,64 @@ class ScalableUnifiedProcessor:
             logger.error(f"Error in hot start processing: {e}")
             return []
     
+    async def process_log_data_cold_start(self, server_config: Dict[str, Any], guild_id: int) -> List[Dict[str, Any]]:
+        """Process log data for cold start - chronological processing without embeds"""
+        try:
+            server_id = server_config.get('server_id', 'default')
+            server_name = server_config.get('server_name', 'Unknown')
+            
+            logger.info(f"Cold start: Connecting to {server_name}")
+            
+            # Use same connection method as hot start
+            host = server_config.get('host')
+            port = server_config.get('port', 22)
+            username = server_config.get('username')
+            
+            async with asyncssh.connect(
+                host=host,
+                port=port,
+                username=username,
+                password=server_config.get('password'),
+                known_hosts=None,
+                server_host_key_algs=[]
+            ) as conn:
+                logger.info(f"Cold start: Connected to {server_name}")
+                
+                # Use dynamic log path
+                log_path = f"./{host}_{server_config.get('game_port', 7020)}/Logs/Deadside.log"
+                logger.info(f"Cold start: Reading complete log file {log_path}")
+                
+                try:
+                    async with conn.start_sftp_client() as sftp:
+                        # Read entire log file chronologically
+                        log_content = await sftp.get(log_path, encoding='utf-8', errors='ignore')
+                        log_lines = log_content.splitlines()
+                        
+                        all_events = []
+                        
+                        # Process all lines chronologically
+                        for line_number, line in enumerate(log_lines, 1):
+                            parsed_event = self.parse_log_line(line.strip())
+                            if parsed_event:
+                                parsed_event.update({
+                                    'guild_id': guild_id,
+                                    'server_id': server_id,
+                                    'server_name': server_name,
+                                    'line_number': line_number
+                                })
+                                all_events.append(parsed_event)
+                        
+                        logger.info(f"Cold start: Processed {len(all_events)} events from {len(log_lines)} log lines")
+                        return all_events
+                        
+                except Exception as sftp_error:
+                    logger.error(f"Cold start: SFTP read error for {server_name}: {sftp_error}")
+                    return []
+            
+        except Exception as e:
+            logger.error(f"Cold start: Error processing {server_config.get('server_name', 'Unknown')}: {e}")
+            return []
+    
     async def update_player_sessions_cold(self, events: List[Dict[str, Any]], guild_id: int, server_id: str):
         """Update player sessions for cold start - no embeds sent"""
         try:

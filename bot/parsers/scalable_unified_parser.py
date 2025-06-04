@@ -22,6 +22,7 @@ class ScalableUnifiedParser:
         self.state_manager = get_shared_state_manager()
         self.activity_tracker = {}  # Track server activity levels
         self.last_activity_check = None
+        self.bot_startup_time = datetime.now(timezone.utc)  # Track bot startup for cold start detection
         
     async def run_log_parser(self):
         """Main scheduled unified log parser execution with cold/hot start modes"""
@@ -41,6 +42,16 @@ class ScalableUnifiedParser:
             # Determine cold vs hot start mode for each guild
             for guild_id, servers in guild_configs.items():
                 try:
+                    # MANDATORY COLD START: Force cold start for first 5 minutes after bot startup
+                    time_since_startup = (datetime.now(timezone.utc) - self.bot_startup_time).total_seconds()
+                    force_cold_start = time_since_startup < 300  # 5 minutes
+                    
+                    if force_cold_start:
+                        logger.info(f"🔧 Guild {guild_id}: MANDATORY COLD START (bot startup < 5 min) for {len(servers)} servers")
+                        processor = ScalableUnifiedProcessor(self.bot)
+                        await self._process_guild_with_mode(guild_id, servers, processor, is_cold_start=True)
+                        continue
+                    
                     # Check if parser state exists for this guild AND all its servers
                     guild_parser_state = await self.bot.db_manager.parser_states.find_one({
                         'guild_id': guild_id,
