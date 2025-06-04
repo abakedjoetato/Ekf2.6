@@ -1,64 +1,85 @@
 """
-Remove Incorrect Killfeed Channel Configuration
-Remove the wrongly set channel ID 1219745194346287226
+Remove Incorrect Channel Configuration - Fix invalid Emerald EU killfeed channel
 """
+
 import asyncio
-import os
-import motor.motor_asyncio
 import logging
+import os
+from datetime import datetime, timezone
+from motor.motor_asyncio import AsyncIOMotorClient
+from bot.models.database import DatabaseManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def remove_incorrect_channel():
-    """Remove the incorrectly set killfeed channel"""
+async def remove_invalid_server_config():
+    """Remove the invalid Emerald EU server configuration so it uses default channels"""
+    
     try:
         # Connect to database
-        mongo_uri = os.getenv('MONGO_URI')
-        client = motor.motor_asyncio.AsyncIOMotorClient(mongo_uri)
-        db = client.EmeraldDB
+        mongo_uri = os.environ.get('MONGO_URI')
+        client = AsyncIOMotorClient(mongo_uri)
+        db_manager = DatabaseManager(client)
         
         guild_id = 1219706687980568769
-        incorrect_channel = 1219745194346287226
         
-        logger.info(f"Removing incorrect killfeed channel {incorrect_channel}")
+        # Get current configuration
+        guild_config = await db_manager.get_guild(guild_id)
+        server_channels = guild_config.get('server_channels', {}) if guild_config else {}
         
-        # Remove the incorrect channel configuration
-        result = await db.guilds.update_one(
-            {"guild_id": guild_id},
-            {
-                "$unset": {
-                    "server_channels.Emerald EU.killfeed": "",
-                    "server_channels.default.killfeed": "",
-                    "channels.killfeed": ""
-                }
-            }
-        )
+        logger.info("Current server configurations:")
+        for server_name in server_channels.keys():
+            logger.info(f"  {server_name}")
         
-        if result.modified_count > 0:
-            logger.info(f"✅ Successfully removed incorrect killfeed channel configuration")
+        # Remove the problematic "Emerald EU" configuration
+        if 'Emerald EU' in server_channels:
+            logger.info("Removing invalid 'Emerald EU' server configuration...")
+            del server_channels['Emerald EU']
+            
+            # Update database
+            await db_manager.guild_configs.update_one(
+                {'guild_id': guild_id},
+                {
+                    '$set': {
+                        'server_channels': server_channels,
+                        'last_updated': datetime.now(timezone.utc)
+                    }
+                },
+                upsert=True
+            )
+            
+            logger.info("✅ Removed invalid server configuration")
         else:
-            logger.info("No changes made to database")
-            
-        # Verify removal
-        guild_config = await db.guilds.find_one({"guild_id": guild_id})
-        if guild_config:
-            server_channels = guild_config.get('server_channels', {})
-            emerald_killfeed = server_channels.get('Emerald EU', {}).get('killfeed')
-            default_killfeed = server_channels.get('default', {}).get('killfeed')
-            legacy_killfeed = guild_config.get('channels', {}).get('killfeed')
-            
-            logger.info(f"=== Verification ===")
-            logger.info(f"Emerald EU killfeed: {emerald_killfeed}")
-            logger.info(f"Default killfeed: {default_killfeed}")
-            logger.info(f"Legacy killfeed: {legacy_killfeed}")
+            logger.info("No 'Emerald EU' configuration found")
         
-        client.close()
+        # Verify the fix
+        from bot.utils.channel_router import ChannelRouter
+        
+        class MockBot:
+            def __init__(self, db_manager):
+                self.db_manager = db_manager
+        
+        mock_bot = MockBot(db_manager)
+        router = ChannelRouter(mock_bot)
+        
+        # Test routing for server 7020
+        logger.info("\n=== TESTING ROUTING AFTER FIX ===")
+        embed_types = ['killfeed', 'events', 'missions', 'helicrash', 'airdrop', 'trader']
+        
+        for embed_type in embed_types:
+            channel_id = await router.get_channel_id(guild_id, '7020', embed_type)
+            logger.info(f"{embed_type.upper()}: {channel_id}")
+        
+        logger.info("\n✅ Server 7020 will now use default channel configuration")
         
     except Exception as e:
-        logger.error(f"Failed to remove channel config: {e}")
+        logger.error(f"Failed to remove invalid configuration: {e}")
         import traceback
-        logger.error(traceback.format_exc())
+        traceback.print_exc()
+
+async def main():
+    """Remove invalid server configuration"""
+    await remove_invalid_server_config()
 
 if __name__ == "__main__":
-    asyncio.run(remove_incorrect_channel())
+    asyncio.run(main())
