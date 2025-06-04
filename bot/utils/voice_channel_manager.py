@@ -152,16 +152,23 @@ class VoiceChannelManager:
             if not all([ssh_host, ssh_username, ssh_password]):
                 return None
                 
-            # Connect and read log file
-            connection_pool = ConnectionPool()
-            sftp = await connection_pool.get_connection(ssh_host, ssh_port, ssh_username, ssh_password)
+            # Connect and read log file via SFTP
+            import asyncssh
+            async with asyncssh.connect(
+                host=ssh_host,
+                port=ssh_port,
+                username=ssh_username,
+                password=ssh_password,
+                known_hosts=None
+            ) as conn:
+                sftp = await conn.start_sftp_client()
             
-            log_path = server_config.get('log_path', f"./{ssh_host}_{server_id}/Logs/Deadside.log")
-            
-            # Read recent log content (last 50 lines should contain command line)
-            async with sftp.open(log_path, 'r') as f:
-                content = await f.read()
-                lines = content.split('\n')[-50:]  # Check last 50 lines
+                log_path = server_config.get('log_path', f"./{ssh_host}_{server_id}/Logs/Deadside.log")
+                
+                # Read recent log content (last 50 lines should contain command line)
+                async with sftp.open(log_path, 'r') as f:
+                    content = await f.read()
+                    lines = content.split('\n')[-50:]  # Check last 50 lines
                 
             # Look for LogInit command line with playersmaxcount
             for line in lines:

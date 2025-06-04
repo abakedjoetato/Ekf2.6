@@ -466,11 +466,13 @@ class ScalableUnifiedProcessor:
     async def update_player_sessions_cold(self, events: List[Dict[str, Any]], guild_id: int, server_id: str):
         """Update player sessions for cold start - no embeds sent"""
         try:
+            valid_events = 0
             for event in events:
-                if event.get('type') == 'connection':
+                if event.get('type') == 'connection' and event.get('eos_id'):
                     await self._update_single_player_session(event, send_embeds=False)
+                    valid_events += 1
             
-            logger.info(f"Cold start: Updated player sessions for {len(events)} events")
+            logger.info(f"Cold start: Updated player sessions for {valid_events} valid events out of {len(events)} total")
             
         except Exception as e:
             logger.error(f"Error updating player sessions in cold start: {e}")
