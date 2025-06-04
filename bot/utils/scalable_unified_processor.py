@@ -140,8 +140,11 @@ class ScalableUnifiedProcessor:
             if not self.bot or not hasattr(self.bot, 'db_manager') or not self.bot.db_manager:
                 return
             
-            # Get guild configuration
-            guild_config = await self._safe_db_call(self.bot.db_manager.get_guild, self.guild_id)
+            # Get guild configuration using thread-safe wrapper
+            if not self.db_wrapper:
+                return
+                
+            guild_config = await self.db_wrapper.get_guild(self.guild_id)
             if not guild_config:
                 return
             
@@ -1079,11 +1082,10 @@ class ScalableUnifiedProcessor:
                 server_name = server.get('name', 'Unknown Server')
                 server_id = str(server.get('_id', ''))
                 
-                # Get current player count from database using server_name
+                # Get current player count from database using thread-safe wrapper
                 try:
-                    if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                        # Get active player count for this specific server
-                        player_count = await self.bot.db_manager.get_active_player_count(
+                    if self.db_wrapper:
+                        player_count = await self.db_wrapper.get_active_player_count(
                             self.guild_id, server_name
                         )
                     else:
@@ -1203,11 +1205,9 @@ class ScalableUnifiedProcessor:
                             # Get player name from cache if available
                             character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                             
-                            # Update player session with character name using strong consistency
-                            from pymongo import WriteConcern
-                            result = await self.bot.db_manager.player_sessions.with_options(
-                                write_concern=WriteConcern(w="majority", j=True)
-                            ).update_one(
+                            # Update player session using thread-safe wrapper
+                            if self.db_wrapper:
+                                result = await self.db_wrapper.update_player_session(
                                 {"guild_id": self.guild_id, "player_id": eosid},
                                 {
                                     "$set": {
@@ -1222,7 +1222,7 @@ class ScalableUnifiedProcessor:
                                 upsert=True
                             )
                             
-                            state_changed = result.upserted_id is not None or result.modified_count > 0
+                            state_changed = (result.upserted_id is not None or result.modified_count > 0) if result else False
                             
                             # Track servers with state changes for voice channel updates
                             if state_changed:
@@ -1297,21 +1297,23 @@ class ScalableUnifiedProcessor:
                             logger.debug(f"Player {eosid[:8]}... removed from batch update (disconnected from {entry.server_name})")
                         state_changed = True  # For logging purposes
                     else:
-                        # Hot start processing - update database with strong consistency
-                        from pymongo import WriteConcern
-                        result = await self.bot.db_manager.player_sessions.with_options(
-                            write_concern=WriteConcern(w="majority", j=True)
-                        ).update_one(
-                            {"guild_id": self.guild_id, "player_id": eosid, "state": "online"},
-                            {
-                                "$set": {
-                                    "state": "offline",
-                                    "last_updated": entry.timestamp,
-                                    "disconnected_at": entry.timestamp.isoformat()
-                                }
-                            }
-                        )
-                        state_changed = result.modified_count > 0
+                        # Hot start processing - update database using thread-safe wrapper
+                        if self.db_wrapper:
+                            try:
+                                result = await self.db_wrapper.update_player_session(
+                                    {"guild_id": self.guild_id, "player_id": eosid, "state": "online"},
+                                    {
+                                        "$set": {
+                                            "state": "offline",
+                                            "last_updated": entry.timestamp,
+                                            "disconnected_at": entry.timestamp.isoformat()
+                                        }
+                                    }
+                                )
+                                state_changed = result.modified_count > 0 if result else False
+                            except Exception as e:
+                                logger.error(f"Failed to update player session for disconnect: {e}")
+                                state_changed = False
                         
                         # Track servers with state changes for voice channel updates
                         if state_changed:
