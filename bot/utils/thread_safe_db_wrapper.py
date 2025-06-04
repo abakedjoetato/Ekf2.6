@@ -25,15 +25,28 @@ class ThreadSafeDBWrapper:
     async def safe_db_operation(self, operation: Callable, *args, **kwargs):
         """Execute database operation safely, handling thread boundary issues"""
         try:
-            # Check if we're in the correct event loop
-            current_loop = asyncio.get_running_loop()
+            # Get current loop information
+            current_loop = None
+            try:
+                current_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # No running loop - we're in a different thread
+                pass
             
+            # If we have a main loop and we're not in it, use asyncio.run_coroutine_threadsafe
             if self._main_loop and current_loop != self._main_loop:
-                # We're in a different thread/loop, skip operation to prevent errors
-                logger.debug(f"Skipping database operation {operation.__name__} - wrong event loop")
-                return None
+                if asyncio.iscoroutinefunction(operation):
+                    # Execute in the main loop from another thread
+                    future = asyncio.run_coroutine_threadsafe(
+                        operation(*args, **kwargs), 
+                        self._main_loop
+                    )
+                    return future.result(timeout=30)  # 30 second timeout
+                else:
+                    # For non-coroutine functions, just call directly
+                    return operation(*args, **kwargs)
             
-            # Execute the operation
+            # We're in the correct loop or no main loop set
             if asyncio.iscoroutinefunction(operation):
                 return await operation(*args, **kwargs)
             else:
