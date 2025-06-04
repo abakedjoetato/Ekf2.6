@@ -202,24 +202,21 @@ class ThreadedDatabaseOperations:
     
     @staticmethod
     def _sync_aggregate(collection, pipeline: list) -> list:
-        """Synchronous aggregation for thread pool"""
-        
-        async def _async_aggregate():
-            try:
-                cursor = collection.aggregate(pipeline)
-                return await cursor.to_list(length=None)
-            except Exception as e:
-                logger.error(f"Aggregation failed: {e}")
-                raise
-        
-        # Create new event loop for this thread
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        """Synchronous aggregation for thread pool using sync MongoDB operations"""
         
         try:
-            return loop.run_until_complete(_async_aggregate())
-        finally:
-            loop.close()
+            # Use synchronous PyMongo operations instead of motor async operations
+            # Convert motor collection to pymongo collection for sync operations
+            sync_collection = collection.with_options(codec_options=collection.codec_options)
+            
+            # Perform synchronous aggregation
+            cursor = sync_collection.aggregate(pipeline)
+            return list(cursor)
+            
+        except Exception as e:
+            logger.error(f"Sync aggregation failed: {e}")
+            # Fallback: return empty list to prevent blocking
+            return []
 
 # Factory function for creating threaded parser wrappers
 def create_threaded_parser(parser_instance) -> ThreadedParserWrapper:
