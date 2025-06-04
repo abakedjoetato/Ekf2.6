@@ -513,16 +513,17 @@ class ScalableUnifiedProcessor:
             logger.error(f"Error sending connection embeds batch: {e}")
     
     async def send_event_embeds_batch(self, game_events: List[Dict[str, Any]]):
-        """Send game event embeds using batch sending"""
+        """Send game event embeds using embed factory"""
         try:
+            from bot.utils.embed_factory import EmbedFactory
             from bot.utils.channel_router import ChannelRouter
-            import discord
-            from datetime import datetime, timezone
             
+            embed_factory = EmbedFactory()
             channel_router = ChannelRouter(self.bot)
             
             for event in game_events:
-                embed = self._create_event_embed(event)
+                # Use embed factory for consistent formatting
+                embed = embed_factory.create_event_embed(event)
                 if embed:
                     channel_type = self._get_channel_type_for_event(event.get('event') or 'events')
                     

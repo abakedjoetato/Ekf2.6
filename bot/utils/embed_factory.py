@@ -1278,3 +1278,100 @@ class EmbedFactory:
         except Exception as e:
             logger.error(f"Error creating trader embed: {e}")
             return discord.Embed(title="Error", description="Failed to create trader embed", color=0xFF0000)
+
+    @staticmethod
+    def create_player_connect_embed(event_data: Dict[str, Any]) -> discord.Embed:
+        """Create player connection embed for unified parser"""
+        try:
+            embed = discord.Embed(
+                title="🟢 Player Connected",
+                description=f"**{event_data.get('player_name', 'Unknown')}** joined the server",
+                color=0x00FF00,
+                timestamp=datetime.now(timezone.utc)
+            )
+            
+            eos_id = event_data.get('eos_id', 'Unknown')
+            server_name = event_data.get('server_name', 'Unknown Server')
+            
+            embed.add_field(name="EOS ID", value=f"`{eos_id[:16]}...`", inline=True)
+            embed.add_field(name="Server", value=server_name, inline=True)
+            embed.set_footer(text="Powered by Emerald")
+            
+            return embed
+            
+        except Exception as e:
+            logger.error(f"Error creating player connect embed: {e}")
+            return discord.Embed(title="Error", description="Failed to create connection embed", color=0xFF0000)
+
+    @staticmethod
+    def create_player_disconnect_embed(event_data: Dict[str, Any]) -> discord.Embed:
+        """Create player disconnection embed for unified parser"""
+        try:
+            embed = discord.Embed(
+                title="🔴 Player Disconnected",
+                description=f"**{event_data.get('player_name', 'Unknown')}** left the server",
+                color=0xFF0000,
+                timestamp=datetime.now(timezone.utc)
+            )
+            
+            eos_id = event_data.get('eos_id', 'Unknown')
+            server_name = event_data.get('server_name', 'Unknown Server')
+            
+            embed.add_field(name="EOS ID", value=f"`{eos_id[:16]}...`", inline=True)
+            embed.add_field(name="Server", value=server_name, inline=True)
+            embed.set_footer(text="Powered by Emerald")
+            
+            return embed
+            
+        except Exception as e:
+            logger.error(f"Error creating player disconnect embed: {e}")
+            return discord.Embed(title="Error", description="Failed to create disconnection embed", color=0xFF0000)
+
+    @staticmethod
+    def create_event_embed(event_data: Dict[str, Any]) -> discord.Embed:
+        """Create game event embed for unified parser"""
+        try:
+            event_type = event_data.get('event')
+            
+            if event_type == 'mission_start':
+                embed = discord.Embed(
+                    title="🎯 Mission Started",
+                    description=f"Mission **{event_data.get('mission_name', 'Unknown')}** is now active",
+                    color=0x00FF00,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            elif event_type == 'mission_end':
+                embed = discord.Embed(
+                    title="🎯 Mission Ended", 
+                    description=f"Mission **{event_data.get('mission_name', 'Unknown')}** has ended",
+                    color=0xFF0000,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            elif event_type == 'airdrop':
+                embed = discord.Embed(
+                    title="📦 Airdrop Event",
+                    description="Supply drop incoming with valuable loot",
+                    color=0x00BFFF,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            elif event_type == 'trader':
+                embed = discord.Embed(
+                    title="🛒 Trader Event",
+                    description="Traveling merchant has arrived",
+                    color=0xFF6B35,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            else:
+                embed = discord.Embed(
+                    title="🎮 Server Event",
+                    description=f"Event: {event_type}",
+                    color=0x7289DA,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            
+            embed.set_footer(text="Powered by Emerald")
+            return embed
+            
+        except Exception as e:
+            logger.error(f"Error creating event embed: {e}")
+            return discord.Embed(title="Error", description="Failed to create event embed", color=0xFF0000)
