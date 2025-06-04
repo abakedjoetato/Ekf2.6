@@ -97,8 +97,7 @@ class Premium(discord.Cog):
         await ctx.defer()
         
         try:
-            pass
-             if not ctx.guild:
+            if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 

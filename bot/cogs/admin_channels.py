@@ -33,9 +33,6 @@ class AdminChannels(discord.Cog):
         """Setup killfeed channel for death notifications"""
         # Immediate defer to prevent Discord timeout
         await ctx.defer()
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
             
         try:
             if not ctx.guild:
@@ -86,13 +83,8 @@ class AdminChannels(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setup_events(self, ctx: discord.ApplicationContext, channel: discord.TextChannel):
         """Setup events channel for mission/helicrash notifications"""
-        # Immediate defer to prevent Discord timeout
-        try:
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
             
         try:
             if not ctx.guild:
@@ -145,9 +137,6 @@ class AdminChannels(discord.Cog):
         """View current channel configuration"""
         # Immediate defer to prevent Discord timeout
         await ctx.defer()
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
             
         try:
             if not ctx.guild:
