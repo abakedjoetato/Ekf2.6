@@ -242,16 +242,29 @@ class EmeraldKillfeedBot(commands.Bot):
             # Check if commands need sync
             guild_id = 1219706687980568769  # Emerald Servers guild
             
-            # Sync commands to the specific guild for faster updates
+            # Get current application commands
+            commands = self.pending_application_commands
+            if not commands:
+                logger.warning("No commands found to sync")
+                return
+                
+            logger.info(f"Found {len(commands)} commands to sync")
+            
+            # Use the correct py-cord 2.6.1 sync method
+            from discord.http import HTTPClient
+            
+            # Sync to specific guild for faster deployment
             guild = self.get_guild(guild_id)
             if guild:
-                logger.info(f"Syncing commands to guild: {guild.name}")
-                synced = await self.sync_commands(guild=guild)
+                logger.info(f"Syncing {len(commands)} commands to guild: {guild.name}")
+                # py-cord 2.6.1 guild command sync
+                synced = await self.http.bulk_upsert_guild_commands(
+                    self.user.id, guild_id, [cmd.to_dict() for cmd in commands]
+                )
                 logger.info(f"✅ Guild commands synced successfully: {len(synced)} commands")
             else:
-                logger.warning("Guild not found, syncing globally")
-                synced = await self.sync_commands()
-                logger.info(f"✅ Global commands synced successfully: {len(synced)} commands")
+                logger.warning("Guild not found, skipping command sync")
+                return
                 
         except discord.HTTPException as e:
             if e.status == 429:
