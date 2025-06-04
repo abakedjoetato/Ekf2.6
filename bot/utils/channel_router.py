@@ -103,12 +103,11 @@ class ChannelRouter:
             if not channel:
                 return False
             
-            # Queue embed with batch sender to avoid rate limits
-            await self.bot.batch_sender.queue_message(
-                channel_id=channel.id,
-                embed=embed,
-                file=file
-            )
+            # Send embed directly since batch_sender is not available
+            if file:
+                await channel.send(embed=embed, file=file)
+            else:
+                await channel.send(embed=embed)
             return True
             
         except Exception as e:

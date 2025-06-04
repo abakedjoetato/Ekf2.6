@@ -959,11 +959,11 @@ class Stats(discord.Cog):
             guild_id = ctx.guild.id
             logger.info(f"Processing /online command for guild {guild_id}")
             
-            # Fast, optimized database query
+            # Fast, optimized database query - get online and queued players
             try:
                 sessions = await self.bot.db_manager.player_sessions.find(
-                    {'guild_id': guild_id, 'state': 'online'},
-                    {'character_name': 1, 'player_name': 1, 'server_name': 1, 'server_id': 1, '_id': 0}
+                    {'guild_id': guild_id, 'state': {'$in': ['online', 'queued']}},
+                    {'player_name': 1, 'eos_id': 1, 'server_name': 1, 'server_id': 1, 'state': 1, '_id': 0}
                 ).limit(50).to_list(length=50)
                 
             except Exception as e:
@@ -985,29 +985,47 @@ class Stats(discord.Cog):
                     timestamp=datetime.now(timezone.utc)
                 )
             else:
-                # Group by server
+                # Group by server and separate online vs queued
                 servers = {}
                 for session in sessions:
                     server_name = session.get('server_name', 'Unknown')
-                    player_name = session.get('character_name') or session.get('player_name', 'Unknown')
+                    # Use player_name (from EOS ID resolution) or fallback to EOS ID
+                    player_name = session.get('player_name') or session.get('eos_id', 'Unknown')[:8]
+                    state = session.get('state', 'unknown')
+                    
                     if server_name not in servers:
-                        servers[server_name] = []
-                    servers[server_name].append(player_name)
+                        servers[server_name] = {'online': [], 'queued': []}
+                    
+                    servers[server_name][state].append(player_name)
                 
                 total_players = len(sessions)
+                online_count = sum(len(server['online']) for server in servers.values())
+                queued_count = sum(len(server['queued']) for server in servers.values())
+                
                 embed = discord.Embed(
-                    title=f"🌐 Online Players ({total_players})",
+                    title=f"🌐 Players ({total_players} total)",
+                    description=f"🟢 **{online_count}** online  •  🟡 **{queued_count}** queued",
                     color=0x00FF00,
                     timestamp=datetime.now(timezone.utc)
                 )
                 
-                for server_name, players in servers.items():
+                for server_name, player_data in servers.items():
+                    online_players = player_data['online']
+                    queued_players = player_data['queued']
+                    server_total = len(online_players) + len(queued_players)
+                    
                     player_list = []
-                    for i, player in enumerate(players[:15], 1):
-                        player_list.append(f"`{i:2d}.` **{player}**")
+                    
+                    # Add online players
+                    for i, player in enumerate(online_players[:10], 1):
+                        player_list.append(f"`{i:2d}.` 🟢 **{player}**")
+                    
+                    # Add queued players
+                    for i, player in enumerate(queued_players[:5], len(online_players) + 1):
+                        player_list.append(f"`{i:2d}.` 🟡 **{player}** (queued)")
                     
                     embed.add_field(
-                        name=f"🌐 {server_name} ({len(players)} online)",
+                        name=f"🌐 {server_name} ({server_total} players)",
                         value="\n".join(player_list) if player_list else "No players",
                         inline=False
                     )
