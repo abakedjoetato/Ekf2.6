@@ -48,6 +48,13 @@ class ScalableUnifiedProcessor:
         self.bot = bot
         self.server_states: Dict[str, ServerFileState] = {}
         self.cancelled = False
+        self._main_loop = None
+        
+        # Initialize thread-safe database wrapper
+        if bot and hasattr(bot, 'db_manager'):
+            self.db_wrapper = ThreadSafeDBWrapper(bot.db_manager)
+        else:
+            self.db_wrapper = None
         self.state_manager = get_shared_state_manager()
         self._cold_start_mode = False
         self.rate_limiter = get_rate_limiter()
@@ -62,6 +69,11 @@ class ScalableUnifiedProcessor:
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
                                   progress_callback=None) -> Dict[str, Any]:
         """Process all servers for unified logging with file rotation detection"""
+        # Set the main loop for thread-safe operations
+        self._main_loop = asyncio.get_running_loop()
+        if self.db_wrapper:
+            self.db_wrapper.set_main_loop(self._main_loop)
+            
         results = {
             'success': False,
             'total_servers': len(server_configs),
@@ -1047,36 +1059,6 @@ class ScalableUnifiedProcessor:
             
         # Clear the batch after processing
         self._cold_start_player_states.clear()
-                
-                logger.info(f"✅ External connection verification: {external_emerald} Emerald EU online, {external_total} total online")
-                
-                if external_emerald > 0:
-                    logger.info(f"🎉 SUCCESS: /online command will work with {external_emerald} players on Emerald EU")
-                    # Log a few player names for confirmation
-                    sample_players = []
-                    async for session in test_db.player_sessions.find({
-                        'guild_id': self.guild_id,
-                        'server_name': 'Emerald EU',
-                        'state': 'online'
-                    }).limit(3):
-                        character_name = session.get('character_name', 'Unknown')
-                        sample_players.append(character_name)
-                    logger.info(f"✅ Sample players visible externally: {', '.join(sample_players)}")
-                else:
-                    logger.warning(f"⚠️ Data consistency issue - writes may take time to propagate")
-                
-                test_client.close()
-                
-            except Exception as verification_error:
-                logger.error(f"Database cross-connection verification error: {verification_error}")
-            
-        except Exception as e:
-            logger.error(f"Failed to commit cold start player states: {e}")
-            import traceback
-            logger.error(f"Full traceback: {traceback.format_exc()}")
-        finally:
-            # Clear the batch storage
-            self._cold_start_player_states.clear()
 
     async def _update_voice_channel_for_servers(self):
         """Update voice channel after processing all entries"""
@@ -1084,8 +1066,11 @@ class ScalableUnifiedProcessor:
             if not self.bot or not hasattr(self.bot, 'voice_channel_batcher'):
                 return
             
-            # Get guild config to find servers
-            guild_config = await self._safe_db_call(self.bot.db_manager.get_guild, self.guild_id)
+            # Get guild config to find servers using thread-safe wrapper
+            if not self.db_wrapper:
+                return
+                
+            guild_config = await self.db_wrapper.get_guild(self.guild_id)
             if not guild_config:
                 return
             
@@ -1220,7 +1205,7 @@ class ScalableUnifiedProcessor:
                             
                             # Update player session with character name using strong consistency
                             from pymongo import WriteConcern
-                            result = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.with_options(
+                            result = await self.bot.db_manager.player_sessions.with_options(
                                 write_concern=WriteConcern(w="majority", j=True)
                             ).update_one(
                                 {"guild_id": self.guild_id, "player_id": eosid},
@@ -1314,7 +1299,7 @@ class ScalableUnifiedProcessor:
                     else:
                         # Hot start processing - update database with strong consistency
                         from pymongo import WriteConcern
-                        result = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.with_options(
+                        result = await self.bot.db_manager.player_sessions.with_options(
                             write_concern=WriteConcern(w="majority", j=True)
                         ).update_one(
                             {"guild_id": self.guild_id, "player_id": eosid, "state": "online"},
