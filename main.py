@@ -262,20 +262,9 @@ class EmeraldKillfeedBot(commands.Bot):
                 
             logger.info(f"Found {len(commands)} commands to sync")
             
-            # Check if commands already exist to avoid unnecessary sync
+            # Force sync without checking existing commands (debugging)
             guild = self.get_guild(guild_id)
-            if guild:
-                try:
-                    existing_commands = await guild.fetch_commands()
-                    if len(existing_commands) >= len(commands):
-                        logger.info(f"✅ Commands loaded and ready ({len(existing_commands)} commands already synced)")
-                        # Set protective cooldown to prevent future unnecessary syncs
-                        cooldown_time = datetime.utcnow() + timedelta(hours=6)
-                        with open(cooldown_file, 'w') as f:
-                            f.write(cooldown_time.isoformat())
-                        return
-                except Exception as e:
-                    logger.debug(f"Could not check existing commands: {e}")
+            logger.info("🔓 FORCING COMMAND SYNC - All protections disabled for debugging")
             
             # Proceed with sync only if necessary
             if guild:
@@ -283,8 +272,8 @@ class EmeraldKillfeedBot(commands.Bot):
                 
                 try:
                     # Use the correct py-cord 2.6.1 sync method
-                    synced = await self.sync_commands(guild=guild)
-                    logger.info(f"✅ Guild commands synced successfully: {len(synced)} commands")
+                    synced = await self.sync_commands()
+                    logger.info(f"✅ Guild commands synced successfully: {len(synced) if synced else 0} commands")
                     
                     # Set protective cooldown after successful sync
                     cooldown_time = datetime.utcnow() + timedelta(hours=6)
