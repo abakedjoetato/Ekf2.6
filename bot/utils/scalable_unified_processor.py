@@ -271,10 +271,11 @@ class ScalableUnifiedProcessor:
                         'guild_id': change['guild_id'],
                         'server_id': change['server_id']
                     }
-                    await channel_router.route_embed(
-                        embed_type='killfeed',
+                    await channel_router.send_embed_to_channel(
                         guild_id=change['guild_id'],
-                        embed_data=embed_data
+                        server_id=change['server_id'],
+                        channel_type='killfeed',
+                        embed=embed_data
                     )
                 
                 elif change['old_state'] == 'online' and change['new_state'] == 'offline':
@@ -288,10 +289,11 @@ class ScalableUnifiedProcessor:
                         'guild_id': change['guild_id'],
                         'server_id': change['server_id']
                     }
-                    await channel_router.route_embed(
-                        embed_type='killfeed',
+                    await channel_router.send_embed_to_channel(
                         guild_id=change['guild_id'],
-                        embed_data=embed_data
+                        server_id=change['server_id'],
+                        channel_type='killfeed',
+                        embed=embed_data
                     )
             
             return True
@@ -314,10 +316,11 @@ class ScalableUnifiedProcessor:
                 if event['type'] == 'event':
                     embed_type = self._map_event_to_embed_type(event['event'])
                     if embed_type:
-                        await channel_router.route_embed(
-                            embed_type=embed_type,
+                        await channel_router.send_embed_to_channel(
                             guild_id=event['guild_id'],
-                            embed_data=event
+                            server_id=event['server_id'],
+                            channel_type=embed_type,
+                            embed=event
                         )
             
             return True
@@ -329,9 +332,11 @@ class ScalableUnifiedProcessor:
     def _map_event_to_embed_type(self, event_type: str) -> Optional[str]:
         """Map event types to embed types"""
         mapping = {
-            'mission_start': 'mission',
-            'helicopter_crash': 'helicrash',
-            'airdrop': 'airdrop',
-            'trader': 'trader'
+            'mission_start': 'missions',
+            'mission_end': 'missions',
+            'airdrop': 'events',
+            'patrol_active': 'events',
+            'patrol_initial': 'events',
+            'vehicle_deleted': 'events'
         }
         return mapping.get(event_type)
