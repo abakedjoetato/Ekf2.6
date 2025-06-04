@@ -392,27 +392,27 @@ class DatabaseManager:
             except Exception as e:
                 logger.warning(f"Additional parser states indexes: {e}")
 
-            # Player sessions indexes - BULLETPROOF creation
+            # Player sessions indexes - EOS ID based for accurate tracking
             try:
                 await asyncio.sleep(0.1)
                 
                 await self.player_sessions.create_index([
                     ("guild_id", 1), 
                     ("server_id", 1), 
-                    ("player_id", 1)
-                ], unique=True, background=True)
-                logger.info("Player sessions compound index created successfully")
+                    ("eos_id", 1)
+                ], unique=True, background=True, name="guild_server_eos_unique")
+                logger.info("Player sessions EOS ID compound index created successfully")
             except Exception as e:
-                logger.error(f"Player sessions index creation failed: {e}")
+                logger.error(f"Player sessions EOS ID index creation failed: {e}")
                 try:
                     await self.player_sessions.create_index([
                         ("guild_id", 1), 
                         ("server_id", 1), 
-                        ("player_id", 1)
-                    ], background=True)
-                    logger.warning("Player sessions index created without unique constraint")
+                        ("eos_id", 1)
+                    ], background=True, name="guild_server_eos_fallback")
+                    logger.warning("Player sessions EOS ID index created without unique constraint")
                 except Exception as e2:
-                    logger.error(f"Player sessions fallback index failed: {e2}")
+                    logger.error(f"Player sessions EOS ID fallback index failed: {e2}")
 
             # Additional player_sessions indexes
             try:
