@@ -1,59 +1,75 @@
 """
-Test /online Command Fix - Verify the streamlined implementation
+Test Online Command Fix - Check if /online command now works properly
 """
+
 import asyncio
-import sys
+import logging
 import os
+from motor.motor_asyncio import AsyncIOMotorClient
+from bot.models.database import DatabaseManager
 
-# Add current directory to Python path
-sys.path.insert(0, os.getcwd())
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-async def test_online_command_fix():
-    """Test the fixed /online command implementation"""
+async def test_online_command():
+    """Test the /online command functionality"""
     try:
-        # Import the database manager
-        from bot.models.database import DatabaseManager
+        # Connect to database using same method as main bot
+        mongo_uri = os.getenv('MONGO_URI')
+        if not mongo_uri:
+            print("❌ MONGO_URI environment variable not found")
+            return
         
-        db_manager = DatabaseManager()
+        client = AsyncIOMotorClient(mongo_uri)
+        db_manager = DatabaseManager(client)
         await db_manager.initialize()
         
-        # Test the exact query used in the fixed /online command
-        guild_id = 1219706687980568769  # Emerald Servers guild ID
+        # Check current player sessions
+        guild_id = 1219706687980568769  # Emerald Servers
         
-        print("Testing fixed /online command database query...")
+        # Count total sessions
+        total_sessions = await db_manager.player_sessions.count_documents({'guild_id': guild_id})
+        print(f"Total player sessions for guild {guild_id}: {total_sessions}")
         
-        # Simulate the exact query from the fixed command
-        sessions = await db_manager.player_sessions.find(
-            {'guild_id': guild_id, 'state': 'online'},
-            {'character_name': 1, 'player_name': 1, 'server_name': 1, 'server_id': 1, '_id': 0}
-        ).limit(50).to_list(length=50)
+        # Count online sessions
+        online_sessions = await db_manager.player_sessions.count_documents({
+            'guild_id': guild_id,
+            'state': 'online'
+        })
+        print(f"Online player sessions: {online_sessions}")
         
-        print(f"✅ Query completed successfully - found {len(sessions)} online sessions")
+        # List all sessions
+        all_sessions = await db_manager.player_sessions.find({'guild_id': guild_id}).to_list(length=50)
+        print(f"\nAll player sessions:")
+        for session in all_sessions:
+            print(f"  {session.get('character_name')} - {session.get('state')} - Server: {session.get('server_name')} - Last seen: {session.get('last_seen')}")
         
-        # Test embed creation logic
-        if not sessions:
-            print("✅ Empty state handling: No players online")
+        # Test the guild configuration
+        guild_config = await db_manager.get_guild(guild_id)
+        if guild_config:
+            print(f"\nGuild configuration found:")
+            print(f"  Servers: {len(guild_config.get('servers', []))}")
+            for server in guild_config.get('servers', []):
+                print(f"    {server.get('name')} - Enabled: {server.get('enabled', False)}")
         else:
-            # Group by server (simplified version)
-            servers = {}
-            for session in sessions:
-                server_name = session.get('server_name', 'Unknown')
-                player_name = session.get('character_name') or session.get('player_name', 'Unknown')
-                if server_name not in servers:
-                    servers[server_name] = []
-                servers[server_name].append(player_name)
-            
-            print(f"✅ Grouping logic: {len(servers)} servers with players")
-            for server_name, players in servers.items():
-                print(f"   - {server_name}: {len(players)} players")
+            print(f"❌ No guild configuration found for {guild_id}")
         
-        await db_manager.close()
-        print("✅ /online command fix test completed successfully")
+        # Check if SSH credentials are available
+        ssh_host = os.getenv('SSH_HOST')
+        ssh_user = os.getenv('SSH_USERNAME')
+        ssh_pass = os.getenv('SSH_PASSWORD')
+        
+        print(f"\nSSH Configuration:")
+        print(f"  Host: {'✅' if ssh_host else '❌'} {ssh_host or 'Not set'}")
+        print(f"  Username: {'✅' if ssh_user else '❌'} {ssh_user or 'Not set'}")
+        print(f"  Password: {'✅' if ssh_pass else '❌'} {'Set' if ssh_pass else 'Not set'}")
+        
+        await client.close()
         
     except Exception as e:
-        print(f"❌ Error testing /online command fix: {e}")
+        print(f"Test failed: {e}")
         import traceback
         traceback.print_exc()
 
 if __name__ == "__main__":
-    asyncio.run(test_online_command_fix())
+    asyncio.run(test_online_command())
