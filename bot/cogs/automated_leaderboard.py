@@ -269,33 +269,34 @@ class AutomatedLeaderboard(discord.Cog):
             try:
 
                 pass
-                # Create consolidated leaderboard for the entire guild (all servers combined)
-                embed, file_attachment = await self.create_consolidated_leaderboard(
+                # Create enhanced consolidated leaderboard for the entire guild (all servers combined)
+                embed, file_attachment = await self.create_enhanced_consolidated_leaderboard(
                     guild_id, None, "All Servers"
                 )
 
                 if embed:
+                    # Create interactive components for multi-user functionality
+                    view = LeaderboardView(guild_id)
+                    
                     # Try to find and update existing leaderboard message
                     existing_message = None
                     if not force_create:
                         existing_message = await self.find_existing_leaderboard_message(channel, "Consolidated Leaderboard")
                     
                     if existing_message:
-                        # Edit existing message (without file attachments to avoid errors)
+                        # Edit existing message with new embed and components
                         try:
-
-                            pass
-                            await existing_message.edit(embed=embed)
-                            logger.info(f"Updated existing consolidated leaderboard")
+                            await existing_message.edit(embed=embed, view=view)
+                            logger.info(f"Updated existing enhanced leaderboard with interactive components")
                         except Exception as edit_error:
                             logger.warning(f"Failed to edit existing message, posting new one: {edit_error}")
                             # Fall back to posting new message
-                            await self.post_new_leaderboard_message(channel, embed, file_attachment)
-                            logger.info(f"Posted new consolidated leaderboard")
+                            await self.post_enhanced_leaderboard_message(channel, embed, file_attachment, view)
+                            logger.info(f"Posted new enhanced leaderboard with components")
                     else:
-                        # Post new message
-                        await self.post_new_leaderboard_message(channel, embed, file_attachment)
-                        logger.info(f"Posted new consolidated leaderboard")
+                        # Post new message with interactive components
+                        await self.post_enhanced_leaderboard_message(channel, embed, file_attachment, view)
+                        logger.info(f"Posted new enhanced leaderboard with interactive components")
 
             except Exception as e:
                 logger.error(f"Failed to post consolidated leaderboard: {e}")
@@ -436,120 +437,133 @@ class AutomatedLeaderboard(discord.Cog):
             logger.error(f"Failed to check premium access for leaderboards: {e}")
             return False
 
-    async def create_consolidated_leaderboard(self, guild_id: int, server_id: str, server_name: str):
-        """Create consolidated leaderboard with top performers from each category"""
+    async def create_enhanced_consolidated_leaderboard(self, guild_id: int, server_id: str, server_name: str):
+        """Create enhanced consolidated leaderboard with advanced Discord features"""
         try:
-
-            pass
-            # Get top players for each category using the same methods as leaderboards_fixed
-            from bot.cogs.leaderboards_fixed import LeaderboardsFixed
-
-            leaderboard_cog = LeaderboardsFixed(self.bot)
-
-            # Create a consolidated leaderboard using EmbedFactory
-            embed_data = {
-                'title': f"Blood Money Rankings - {server_name}",
-                'description': f"Most eliminations on {server_name}",
-                'rankings': "Automated leaderboard data coming soon...",
-                'total_kills': 0,
-                'total_deaths': 0,
-                'stat_type': 'consolidated',
-                'style_variant': 'consolidated',
-                'server_name': server_name,
-                'thumbnail_url': 'attachment://Leaderboard.png'
-            }
-
-            # Get actual data for consolidated leaderboard with specific counts
-            top_killers = await self.get_top_kills(guild_id or 0, 5, server_id)
-            top_kdr = await self.get_top_kdr(guild_id or 0, 3, server_id)
-            top_distance = await self.get_top_distance(guild_id or 0, 3, server_id)
-            top_streaks = await self.get_top_streaks(guild_id or 0, 3, server_id)
-            top_weapons = await self.get_top_weapons(guild_id or 0, 3, server_id)
-            top_faction = await self.get_top_factions(guild_id or 0, 1, server_id)
-
-            # Build sections with real data
-            sections = []
-
-            if top_killers:
-                killer_lines = []
-                for i, player in enumerate(top_killers, 1):
+            # Collect comprehensive leaderboard data
+            data = await self._collect_leaderboard_data(guild_id, server_id)
+            
+            # Create main leaderboard embed with enhanced formatting
+            embed = discord.Embed(
+                title="🏆 **EMERALD KILLFEED RANKINGS** 🏆",
+                description=f"**{server_name}** • Live Combat Statistics",
+                color=0x00ff88,  # Emerald green theme
+                timestamp=datetime.now(timezone.utc)
+            )
+            
+            # Set thumbnail logo
+            embed.set_thumbnail(url="attachment://Leaderboard.png")
+            
+            # Set author with server branding
+            embed.set_author(
+                name="Emerald's Killfeed",
+                icon_url="attachment://Leaderboard.png"
+            )
+            
+            # Top Killers Section (Enhanced with emojis and formatting)
+            if data.get('top_killers'):
+                killer_text = ""
+                medals = ["🥇", "🥈", "🥉", "🏅", "🎖️"]
+                
+                for i, player in enumerate(data['top_killers'][:5], 1):
                     name = player.get('player_name', 'Unknown')
                     kills = player.get('kills', 0)
-                    faction = await self.get_player_faction(guild_id or 0, name)
-                    faction_tag = f" [{faction}]" if faction else ""
-                    # Use shorter format to prevent wrapping
-                    killer_lines.append(f"**{i}.** {name}{faction_tag}\n{kills:,} Kills")
-                sections.append(f"**TOP KILLERS**\n" + "\n".join(killer_lines))
-
-            if top_kdr:
-                kdr_lines = []
-                for i, player in enumerate(top_kdr, 1):
+                    deaths = player.get('deaths', 0)
+                    
+                    # Get faction info
+                    faction = await self.get_player_faction(guild_id, name)
+                    faction_badge = f" `[{faction}]`" if faction else ""
+                    
+                    # Medal or rank indicator
+                    rank_indicator = medals[i-1] if i <= len(medals) else f"`#{i}`"
+                    
+                    # Calculate KDR for display
+                    kdr = round(kills / max(deaths, 1), 2)
+                    
+                    killer_text += f"{rank_indicator} **{name}**{faction_badge}\n"
+                    killer_text += f"   └ `{kills:,}` kills • `{kdr}` KDR\n\n"
+                
+                embed.add_field(
+                    name="🔥 **TOP ELIMINATORS**",
+                    value=killer_text or "No data available",
+                    inline=True
+                )
+            
+            # Top KDR Section (Enhanced)
+            if data.get('top_kdr'):
+                kdr_text = ""
+                for i, player in enumerate(data['top_kdr'][:3], 1):
                     name = player.get('player_name', 'Unknown')
                     kdr = player.get('kdr', 0.0)
-                    faction = await self.get_player_faction(guild_id or 0, name)
-                    faction_tag = f" [{faction}]" if faction else ""
-                    # Use shorter format to prevent wrapping
-                    kdr_lines.append(f"**{i}.** {name}{faction_tag}\n{kdr:.2f} KDR")
-                sections.append(f"**BEST KDR**\n" + "\n".join(kdr_lines))
-
-            if top_distance:
-                distance_lines = []
-                for i, player in enumerate(top_distance, 1):
+                    kills = player.get('kills', 0)
+                    
+                    faction = await self.get_player_faction(guild_id, name)
+                    faction_badge = f" `[{faction}]`" if faction else ""
+                    
+                    kdr_text += f"`{i}.` **{name}**{faction_badge}\n"
+                    kdr_text += f"   └ `{kdr:.2f}` KDR • `{kills}` kills\n\n"
+                
+                embed.add_field(
+                    name="⚡ **ELITE RATIOS**",
+                    value=kdr_text or "No data available",
+                    inline=True
+                )
+            
+            # Top Distances Section (Enhanced)
+            if data.get('top_distances'):
+                distance_text = ""
+                for i, player in enumerate(data['top_distances'][:3], 1):
                     name = player.get('player_name', 'Unknown')
                     distance = player.get('personal_best_distance', 0.0)
-                    faction = await self.get_player_faction(guild_id or 0, name)
-                    faction_tag = f" [{faction}]" if faction else ""
-                    if distance >= 1000:
-                        dist_str = f"{distance/1000:.1f}km"
-                    else:
-                        dist_str = f"{distance:.0f}m"
-                    # Use shorter format to prevent wrapping
-                    distance_lines.append(f"**{i}.** {name}{faction_tag}\n{dist_str}")
-                sections.append(f"**LONGEST SHOTS**\n" + "\n".join(distance_lines))
-
-            if top_streaks:
-                streak_lines = []
-                for i, player in enumerate(top_streaks, 1):
-                    name = player.get('player_name', 'Unknown')
-                    streak = player.get('longest_streak', 0)
-                    faction = await self.get_player_faction(guild_id or 0, name)
-                    faction_tag = f" [{faction}]" if faction else ""
-                    # Use shorter format to prevent wrapping
-                    streak_lines.append(f"**{i}.** {name}{faction_tag}\n{streak} Kill Streak")
-                sections.append(f"**BEST STREAKS**\n" + "\n".join(streak_lines))
-
-            if top_weapons:
-                weapon_lines = []
-                for i, weapon in enumerate(top_weapons, 1):
-                    weapon_name = weapon.get('weapon_name', 'Unknown Weapon')
-                    kills = weapon.get('kills', 0)
-                    top_user = weapon.get('top_user', 'Unknown')
-                    # Shorten the format to prevent text wrapping
-                    weapon_lines.append(f"**{i}.** {weapon_name} — {kills:,} Kills\nTop: {top_user}")
-                sections.append(f"**TOP WEAPONS**\n" + "\n".join(weapon_lines))
-
-            if top_faction:
-                faction = top_faction[0] if top_faction else None
-                if faction:
-                    faction_name = faction.get('faction_name', 'Unknown Faction')
-                    kills = faction.get('kills', 0)
-                    members = faction.get('members', 0)
-                    # Use shorter format to prevent wrapping
-                    sections.append(f"**TOP FACTION**\n**1.** [{faction_name}]\n{kills:,} Kills | {members} Members")
-
-            if not sections:
-                # No data available
-                embed_data['rankings'] = "No statistical data available yet.\nPlay some matches to populate the leaderboards!"
-            else:
-                embed_data['rankings'] = "\n\n".join(sections)
-
-            # Update totals with real data
-            embed_data['total_kills'] = sum(p.get('kills', 0) for p in top_killers)
-            embed_data['total_deaths'] = sum(p.get('deaths', 0) for p in top_killers)
-
-            # Use EmbedFactory to create the embed
-            embed, file = await EmbedFactory.build('leaderboard', embed_data)
-            return embed, file
+                    
+                    faction = await self.get_player_faction(guild_id, name)
+                    faction_badge = f" `[{faction}]`" if faction else ""
+                    
+                    distance_text += f"`{i}.` **{name}**{faction_badge}\n"
+                    distance_text += f"   └ `{distance:,.0f}m` longest shot\n\n"
+                
+                embed.add_field(
+                    name="🎯 **SNIPER ELITE**",
+                    value=distance_text or "No data available",
+                    inline=True
+                )
+            
+            # Statistics Footer Section
+            total_kills = sum(p.get('kills', 0) for p in data.get('top_killers', []))
+            total_players = len(data.get('top_killers', []))
+            
+            # Server activity indicator
+            activity_level = "🟢 HIGH" if total_kills > 100 else "🟡 MEDIUM" if total_kills > 20 else "🔴 LOW"
+            
+            embed.add_field(
+                name="📊 **SERVER STATISTICS**",
+                value=f"**Activity Level:** {activity_level}\n"
+                      f"**Total Eliminations:** `{total_kills:,}`\n"
+                      f"**Active Players:** `{total_players}`\n"
+                      f"**Last Updated:** <t:{int(datetime.now(timezone.utc).timestamp())}:R>",
+                inline=False
+            )
+            
+            # Footer with update info
+            embed.set_footer(
+                text="🔄 Auto-updates every hour • React with 📊 for detailed stats",
+                icon_url="attachment://Leaderboard.png"
+            )
+            
+            # Load thumbnail attachment
+            file_attachment = None
+            try:
+                from pathlib import Path
+                thumbnail_path = Path("assets/Leaderboard.png")
+                if thumbnail_path.exists():
+                    file_attachment = discord.File(thumbnail_path, filename="Leaderboard.png")
+            except Exception as e:
+                logger.warning(f"Could not load thumbnail: {e}")
+            
+            return embed, file_attachment
+        except Exception as e:
+            logger.error(f"Error creating enhanced leaderboard: {e}")
+            return None, None
 
 
 
