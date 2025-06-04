@@ -59,9 +59,6 @@ class ScalableUnifiedProcessor:
         
         # Set up loop management
         try:
-                pass
-            except Exception:
-                pass
             self._main_loop = asyncio.get_running_loop()
             logger.debug(f"ScalableUnifiedProcessor: Main loop set to {id(self._main_loop)}")
         except RuntimeError:
