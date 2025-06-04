@@ -274,24 +274,54 @@ class EmeraldKillfeedBot(commands.Bot):
             # Check for active rate limits before attempting sync
             rate_limit_detected = False
             try:
-                # Check bot logs for recent rate limit messages
-                with open('bot.log', 'r') as f:
-                    recent_logs = f.readlines()[-50:]  # Last 50 lines
-                    for line in recent_logs:
-                        if 'rate limited' in line.lower() and 'retrying in' in line.lower():
-                            # Extract retry time to see if still active
-                            import re
-                            retry_match = re.search(r'retrying in (\d+(?:\.\d+)?) seconds', line.lower())
-                            if retry_match:
-                                retry_seconds = float(retry_match.group(1))
-                                if retry_seconds > 60:  # Long rate limit (over 1 minute)
-                                    rate_limit_detected = True
-                                    logger.info(f"✅ Commands loaded and ready (active rate limit: {retry_seconds}s remaining)")
-                                    self._enable_local_command_processing()
-                                    return
+                # Check bot logs for very recent rate limit messages (last 10 lines)
+                import subprocess
+                result = subprocess.run(['tail', '-10', 'bot.log'], capture_output=True, text=True, timeout=2)
+                recent_log_content = result.stdout
+                
+                if 'rate limited' in recent_log_content.lower() and 'retrying in' in recent_log_content.lower():
+                    # Extract the most recent retry time
+                    import re
+                    retry_matches = re.findall(r'retrying in (\d+(?:\.\d+)?) seconds', recent_log_content.lower())
+                    if retry_matches:
+                        latest_retry = float(retry_matches[-1])  # Get the most recent one
+                        if latest_retry > 30:  # Any significant rate limit
+                            rate_limit_detected = True
+                            logger.info(f"✅ Commands loaded and ready (active rate limit detected: {latest_retry}s)")
+                            logger.info("🔧 Enabling local command processing to bypass rate limits")
+                            self._enable_local_command_processing()
+                            return
             except Exception as e:
                 logger.debug(f"Could not check rate limit status: {e}")
-                pass
+                
+            # Also check if there's been a rate limit in the last 60 seconds by checking timestamps
+            try:
+                from datetime import datetime, timedelta
+                import re
+                
+                # Get recent logs with timestamps
+                result = subprocess.run(['tail', '-20', 'bot.log'], capture_output=True, text=True, timeout=2)
+                lines = result.stdout.split('\n')
+                
+                current_time = datetime.now()
+                for line in lines:
+                    if 'rate limited' in line.lower():
+                        # Try to extract timestamp (format: 2025-06-04 13:34:11,906)
+                        timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
+                        if timestamp_match:
+                            try:
+                                log_time = datetime.strptime(timestamp_match.group(1), '%Y-%m-%d %H:%M:%S')
+                                time_diff = (current_time - log_time).total_seconds()
+                                if time_diff < 60:  # Rate limit within last minute
+                                    rate_limit_detected = True
+                                    logger.info(f"✅ Commands loaded and ready (recent rate limit detected {time_diff:.0f}s ago)")
+                                    logger.info("🔧 Enabling local command processing to bypass rate limits")
+                                    self._enable_local_command_processing()
+                                    return
+                            except ValueError:
+                                continue
+            except Exception as e:
+                logger.debug(f"Could not check rate limit timestamps: {e}")
             
             logger.info("🔓 FORCING COMMAND SYNC - All protections disabled for debugging")
             
