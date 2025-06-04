@@ -341,12 +341,12 @@ class ScalableUnifiedProcessor:
                         # Reset all player sessions to offline
                         try:
                             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                                await if self.db_wrapper.player_sessions:
-     self.db_wrapper.player_sessions.update_many(
-                                    {"guild_id": self.guild_id, "server_name": server_name},
-                                    {"$set": {"state": "offline", "last_updated": datetime.now(timezone.utc)}}
-                                )
-                                logger.info(f"🔄 Cold start: Reset player sessions for {server_name}")
+                                if self.db_wrapper.player_sessions:
+                                    self.db_wrapper.player_sessions.update_many(
+                                        {"guild_id": self.guild_id, "server_name": server_name},
+                                        {"$set": {"state": "offline", "last_updated": datetime.now(timezone.utc)}}
+                                    )
+                                    logger.info(f"🔄 Cold start: Reset player sessions for {server_name}")
                             else:
                                 logger.warning(f"Database manager not available for {server_name}")
                         except Exception as e:
