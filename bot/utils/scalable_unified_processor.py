@@ -342,6 +342,7 @@ class ScalableUnifiedProcessor:
                         try:
                             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                                 if self.db_wrapper.player_sessions:
+
                                     self.db_wrapper.player_sessions.update_many(
                                         {"guild_id": self.guild_id, "server_name": server_name},
                                         {"$set": {"state": "offline", "last_updated": datetime.now(timezone.utc)}}
@@ -1039,14 +1040,14 @@ class ScalableUnifiedProcessor:
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
-                    result = await if self.db_wrapper.player_sessions:
-                self.db_wrapper.player_sessions.replace_one(
-                        {'guild_id': session_data['guild_id'], 'player_id': player_id},
-                        session_data,
-                        upsert=True
-                    )
-                    if result.upserted_id or result.modified_count > 0:
-                        committed_count += 1
+                if self.db_wrapper.player_sessions:
+                        result = self.db_wrapper.player_sessions.replace_one(
+                            {'guild_id': session_data['guild_id'], 'player_id': player_id},
+                            session_data,
+                            upsert=True
+                        )
+                        if result.upserted_id or result.modified_count > 0:
+                            committed_count += 1
                 except Exception as e:
                     failed_count += 1
                     logger.error(f"Failed to commit player state {player_id[:8]}...: {e}")
