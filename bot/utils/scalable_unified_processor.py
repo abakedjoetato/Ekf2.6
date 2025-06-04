@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from bot.utils.connection_pool import connection_manager
 from bot.utils.shared_parser_state import get_shared_state_manager, ParserState
+from bot.utils.message_rate_limiter import get_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ class ScalableUnifiedProcessor:
         self.cancelled = False
         self.state_manager = get_shared_state_manager()
         self._cold_start_mode = False
+        self.rate_limiter = get_rate_limiter()
         self._voice_channel_updates_deferred = False  # Flag to defer voice updates during cold start
         self.database = None  # Will be set when needed
         self._cold_start_player_states = {}  # Memory storage for cold start batch processing
