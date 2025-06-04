@@ -4,8 +4,6 @@ Posts and updates consolidated leaderboards every 30 minutes
 """
 
 import discord
-import discord
-import discord
 from discord.ext import commands, tasks
 import asyncio
 import logging
@@ -14,6 +12,124 @@ from typing import Optional, Dict, Any, List
 from bot.utils.embed_factory import EmbedFactory
 
 logger = logging.getLogger(__name__)
+
+class LeaderboardView(discord.ui.View):
+    """Interactive view for enhanced leaderboard with multi-user functionality"""
+    
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=None)  # Persistent view
+        self.guild_id = guild_id
+    
+    @discord.ui.button(label="📊 Detailed Stats", style=discord.ButtonStyle.primary, emoji="📊")
+    async def detailed_stats(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Show detailed player statistics"""
+        await interaction.response.defer(ephemeral=True)
+        
+        # Create detailed stats embed
+        embed = discord.Embed(
+            title="📊 Detailed Server Statistics",
+            description="Comprehensive combat analytics",
+            color=0x00ff88,
+            timestamp=datetime.now(timezone.utc)
+        )
+        
+        embed.add_field(
+            name="🎯 Available Commands",
+            value="• `/stats <player>` - Individual player stats\n"
+                  "• `/leaderboard kills` - Top killers\n"
+                  "• `/leaderboard kdr` - Best ratios\n"
+                  "• `/factions` - Faction rankings",
+            inline=False
+        )
+        
+        embed.set_footer(text="Use slash commands for detailed statistics")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+    
+    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, emoji="🔄")
+    async def refresh_leaderboard(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Manually refresh the leaderboard"""
+        await interaction.response.defer()
+        
+        # Get the automated leaderboard cog
+        cog = interaction.client.get_cog('AutomatedLeaderboard')
+        if cog:
+            # Find guild config
+            guild_config = await interaction.client.db_manager.guild_configs.find_one({
+                "guild_id": self.guild_id
+            })
+            
+            if guild_config:
+                # Update the leaderboard
+                await cog.update_guild_leaderboard(guild_config, force_create=False)
+                await interaction.followup.send("🔄 Leaderboard refreshed!", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Guild configuration not found", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Leaderboard system unavailable", ephemeral=True)
+    
+    @discord.ui.select(
+        placeholder="🎮 Select Category...",
+        options=[
+            discord.SelectOption(label="Top Killers", value="kills", emoji="🔥"),
+            discord.SelectOption(label="Best KDR", value="kdr", emoji="⚡"),
+            discord.SelectOption(label="Longest Shots", value="distance", emoji="🎯"),
+            discord.SelectOption(label="Kill Streaks", value="streaks", emoji="💀"),
+            discord.SelectOption(label="Top Weapons", value="weapons", emoji="🔫"),
+            discord.SelectOption(label="Factions", value="factions", emoji="🏛️")
+        ]
+    )
+    async def category_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        """Show specific leaderboard category"""
+        await interaction.response.defer(ephemeral=True)
+        
+        category = select.values[0]
+        
+        # Get leaderboard data for specific category
+        cog = interaction.client.get_cog('AutomatedLeaderboard')
+        if not cog:
+            await interaction.followup.send("❌ Leaderboard system unavailable", ephemeral=True)
+            return
+            
+        # Create category-specific embed
+        embed = discord.Embed(
+            title=f"🏆 {select.options[next(i for i, opt in enumerate(select.options) if opt.value == category)].label}",
+            color=0x00ff88,
+            timestamp=datetime.now(timezone.utc)
+        )
+        
+        embed.set_thumbnail(url="attachment://Leaderboard.png")
+        
+        try:
+            # Get data based on category
+            if category == "kills":
+                data = await cog.get_top_kills(self.guild_id, 10)
+                if data:
+                    text = ""
+                    for i, player in enumerate(data, 1):
+                        name = player.get('player_name', 'Unknown')
+                        kills = player.get('kills', 0)
+                        text += f"`{i:2}.` **{name}** • `{kills:,}` kills\n"
+                    embed.add_field(name="🔥 Top Eliminators", value=text or "No data", inline=False)
+            
+            elif category == "kdr":
+                data = await cog.get_top_kdr(self.guild_id, 10)
+                if data:
+                    text = ""
+                    for i, player in enumerate(data, 1):
+                        name = player.get('player_name', 'Unknown')
+                        kdr = player.get('kdr', 0.0)
+                        text += f"`{i:2}.` **{name}** • `{kdr:.2f}` KDR\n"
+                    embed.add_field(name="⚡ Elite Ratios", value=text or "No data", inline=False)
+            
+            # Add more categories as needed
+            else:
+                embed.add_field(name="Coming Soon", value=f"{category.title()} leaderboard will be available soon!", inline=False)
+        
+        except Exception as e:
+            logger.error(f"Error showing category {category}: {e}")
+            embed.add_field(name="Error", value="Unable to load data for this category", inline=False)
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 class AutomatedLeaderboard(discord.Cog):
     """Automated consolidated leaderboard system"""
@@ -412,6 +528,32 @@ class AutomatedLeaderboard(discord.Cog):
                 
         except Exception as e:
             logger.error(f"Error posting new leaderboard message: {e}")
+
+    async def post_enhanced_leaderboard_message(self, channel, embed, file_attachment, view):
+        """Post enhanced leaderboard message with interactive components"""
+        try:
+            message = None
+            if hasattr(self.bot, 'advanced_rate_limiter') and self.bot.advanced_rate_limiter:
+                from bot.utils.advanced_rate_limiter import MessagePriority
+                message = await self.bot.advanced_rate_limiter.queue_message(
+                    channel_id=channel.id,
+                    embed=embed,
+                    file=file_attachment,
+                    view=view,
+                    priority=MessagePriority.LOW
+                )
+            else:
+                if file_attachment:
+                    message = await channel.send(embed=embed, file=file_attachment, view=view)
+                else:
+                    message = await channel.send(embed=embed, view=view)
+            
+            # Store message ID for persistence across bot restarts
+            if message:
+                await self.store_leaderboard_message_id(channel.guild.id, channel.id, message.id)
+                
+        except Exception as e:
+            logger.error(f"Error posting enhanced leaderboard message: {e}")
 
     async def check_premium_access(self, guild_id: int) -> bool:
         """Check if guild has premium access"""
