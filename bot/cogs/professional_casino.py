@@ -1124,27 +1124,12 @@ class ProfessionalCasino(discord.Cog):
     @discord.slash_command(name="casino", description="Enter the Emerald Elite Casino - Professional Gaming Experience")
     async def casino(self, ctx: discord.ApplicationContext):
         """Main casino command with professional interface"""
-        try:
-
-            pass
-            # IMMEDIATE defer - must be first line to prevent timeout
-
-            await ctx.defer()
-
-            
-
-            try:
-
-
-            
-
-                pass
-                if not ctx.guild:
-        
         # IMMEDIATE defer - must be first line to prevent timeout
         await ctx.defer()
         
-                await ctx.respond("This command can only be used in a server.", ephemeral=True)
+        try:
+            if not ctx.guild:
+                await ctx.followup.send("This command can only be used in a server.", ephemeral=True)
                 return
             
             guild_id = ctx.guild.id
