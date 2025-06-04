@@ -341,7 +341,7 @@ class ScalableUnifiedProcessor:
                         # Reset all player sessions to offline
                         try:
                             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                                if self.db_wrapper.player_sessions:
+                                if self.db_wrapper.player_sessions is not None:
 
                                     self.db_wrapper.player_sessions.update_many(
                                         {"guild_id": self.guild_id, "server_name": server_name},
@@ -1040,7 +1040,7 @@ class ScalableUnifiedProcessor:
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
-                    if self.db_wrapper.player_sessions:
+                    if self.db_wrapper.player_sessions is not None:
                         result = self.db_wrapper.player_sessions.replace_one(
                             {'guild_id': session_data['guild_id'], 'player_id': player_id},
                             session_data,
