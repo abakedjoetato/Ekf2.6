@@ -352,7 +352,7 @@ class ScalableUnifiedProcessor:
                         start_position = 0
                         start_line = 0
                         
-                        logger.info(f"🔄 Cold start: Processing entire log file ({len(content)} bytes) for {server_name}")
+                        logger.debug(f"🔄 Cold start: Processing entire log file ({len(content)} bytes) for {server_name}")
                     else:
                         # HOT RUN: Continue from last position
                         logger.info(f"🔥 HOT RUN for {server_name} - incremental from position {file_state.last_position}")
@@ -364,7 +364,7 @@ class ScalableUnifiedProcessor:
                     
                     if content:
                         lines = content.decode('utf-8', errors='ignore').splitlines()
-                        logger.info(f"Processing {len(lines)} lines for {server_name} from position {start_position}")
+                        logger.debug(f"Processing {len(lines)} lines for {server_name} from position {start_position}")
                         
                         processed_entries = 0
                         entry_types_found = {}
@@ -380,15 +380,15 @@ class ScalableUnifiedProcessor:
                                 entry_type = entry.entry_type
                                 entry_types_found[entry_type] = entry_types_found.get(entry_type, 0) + 1
                         
-                        logger.info(f"Found {processed_entries} valid entries out of {len(lines)} lines for {server_name}")
-                        logger.info(f"Entry types found: {entry_types_found}")
+                        logger.debug(f"Found {processed_entries} valid entries out of {len(lines)} lines for {server_name}")
+                        logger.debug(f"Entry types found: {entry_types_found}")
                         
                         # Update state
                         if self.state_manager:
                             new_position = start_position + len(content)
                             new_line = start_line + len(lines)
                             
-                            logger.info(f"Updating parser state: position {start_position} -> {new_position}, line {start_line} -> {new_line}")
+                            logger.debug(f"Updating parser state: position {start_position} -> {new_position}, line {start_line} -> {new_line}")
                             
                             await self.state_manager.update_parser_state(
                                 self.guild_id, server_name,
@@ -1261,7 +1261,7 @@ class ScalableUnifiedProcessor:
                             'platform': 'Unknown',
                             'character_name': character_name
                         }
-                        logger.info(f"Player {character_name} ({eosid[:8]}...) queued for batch update (online on {entry.server_name})")
+                        logger.debug(f"Player {character_name} ({eosid[:8]}...) queued for batch update (online on {entry.server_name})")
                         state_changed = True  # For logging purposes
                     else:
                         # Hot start processing - update database immediately and track for voice updates
