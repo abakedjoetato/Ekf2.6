@@ -478,25 +478,18 @@ class ScalableUnifiedProcessor:
             logger.error(f"Error updating player sessions in cold start: {e}")
     
     async def send_connection_embeds_batch(self, state_changes: List[Dict[str, Any]]):
-        """Send connection embeds using batch sending"""
+        """Send connection embeds using embed factory"""
         try:
+            from bot.utils.embed_factory import EmbedFactory
             from bot.utils.channel_router import ChannelRouter
-            import discord
-            from datetime import datetime, timezone
             
+            embed_factory = EmbedFactory()
             channel_router = ChannelRouter(self.bot)
             
             for change in state_changes:
                 if change['old_state'] == 'queued' and change['new_state'] == 'online':
-                    # Player connected
-                    embed = discord.Embed(
-                        title="🟢 Player Connected",
-                        description=f"**{change['player_name']}** joined the server",
-                        color=0x00FF00,
-                        timestamp=datetime.now(timezone.utc)
-                    )
-                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
-                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
+                    # Player connected - use embed factory
+                    embed = embed_factory.create_player_connect_embed(change)
                     
                     await channel_router.send_embed_to_channel(
                         guild_id=change['guild_id'],
@@ -506,15 +499,8 @@ class ScalableUnifiedProcessor:
                     )
                 
                 elif change['old_state'] == 'online' and change['new_state'] == 'offline':
-                    # Player disconnected
-                    embed = discord.Embed(
-                        title="🔴 Player Disconnected",
-                        description=f"**{change['player_name']}** left the server",
-                        color=0xFF0000,
-                        timestamp=datetime.now(timezone.utc)
-                    )
-                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
-                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
+                    # Player disconnected - use embed factory
+                    embed = embed_factory.create_player_disconnect_embed(change)
                     
                     await channel_router.send_embed_to_channel(
                         guild_id=change['guild_id'],
@@ -609,6 +595,7 @@ class ScalableUnifiedProcessor:
             
             # Skip events with missing critical data to prevent database errors
             if not eos_id or not guild_id or not server_id:
+                logger.debug(f"Skipping event with missing data: eos_id={eos_id}, guild_id={guild_id}, server_id={server_id}")
                 return
                 
             event_type = event.get('event')
@@ -652,7 +639,9 @@ class ScalableUnifiedProcessor:
                 )
                 
         except Exception as e:
-            logger.error(f"Error updating player session: {e}")
+            # Skip duplicate key errors silently during cold start processing
+            if "duplicate key error" not in str(e):
+                logger.error(f"Error updating player session: {e}")
 
     async def _fetch_server_logs(self, server_config: Dict[str, Any]) -> str:
         """Fetch log data from server via SFTP using robust connection strategies"""
