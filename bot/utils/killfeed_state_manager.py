@@ -64,7 +64,7 @@ class KillfeedStateManager:
     async def get_killfeed_state(self, guild_id: int, server_name: str) -> Optional[KillfeedState]:
         """Get current killfeed state for a server"""
         try:
-            if not self.db:
+            if self.db is None:
                 logger.error("Database connection not available")
                 return None
                 
@@ -97,7 +97,7 @@ class KillfeedStateManager:
                                   file_timestamp: Optional[str] = None) -> bool:
         """Update killfeed parsing state"""
         try:
-            if not self.db:
+            if self.db is None:
                 logger.error("Database connection not available for killfeed state update")
                 return False
                 
@@ -128,7 +128,7 @@ class KillfeedStateManager:
     async def reset_killfeed_state(self, guild_id: int, server_name: str) -> bool:
         """Reset killfeed state for a server (force reprocessing)"""
         try:
-            if not self.db:
+            if self.db is None:
                 logger.error("Database connection not available for killfeed state reset")
                 return False
                 
