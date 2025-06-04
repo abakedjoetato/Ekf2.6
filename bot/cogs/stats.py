@@ -487,15 +487,10 @@ class Stats(discord.Cog):
                     player_characters, display_name = resolve_result
 
             try:
-
-
-                await ctx.defer()
-
-
+                pass
             except discord.errors.NotFound:
-
-
                 # Interaction already expired, respond immediately
+                pass
 
 
                 await ctx.respond("Processing...", ephemeral=True)
@@ -896,9 +891,11 @@ class Stats(discord.Cog):
     async def online(self, ctx: discord.ApplicationContext):
         """Show currently online players"""
         # IMMEDIATE defer - must be first line to prevent timeout
-        await ctx.defer()
         
         import asyncio
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
         logger.info(f"Starting /online command for guild {ctx.guild.id if ctx.guild else 'None'}")
         
         try:

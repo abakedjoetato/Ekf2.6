@@ -1092,6 +1092,9 @@ class ProfessionalCasino(discord.Cog):
         """Main casino command with professional interface"""
         try:
             if not ctx.guild:
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
                 await ctx.respond("This command can only be used in a server.", ephemeral=True)
                 return
             

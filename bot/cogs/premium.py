@@ -37,15 +37,10 @@ class Premium(discord.Cog):
     async def sethome(self, ctx: discord.ApplicationContext):
         """Set this server as the bot's home server (BOT_OWNER_ID only)"""
         # Immediate defer to prevent Discord timeout
+        await ctx.defer()
+        
         try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
-            
-        try:
+            pass
             # Check if user is bot owner
             if not self.is_bot_owner(ctx.user.id):
                 await ctx.followup.send("Only the bot owner can use this command!", ephemeral=True)
@@ -99,16 +94,11 @@ class Premium(discord.Cog):
     async def premium_status(self, ctx: discord.ApplicationContext):
         """Check premium status for current server"""
         # Immediate defer to prevent Discord timeout
+        await ctx.defer()
+        
         try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
-            
-        try:
-            if not ctx.guild:
+            pass
+             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 

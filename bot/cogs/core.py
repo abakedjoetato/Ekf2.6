@@ -35,10 +35,13 @@ class Core(discord.Cog):
         """Display bot information and statistics"""
         # IMMEDIATE defer - must be first line to prevent timeout
         await ctx.defer()
-            
+        
         try:
+            pass
             # Create bot info embed manually for reliability
             embed = discord.Embed(
+        # IMMEDIATE defer - must be first line to prevent timeout
+        
                 title="🤖 Emerald's Killfeed Bot",
                 description="Advanced Discord bot for Deadside server monitoring",
                 color=0x00d38a,
@@ -93,16 +96,11 @@ class Core(discord.Cog):
     @discord.slash_command(name="ping", description="Check bot latency")
     async def ping(self, ctx: discord.ApplicationContext):
         """Check bot response time and latency"""
-        # Immediate defer to prevent Discord timeout
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
         try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
-            
-        try:
+            pass
             latency = round(self.bot.latency * 1000)
             
             embed = discord.Embed(
@@ -125,16 +123,11 @@ class Core(discord.Cog):
     @discord.slash_command(name="status", description="Show bot system status")
     async def status(self, ctx: discord.ApplicationContext):
         """Display detailed bot system status"""
-        # Immediate defer to prevent Discord timeout
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
         try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
-            
-        try:
+            pass
             # Get system information
             cpu_percent = 0.0  # psutil not available
             memory = type("obj", (object,), {"percent": 0.0, "used": 0, "total": 1024*1024*1024})()

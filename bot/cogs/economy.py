@@ -70,6 +70,9 @@ class Economy(discord.Cog):
         """Check user's wallet balance"""
         try:
             if not ctx.guild:
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
                 
@@ -113,6 +116,8 @@ class Economy(discord.Cog):
         """Work command to earn money"""
         try:
             if not ctx.guild:
+        # IMMEDIATE defer - must be first line to prevent timeout
+        
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
                 

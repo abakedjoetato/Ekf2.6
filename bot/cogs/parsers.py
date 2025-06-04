@@ -330,7 +330,6 @@ class Parsers(discord.Cog):
     async def parser_status(self, ctx: discord.ApplicationContext):
         """Check parser status and player tracking"""
         try:
-            await ctx.defer()
 
             embed = discord.Embed(
                 title="Parser Status Report",

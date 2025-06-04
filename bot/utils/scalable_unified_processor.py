@@ -59,6 +59,9 @@ class ScalableUnifiedProcessor:
         
         # Set up loop management
         try:
+                pass
+            except Exception:
+                pass
             self._main_loop = asyncio.get_running_loop()
             logger.debug(f"ScalableUnifiedProcessor: Main loop set to {id(self._main_loop)}")
         except RuntimeError:
@@ -77,6 +80,9 @@ class ScalableUnifiedProcessor:
             return None
         
         try:
+                pass
+            except Exception:
+                pass
             # Extract timestamp (assuming format: [YYYY.MM.DD-HH.MM.SS:mmm])
             if not line.startswith('['):
                 return None
@@ -123,6 +129,9 @@ class ScalableUnifiedProcessor:
         
         for fmt in formats:
             try:
+                    pass
+                except Exception:
+                    pass
                 # Handle microseconds if present
                 if ':' in timestamp_str and '.' in timestamp_str.split(':')[-1]:
                     # Truncate microseconds to 6 digits
@@ -152,6 +161,9 @@ class ScalableUnifiedProcessor:
         # Parse frame and log category
         if ']log' in content_lower:
             try:
+                    pass
+                except Exception:
+                    pass
                 parts = content.split(']', 1)
                 if len(parts) > 1:
                     frame_part = parts[0] + ']'
@@ -628,6 +640,9 @@ class ScalableUnifiedProcessor:
     async def _handle_server_restart(self, server_name: str):
         """Handle server restart by resetting all player states"""
         try:
+                pass
+            except Exception:
+                pass
             # This would integrate with existing player session management
             # Reset all players for this server to offline state
             logger.info(f"Handling server restart for {server_name} - resetting player states")
@@ -635,6 +650,9 @@ class ScalableUnifiedProcessor:
             # Thread-safe database operations for cold start
             if self.db_wrapper:
                 try:
+                        pass
+                    except Exception:
+                        pass
                     # Use thread-safe wrapper for session reset
                     result = self.db_wrapper.reset_player_sessions(self.guild_id, server_name)
 if asyncio.iscoroutine(result):
@@ -651,6 +669,9 @@ if asyncio.iscoroutine(result):
     async def _process_entries_chronologically(self, entries: List[LogEntry]):
         """Process log entries in chronological order"""
         try:
+                pass
+            except Exception:
+                pass
             logger.debug(f"Processing {len(entries)} entries chronologically")
             
             entry_types = {}
@@ -689,6 +710,9 @@ if asyncio.iscoroutine(result):
             return
         
         try:
+                pass
+            except Exception:
+                pass
             batch_count = len(self._cold_start_player_states)
             logger.info(f"🔄 Committing {batch_count} player states from cold start batch processing")
             
@@ -698,6 +722,9 @@ if asyncio.iscoroutine(result):
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
+                        pass
+                    except Exception:
+                        pass
                     if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                         result = self.bot.db_manager.save_player_session(
                             guild_id=session_data['guild_id'],
@@ -723,6 +750,9 @@ if asyncio.iscoroutine(result):
     async def _update_voice_channel_for_servers(self):
         """Update voice channel after processing all entries"""
         try:
+                pass
+            except Exception:
+                pass
             if not self.bot or not hasattr(self.bot, 'voice_channel_batcher'):
                 return
             
@@ -743,6 +773,9 @@ if asyncio.iscoroutine(result):
                 
                 # Get current player count from database using thread-safe wrapper
                 try:
+                        pass
+                    except Exception:
+                        pass
                     if self.db_wrapper:
                         player_count = result = self.db_wrapper.get_active_player_count(
                             self.guild_id, server_name
@@ -784,6 +817,9 @@ if asyncio.iscoroutine(result):
     async def _process_single_entry(self, entry: LogEntry):
         """Process a single log entry"""
         try:
+                pass
+            except Exception:
+                pass
             # Check if this is a cold start (rotation detected) to avoid sending embeds
             is_cold_start = getattr(self, '_cold_start_mode', False)
             
@@ -837,6 +873,9 @@ if asyncio.iscoroutine(result):
     async def _handle_player_queue(self, entry: LogEntry):
         """Handle player queue event (join request)"""
         try:
+                pass
+            except Exception:
+                pass
             if not entry.player_name:
                 return
             
@@ -855,6 +894,9 @@ if asyncio.iscoroutine(result):
     async def _handle_player_join(self, entry: LogEntry):
         """Handle player join event (successfully registered)"""
         try:
+                pass
+            except Exception:
+                pass
             if not entry.player_name:
                 return
             
@@ -862,6 +904,9 @@ if asyncio.iscoroutine(result):
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 try:
+                        pass
+                    except Exception:
+                        pass
                     # During cold start, store in memory for batch processing
                     if self._cold_start_mode:
                         # Get player name from cache if available
@@ -883,6 +928,9 @@ if asyncio.iscoroutine(result):
                     else:
                         # Hot start processing - update database immediately and track for voice updates
                         try:
+                                pass
+                            except Exception:
+                                pass
                             # Get player name from cache if available
                             character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                             
@@ -890,6 +938,9 @@ if asyncio.iscoroutine(result):
                             result = None
                             if self.db_wrapper:
                                 try:
+                                        pass
+                                    except Exception:
+                                        pass
                                     result = result = self.db_wrapper.update_player_session(
                                     {"guild_id": self.guild_id, "player_id": eosid},
                                     {
@@ -943,6 +994,9 @@ if asyncio.iscoroutine(result):
                             }
                             
                             try:
+                                    pass
+                                except Exception:
+                                    pass
                                 embed, file_attachment = result = self.bot.embed_factory.build('connection', embed_data)
 if asyncio.iscoroutine(result):
     await result
@@ -975,6 +1029,9 @@ if asyncio.iscoroutine(result):
     async def _handle_player_leave(self, entry: LogEntry):
         """Handle player leave event (connection closed)"""
         try:
+                pass
+            except Exception:
+                pass
             if not entry.player_name:
                 return
             
@@ -982,6 +1039,9 @@ if asyncio.iscoroutine(result):
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 try:
+                        pass
+                    except Exception:
+                        pass
                     # During cold start, remove from memory state
                     if self._cold_start_mode:
                         if eosid in self._cold_start_player_states:
@@ -992,6 +1052,9 @@ if asyncio.iscoroutine(result):
                         # Hot start processing - update database using thread-safe wrapper
                         if self.db_wrapper:
                             try:
+                                    pass
+                                except Exception:
+                                    pass
                                 result = result = self.db_wrapper.update_player_session(
                                     {"guild_id": self.guild_id, "player_id": eosid, "state": "online"},
                                     {
@@ -1033,6 +1096,9 @@ if asyncio.iscoroutine(result):
                             }
                             
                             try:
+                                    pass
+                                except Exception:
+                                    pass
                                 embed, file_attachment = result = self.bot.embed_factory.build('connection', embed_data)
 if asyncio.iscoroutine(result):
     await result
@@ -1065,6 +1131,9 @@ if asyncio.iscoroutine(result):
     async def _handle_general_entry(self, entry: LogEntry):
         """Handle general entries that might contain player connection events"""
         try:
+                pass
+            except Exception:
+                pass
             if not entry.additional_data:
                 return
             
@@ -1147,6 +1216,9 @@ if asyncio.iscoroutine(result):
     async def _handle_kill_event(self, entry: LogEntry):
         """Handle kill event with proper kill tracking"""
         try:
+                pass
+            except Exception:
+                pass
             kill_data = entry.additional_data
             if not kill_data or 'killer' not in kill_data or 'victim' not in kill_data:
                 return
@@ -1184,6 +1256,9 @@ if asyncio.iscoroutine(result):
     async def _handle_mission_event(self, entry: LogEntry):
         """Handle mission events - only send embeds for READY status"""
         try:
+                pass
+            except Exception:
+                pass
             # Skip embed creation during cold start to prevent spam
             if self._cold_start_mode:
                 logger.debug(f"Skipping mission embed during cold start for {entry.server_name}")
@@ -1208,6 +1283,9 @@ if asyncio.iscoroutine(result):
                 }
                 
                 try:
+                        pass
+                    except Exception:
+                        pass
                     embed, file_attachment = result = self.bot.embed_factory.build('mission', embed_data)
 if asyncio.iscoroutine(result):
     await result
@@ -1254,6 +1332,9 @@ if asyncio.iscoroutine(result):
     async def _handle_airdrop_event(self, entry: LogEntry):
         """Handle airdrop events using proper EmbedFactory theming"""
         try:
+                pass
+            except Exception:
+                pass
             # Skip embed creation during cold start to prevent spam
             if self._cold_start_mode:
                 logger.debug(f"Skipping airdrop embed during cold start for {entry.server_name}")
@@ -1280,6 +1361,9 @@ if asyncio.iscoroutine(result):
                 }
                 
                 try:
+                        pass
+                    except Exception:
+                        pass
                     embed, file_attachment = result = self.bot.embed_factory.build('airdrop', embed_data)
 if asyncio.iscoroutine(result):
     await result
@@ -1304,6 +1388,9 @@ if asyncio.iscoroutine(result):
     async def _handle_helicrash_event(self, entry: LogEntry):
         """Handle helicrash events using proper EmbedFactory theming"""
         try:
+                pass
+            except Exception:
+                pass
             # Skip embed creation during cold start to prevent spam
             if self._cold_start_mode:
                 logger.debug(f"Skipping helicrash embed during cold start for {entry.server_name}")
@@ -1329,6 +1416,9 @@ if asyncio.iscoroutine(result):
                 }
                 
                 try:
+                        pass
+                    except Exception:
+                        pass
                     embed, file_attachment = result = self.bot.embed_factory.build('helicrash', embed_data)
 if asyncio.iscoroutine(result):
     await result
@@ -1353,6 +1443,9 @@ if asyncio.iscoroutine(result):
     async def _handle_trader_event(self, entry: LogEntry):
         """Handle trader events using proper EmbedFactory theming with deduplication"""
         try:
+                pass
+            except Exception:
+                pass
             # Skip embed creation during cold start to prevent spam
             if self._cold_start_mode:
                 logger.debug(f"Skipping trader embed during cold start for {entry.server_name}")
@@ -1398,6 +1491,9 @@ if asyncio.iscoroutine(result):
                 }
                 
                 try:
+                        pass
+                    except Exception:
+                        pass
                     embed, file_attachment = result = self.bot.embed_factory.build('trader', embed_data)
 if asyncio.iscoroutine(result):
     await result
@@ -1426,8 +1522,14 @@ if asyncio.iscoroutine(result):
         errors = []
         
         try:
+                pass
+            except Exception:
+                pass
             for server_config in server_configs:
                 try:
+                        pass
+                    except Exception:
+                        pass
                     # Process individual server (simplified implementation)
                     server_name = server_config.get('server_name', 'Unknown')
                     processed_count += 1

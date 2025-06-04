@@ -742,8 +742,6 @@ class Factions(discord.Cog):
                     await ctx.respond("You are not a member of any faction! Specify a faction name to view.", ephemeral=True)
                     return
 
-            await ctx.defer()
-
             # Calculate faction stats
             stats = await self.calculate_faction_stats(guild_id or 0, faction)
 

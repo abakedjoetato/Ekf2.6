@@ -28,19 +28,14 @@ class Linking(discord.Cog):
             return False
 
     @discord.slash_command(name="link", description="Link your Discord account to a game character")
-    async def link_character(self, ctx: discord.ApplicationContext, character_name: str):
+    async def link_character(self, ctx: discord.ApplicationContext):
         """Link Discord user to game character"""
         # Immediate defer to prevent Discord timeout
+        await ctx.defer()
+        
         try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
-            
-        try:
-            if not ctx.guild:
+            pass
+             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
@@ -124,19 +119,14 @@ class Linking(discord.Cog):
                 pass
 
     @discord.slash_command(name="unlink", description="Unlink a character from your Discord account")
-    async def unlink_character(self, ctx: discord.ApplicationContext, character_name: str):
+    async def unlink_character(self, ctx: discord.ApplicationContext):
         """Unlink character from Discord user"""
         # Immediate defer to prevent Discord timeout
+        await ctx.defer()
+        
         try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
-            
-        try:
-            if not ctx.guild:
+            pass
+             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
@@ -187,16 +177,11 @@ class Linking(discord.Cog):
     async def view_linked(self, ctx: discord.ApplicationContext):
         """View user's linked characters"""
         # Immediate defer to prevent Discord timeout
+        await ctx.defer()
+        
         try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
-            
-        try:
-            if not ctx.guild:
+            pass
+             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
