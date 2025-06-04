@@ -118,16 +118,19 @@ class ScalableUnifiedParser:
                     )
                     
                     if events:
-                        # Update player sessions without sending embeds
-                        await processor.update_player_sessions_cold(events, guild_id, server_id)
+                        # Update player sessions without sending embeds and get actual counts
+                        online_count, queued_count = await processor.update_player_sessions_cold(events, guild_id, server_id)
                         
-                        # Update voice channel count once at the end
-                        await self._update_voice_channel_final(guild_id, server_id, server_name)
+                        # Update voice channel with accurate counts
+                        from bot.utils.voice_channel_manager import VoiceChannelManager
+                        vc_manager = VoiceChannelManager(self.bot)
+                        await vc_manager.update_voice_channel_count(guild_id, server_id, online_count, queued_count)
                         
                         # Set parser state for future hot starts
                         await self._set_parser_state(guild_id, server_id, events[-1].get('timestamp'))
                         
                         logger.info(f"❄️ COLD START complete: {server_name} - {len(events)} events processed, voice channel updated")
+                        logger.info(f"🔊 Voice channel updated: {server_name} - {online_count} online, {queued_count} queued")
                     
                 else:
                     # HOT START: Process new events since last run, send all embeds, update voice channel once at end

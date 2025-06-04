@@ -28,7 +28,6 @@ async def fix_player_state_tracking():
         
         # Import the connection pool to access server logs
         import asyncssh
-        import os
         
         # Get SSH credentials from environment
         ssh_host = os.environ.get('SSH_HOST', '79.127.236.1')

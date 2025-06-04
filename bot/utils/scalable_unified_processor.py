@@ -464,18 +464,76 @@ class ScalableUnifiedProcessor:
             return []
     
     async def update_player_sessions_cold(self, events: List[Dict[str, Any]], guild_id: int, server_id: str):
-        """Update player sessions for cold start - no embeds sent"""
+        """Update player sessions for cold start - chronological processing to determine current state"""
         try:
+            # Track player states chronologically
+            player_states = {}
             valid_events = 0
+            
+            # Process events chronologically to determine final states
             for event in events:
-                if event.get('type') == 'connection' and event.get('eos_id'):
-                    await self._update_single_player_session(event, send_embeds=False)
-                    valid_events += 1
+                if event.get('type') != 'connection' or not event.get('eos_id'):
+                    continue
+                
+                eos_id = event.get('eos_id')
+                event_type = event.get('event')
+                timestamp = event.get('timestamp')
+                
+                # Initialize player if not seen before
+                if eos_id not in player_states:
+                    player_states[eos_id] = {
+                        'eos_id': eos_id,
+                        'player_name': event.get('player_name', 'Unknown'),
+                        'login_name': event.get('login_name', 'Unknown'),
+                        'guild_id': guild_id,
+                        'server_id': server_id,
+                        'state': 'offline',
+                        'last_updated': timestamp,
+                        'last_seen': timestamp
+                    }
+                
+                # Update state based on event type
+                if event_type == 'player_queue':
+                    player_states[eos_id]['state'] = 'queued'
+                    player_states[eos_id]['queued_at'] = timestamp
+                elif event_type == 'player_connect':
+                    player_states[eos_id]['state'] = 'online'
+                    player_states[eos_id]['joined_at'] = timestamp
+                elif event_type == 'player_disconnect':
+                    player_states[eos_id]['state'] = 'offline'
+                    player_states[eos_id]['left_at'] = timestamp
+                
+                player_states[eos_id]['last_seen'] = timestamp
+                player_states[eos_id]['last_updated'] = timestamp
+                valid_events += 1
+            
+            # Clear existing sessions for this server
+            await self.bot.db_manager.player_sessions.delete_many({
+                'guild_id': guild_id,
+                'server_id': server_id
+            })
+            
+            # Insert final states (only active players)
+            active_sessions = []
+            for eos_id, player_data in player_states.items():
+                if player_data['state'] in ['online', 'queued']:  # Only store active players
+                    active_sessions.append(player_data)
+            
+            if active_sessions:
+                await self.bot.db_manager.player_sessions.insert_many(active_sessions)
+            
+            # Count final states
+            online_count = sum(1 for p in player_states.values() if p['state'] == 'online')
+            queued_count = sum(1 for p in player_states.values() if p['state'] == 'queued')
             
             logger.info(f"Cold start: Updated player sessions for {valid_events} valid events out of {len(events)} total")
+            logger.info(f"Cold start: Final state - {online_count} online, {queued_count} queued players")
+            
+            return online_count, queued_count
             
         except Exception as e:
             logger.error(f"Error updating player sessions in cold start: {e}")
+            return 0, 0
     
     async def send_connection_embeds_batch(self, state_changes: List[Dict[str, Any]]):
         """Send connection embeds using embed factory"""
