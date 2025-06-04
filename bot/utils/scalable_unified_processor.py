@@ -251,41 +251,33 @@ class ScalableUnifiedProcessor:
                     
                     # Force cold start to avoid database conflicts in threading
                     cold_start_required = True
-                        
-                        # COLD START CONDITIONS:
-                        # 1. Cold start flag set (bot restart)
-                        # 2. File rotation detected (hash changed)
-                        # 3. New server (no stored state)
-                        
-                        if cold_start_required:
-                            # Bot restart detected via flag
-                            rotation_detected = True
-                            logger.info(f"🔄 COLD START: Bot restart flag detected for {server_name}")
-                            
-                            # Clear cold start flag for this guild
-                            await self.bot.db_manager.guild_configs.update_one(
-                                {"guild_id": self.guild_id},
-                                {"$unset": {"cold_start_required": ""}}
-                            )
-                            logger.info(f"✅ Cold start flag cleared for guild {self.guild_id}")
-                        elif stored_state is None:
-                            # New server - cold start required
-                            rotation_detected = True
-                            logger.info(f"🔄 COLD START: New server detected for {server_name}")
-                        elif getattr(stored_state, 'file_timestamp', '') != current_hash:
-                            # File rotation detected
-                            rotation_detected = True
-                            logger.info(f"🔄 COLD START: File rotation detected for {server_name}")
-                        else:
-                            # Hot start - continue from last position
-                            rotation_detected = False
-                            last_position = getattr(stored_state, 'last_byte_position', 0)
-                            last_line = getattr(stored_state, 'last_line', 0)
-                            logger.info(f"🔥 HOT START: Continuing from position {last_position}, line {last_line} for {server_name}")
-                    else:
-                        # Fallback: no database access - force cold start
+                    
+                    # COLD START CONDITIONS:
+                    # 1. Cold start flag set (bot restart)
+                    # 2. File rotation detected (hash changed)
+                    # 3. New server (no stored state)
+                    
+                    if cold_start_required:
+                        # Bot restart detected via flag
                         rotation_detected = True
-                        logger.info(f"🔄 Cold start: No database access for {server_name} - forcing reset")
+                        logger.info(f"🔄 COLD START: Bot restart flag detected for {server_name}")
+                        
+                        # Skip database operations to avoid threading conflicts
+                        logger.info(f"✅ Cold start processing for guild {self.guild_id}")
+                    elif stored_state is None:
+                        # New server - cold start required
+                        rotation_detected = True
+                        logger.info(f"🔄 COLD START: New server detected for {server_name}")
+                    elif getattr(stored_state, 'file_timestamp', '') != current_hash:
+                        # File rotation detected
+                        rotation_detected = True
+                        logger.info(f"🔄 COLD START: File rotation detected for {server_name}")
+                    else:
+                        # Hot start - continue from last position
+                        rotation_detected = False
+                        last_position = getattr(stored_state, 'last_byte_position', 0)
+                        last_line = getattr(stored_state, 'last_line', 0)
+                        logger.info(f"🔥 HOT START: Continuing from position {last_position}, line {last_line} for {server_name}")
                     
                     return ServerFileState(
                         server_name=server_name,
