@@ -514,13 +514,25 @@ class Stats(discord.Cog):
     async def online(self, ctx: discord.ApplicationContext):
         """Show currently online players"""
         try:
+            await ctx.defer()
+            
+            if not ctx.guild:
+                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+                return
+                
             guild_id = ctx.guild.id
             
-            # Get online players from database
-            sessions = await self.bot.db_manager.player_sessions.find({
-                'guild_id': guild_id,
-                'state': 'online'
-            }).to_list(length=50)
+            # Add timeout protection for database operations
+            import asyncio
+            
+            async def get_sessions():
+                return await self.bot.db_manager.player_sessions.find({
+                    'guild_id': guild_id,
+                    'state': 'online'
+                }).to_list(length=50)
+            
+            # Execute with timeout to prevent hanging
+            sessions = await asyncio.wait_for(get_sessions(), timeout=5.0)
             
             # Load thumbnail asset
             file_path = "./assets/Connections.png"
@@ -617,12 +629,21 @@ class Stats(discord.Cog):
             )
             
             if file:
-                await ctx.respond(embed=embed, file=file)
+                await ctx.followup.send(embed=embed, file=file)
             else:
-                await ctx.respond(embed=embed)
+                await ctx.followup.send(embed=embed)
             
         except Exception as e:
-            await ctx.respond("Failed to fetch online players.", ephemeral=True)
+            import asyncio
+            if isinstance(e, asyncio.TimeoutError):
+                logger.error(f"Database timeout in /online command for guild {ctx.guild.id if ctx.guild else 0}")
+                await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+            else:
+                logger.error(f"Failed to fetch online players: {e}")
+                if ctx.response.is_done():
+                    await ctx.followup.send("Failed to fetch online players.", ephemeral=True)
+                else:
+                    await ctx.respond("Failed to fetch online players.", ephemeral=True)
 
     async def _display_single_server_players(self, ctx, server_name: str, server_players: list):
         """Display players for a single specific server"""

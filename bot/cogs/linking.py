@@ -42,23 +42,34 @@ class Linking(discord.Cog):
     async def link(self, ctx, character: str):
         """Link Discord account to a character name"""
         try:
-            guild_id = (ctx.guild.id if ctx.guild else None)
+            await ctx.defer()
+            
+            if not ctx.guild:
+                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+                return
+                
+            guild_id = ctx.guild.id
             discord_id = ctx.user.id
             
             # Validate character name
             character = character.strip()
             if not character:
-                await ctx.respond("Character name cannot be empty!", ephemeral=True)
+                await ctx.followup.send("Character name cannot be empty!", ephemeral=True)
                 return
             
             if len(character) > 32:
-                await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
+                await ctx.followup.send("Character name too long! Maximum 32 characters.", ephemeral=True)
                 return
             
-            # Validate that player exists in PvP data
-            actual_player_name = await self.bot.db_manager.find_player_in_pvp_data(guild_id, character)
+            # Validate that player exists in PvP data with timeout protection
+            import asyncio
+            
+            async def validate_player():
+                return await self.bot.db_manager.find_player_in_pvp_data(guild_id, character)
+            
+            actual_player_name = await asyncio.wait_for(validate_player(), timeout=5.0)
             if not actual_player_name:
-                await ctx.respond(
+                await ctx.followup.send(
                     f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
@@ -67,37 +78,36 @@ class Linking(discord.Cog):
             # Use the actual player name from database (correct capitalization)
             character = actual_player_name
             
-            # Check if character is already linked to another user
-            existing_link = await self.bot.db_manager.players.find_one({
-                "guild_id": guild_id,
-                "linked_characters": character
-            })
+            # Check if character is already linked to another user with timeout protection
+            async def check_existing_link():
+                return await self.bot.db_manager.players.find_one({
+                    "guild_id": guild_id,
+                    "linked_characters": character
+                })
+            
+            existing_link = await asyncio.wait_for(check_existing_link(), timeout=5.0)
             
             if existing_link and existing_link['discord_id'] != discord_id:
-                await ctx.respond(
+                await ctx.followup.send(
                     f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
                 return
             
-            # Link the character
-            try:
-                success = await self.bot.db_manager.link_player(guild_id, discord_id, character)
-            except Exception as db_error:
-                logger.error(f"Database error during character linking: {db_error}")
-                await ctx.respond("Database error occurred. Please try again later.", ephemeral=True)
-                return
+            # Link the character with timeout protection
+            async def link_player():
+                return await self.bot.db_manager.link_player(guild_id, discord_id, character)
+            
+            success = await asyncio.wait_for(link_player(), timeout=5.0)
             
             if success:
-                # Get updated player data
-                try:
-                    player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
-                    if not player_data:
-                        await ctx.respond("Failed to retrieve updated player data.", ephemeral=True)
-                        return
-                except Exception as db_error:
-                    logger.error(f"Database error retrieving updated player data: {db_error}")
-                    await ctx.respond("Database error occurred. Please try again later.", ephemeral=True)
+                # Get updated player data with timeout protection
+                async def get_updated_data():
+                    return await self.bot.db_manager.get_linked_player(guild_id, discord_id)
+                
+                player_data = await asyncio.wait_for(get_updated_data(), timeout=5.0)
+                if not player_data:
+                    await ctx.followup.send("Failed to retrieve updated player data.", ephemeral=True)
                     return
                 
                 # Set Discord nickname to primary character name
@@ -140,13 +150,21 @@ class Linking(discord.Cog):
                 embed.set_thumbnail(url="attachment://Connections.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                await ctx.respond(embed=embed, file=connections_file)
+                await ctx.followup.send(embed=embed, file=connections_file)
             else:
-                await ctx.respond("Failed to link character. Please try again.", ephemeral=True)
+                await ctx.followup.send("Failed to link character. Please try again.", ephemeral=True)
                 
         except Exception as e:
-            logger.error(f"Failed to link character: {e}")
-            await ctx.respond("Failed to link character.", ephemeral=True)
+            import asyncio
+            if isinstance(e, asyncio.TimeoutError):
+                logger.error(f"Database timeout in /link command for guild {ctx.guild.id if ctx.guild else 0}")
+                await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+            else:
+                logger.error(f"Failed to link character: {e}")
+                if ctx.response.is_done():
+                    await ctx.followup.send("Failed to link character.", ephemeral=True)
+                else:
+                    await ctx.respond("Failed to link character.", ephemeral=True)
     
     alt = discord.SlashCommandGroup("alt", "Manage alternate characters")
     
