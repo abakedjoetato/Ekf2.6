@@ -78,13 +78,14 @@ class CommandSyncRecovery:
             self.is_recovering = False
     
     async def _try_command_sync(self) -> bool:
-        """Try to sync commands with Discord"""
+        """Try to sync commands with Discord using py-cord syntax"""
         try:
             # First try guild-specific sync for immediate availability
             for guild in self.bot.guilds:
                 try:
-                    synced = await self.bot.tree.sync(guild=guild)
-                    logger.info(f"✅ Synced {len(synced)} commands to guild: {guild.name}")
+                    # Use py-cord sync_commands with guild_ids parameter
+                    synced = await self.bot.sync_commands(guild_ids=[guild.id])
+                    logger.info(f"✅ Synced {len(synced) if synced else 0} commands to guild: {guild.name}")
                     return True
                 except discord.HTTPException as e:
                     if e.status == 429:  # Rate limited
@@ -99,8 +100,8 @@ class CommandSyncRecovery:
             
             # If guild sync fails, try global sync
             try:
-                synced = await self.bot.tree.sync()
-                logger.info(f"✅ Global sync successful: {len(synced)} commands")
+                synced = await self.bot.sync_commands()
+                logger.info(f"✅ Global sync successful: {len(synced) if synced else 0} commands")
                 return True
             except discord.HTTPException as e:
                 if e.status == 429:

@@ -247,6 +247,9 @@ class EmeraldKillfeedBot(commands.Bot):
         """
         try:
             # Check for command sync cooldown
+            from datetime import datetime, timedelta
+            import subprocess
+            
             cooldown_file = 'command_sync_cooldown.txt'
             if os.path.exists(cooldown_file):
                 with open(cooldown_file, 'r') as f:
