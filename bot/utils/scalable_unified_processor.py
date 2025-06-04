@@ -590,20 +590,21 @@ class ScalableUnifiedProcessor:
         """Fetch log data from server via SFTP using server-specific credentials"""
         try:
             import asyncssh
-            import os
             
-            # Get SSH credentials from environment (server-specific)
-            ssh_host = os.getenv('SSH_HOST')
-            ssh_username = os.getenv('SSH_USERNAME')
-            ssh_password = os.getenv('SSH_PASSWORD')
-            ssh_port = int(os.getenv('SSH_PORT', 22))
+            # Get SSH credentials from server config (not environment variables)
+            ssh_host = server_config.get('ssh_host')
+            ssh_username = server_config.get('ssh_username') 
+            ssh_password = server_config.get('ssh_password')
+            ssh_port = server_config.get('ssh_port', 22)
             
             if not all([ssh_host, ssh_username, ssh_password]):
-                logger.error("SSH credentials not configured")
+                logger.error(f"Server {server_config.get('server_name', 'Unknown')} missing SSH credentials in database")
                 return ""
             
             # Get log path from server config
             log_path = server_config.get('log_path', '/home/deadside/79.127.236.1_7020/actual1/Deadside/Saved/Logs/Deadside.log')
+            
+            logger.info(f"Connecting to {ssh_host}:{ssh_port} as {ssh_username} for {server_config.get('server_name', 'Unknown')}")
             
             # Connect to server via SFTP
             async with asyncssh.connect(
