@@ -54,6 +54,8 @@ except Exception as e:
     raise
 from bot.parsers.historical_parser import HistoricalParser
 from bot.parsers.unified_log_parser import UnifiedLogParser
+from bot.utils.task_pool import get_task_pool, shutdown_task_pool, dispatch_background_with_lock
+from bot.utils.threaded_parser_wrapper import create_threaded_parser
 
 # Load environment variables (optional for Railway)
 load_dotenv()
@@ -757,6 +759,11 @@ class EmeraldKillfeedBot(commands.Bot):
 
             # Clean up SFTP connections
             await self.cleanup_connections()
+
+            # Shutdown task pool
+            logger.info("Shutting down task pool...")
+            await shutdown_task_pool()
+            logger.info("Task pool shutdown complete")
 
             if self.scheduler.running:
                 self.scheduler.shutdown()
