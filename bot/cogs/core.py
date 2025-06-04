@@ -111,7 +111,7 @@ class Core(discord.Cog):
             logger.error(f"Failed to ping: {e}")
             await ctx.respond("Failed to check latency.", ephemeral=True)
 
-        @discord.slash_command(name="help", description="Show help information")
+    @discord.slash_command(name="help", description="Show help information")
     async def help(self, ctx):
         """Display help information and command categories"""
         try:
@@ -125,22 +125,19 @@ class Core(discord.Cog):
             
             embed.add_field(
                 name="📊 Statistics",
-                value="`/stats` - Player statistics
-`/leaderboard` - Top players",
+                value="`/stats` - Player statistics\n`/leaderboard` - Top players",
                 inline=True
             )
             
             embed.add_field(
                 name="🔧 Admin",
-                value="`/setchannel` - Configure channels
-`/status` - Bot status",
+                value="`/setchannel` - Configure channels\n`/status` - Bot status",
                 inline=True
             )
             
             embed.add_field(
                 name="💰 Economy",
-                value="`/balance` - Check credits
-`/daily` - Daily rewards",
+                value="`/balance` - Check credits\n`/daily` - Daily rewards",
                 inline=True
             )
             

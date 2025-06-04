@@ -342,7 +342,7 @@ class ScalableUnifiedProcessor:
                         try:
                             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                                 await if self.db_wrapper.player_sessions:
-                self.db_wrapper.player_sessions.update_many(
+     self.db_wrapper.player_sessions.update_many(
                                     {"guild_id": self.guild_id, "server_name": server_name},
                                     {"$set": {"state": "offline", "last_updated": datetime.now(timezone.utc)}}
                                 )

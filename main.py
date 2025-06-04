@@ -803,7 +803,7 @@ class EmeraldKillfeedBot(commands.Bot):
                             self.db_manager.client.close()
                     except Exception as close_error:
                         logger.debug(f"Database close method not available: {close_error}")
-                    logger.info("MongoDB connection closed")
+                        logger.info("MongoDB connection closed")
 
             await super().close()
             logger.info("Bot shutdown complete")

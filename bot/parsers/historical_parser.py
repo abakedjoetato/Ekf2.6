@@ -390,12 +390,12 @@ class HistoricalParser:
         
         for encoding in encodings:
             try:
-            if aiofiles and hasattr(aiofiles, "open"):
-                async with aiofiles.open(file_path, 'r', encoding=encoding) as f:
-                    content = await f.read()
-                    lines = [line.strip() for line in content.splitlines() if line.strip()]
-                    logger.debug(f"Successfully read {file_path} with {encoding} encoding: {len(lines)} lines")
-                    return lines
+                if aiofiles and hasattr(aiofiles, "open"):
+                    async with aiofiles.open(file_path, 'r', encoding=encoding) as f:
+                        content = await f.read()
+                        lines = [line.strip() for line in content.splitlines() if line.strip()]
+                        logger.debug(f"Successfully read {file_path} with {encoding} encoding: {len(lines)} lines")
+                        return lines
             except UnicodeDecodeError:
                 logger.debug(f"Failed to read {file_path} with {encoding} encoding")
                 continue
@@ -1249,7 +1249,7 @@ class HistoricalParser:
         start_time = stats.get('start_time')
         if start_time:
             total_time = 0
-                total_time % 60)}s"
+            time_str = f"{int(total_time // 60)}m {int(total_time % 60)}s"
         else:
             time_str = "Unknown"
         
