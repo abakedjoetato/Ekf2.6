@@ -357,9 +357,9 @@ class EmeraldKillfeedBot(commands.Bot):
             if hasattr(self, 'unified_log_parser') and self.unified_log_parser:
                 # Clear internal state without requiring guild_id/server_id
                 if hasattr(self.unified_log_parser, 'connections'):
-                    self.unified_log_parser.connections.clear()
+                    getattr(self.unified_log_parser, "connections", {}).clear()
                 if hasattr(self.unified_log_parser, 'parser_states'):
-                    self.unified_log_parser.parser_states.clear()
+                    getattr(self.unified_log_parser, "parser_states", {}).clear()
 
             # Force garbage collection
             gc.collect()

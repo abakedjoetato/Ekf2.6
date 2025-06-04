@@ -1029,75 +1029,24 @@ class ScalableUnifiedProcessor:
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
-                    logger.debug(f"Attempting to commit: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
-                    
-                    # Write with strong consistency to ensure immediate visibility
-                    from pymongo import WriteConcern
-                    
-                    # Use thread-safe database wrapper if available
-                    db_manager = getattr(self.bot, 'thread_safe_db', self.bot.db_manager)
-                    
-                    result = await db_manager.player_sessions.with_options(
-                        write_concern=WriteConcern(w="majority", j=True)
-                    ).replace_one(
+                    result = await self.bot.db_manager.player_sessions.replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
                     )
-                    
                     if result.upserted_id or result.modified_count > 0:
                         committed_count += 1
-                        logger.info(f"✓ Committed: {player_id[:8]}... -> {session_data['state']} on {session_data['server_name']}")
-                    else:
-                        failed_count += 1
-                        logger.error(f"✗ Write operation failed for {player_id[:8]}...")
-                    
-                except Exception as commit_error:
+                except Exception as e:
                     failed_count += 1
-                    logger.error(f"Exception during commit for {player_id[:8]}...: {commit_error}")
-                    import traceback
-                    logger.error(f"Full traceback: {traceback.format_exc()}")
-            
-
+                    logger.error(f"Failed to commit player state {player_id[:8]}...: {e}")
             
             logger.info(f"✅ Cold start batch commit: {committed_count}/{batch_count} sessions committed, {failed_count} failed")
             
-            # Force database persistence and cross-connection verification
-            try:
-                # Verify with bot's connection
-                total_online = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.count_documents({
-                    'guild_id': self.guild_id,
-                    'state': 'online'
-                })
-                emerald_online = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.count_documents({
-                    'guild_id': self.guild_id,
-                    'server_name': 'Emerald EU',
-                    'state': 'online'
-                })
-                logger.info(f"✅ Bot connection verification: {emerald_online} Emerald EU online, {total_online} total online")
-                
-                # Test with fresh database connection using strong read concern
-                import motor.motor_asyncio
-                import os
-                test_client = motor.motor_asyncio.AsyncIOMotorClient(
-                    os.environ.get('MONGO_URI'),
-                    w="majority"
-                )
-                test_db = test_client.emerald_killfeed
-                
-                # Force wait for database write propagation
-                await asyncio.sleep(1.0)
-                
-                # Test external connection read
-                external_total = await test_db.player_sessions.count_documents({
-                    'guild_id': self.guild_id,
-                    'state': 'online'
-                })
-                external_emerald = await test_db.player_sessions.count_documents({
-                    'guild_id': self.guild_id,
-                    'server_name': 'Emerald EU',
-                    'state': 'online'
-                })
+        except Exception as e:
+            logger.error(f"Cold start commit failed: {e}")
+            
+        # Clear the batch after processing
+        self._cold_start_player_states.clear()
                 
                 logger.info(f"✅ External connection verification: {external_emerald} Emerald EU online, {external_total} total online")
                 
