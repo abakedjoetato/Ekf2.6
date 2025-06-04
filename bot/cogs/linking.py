@@ -272,7 +272,12 @@ class Linking(discord.Cog):
     @alt.command(name="remove", description="Remove an alternate character")
     async def alt_remove(self, ctx: discord.ApplicationContext, character: str):
         """Remove an alternate character from your account"""
+        import asyncio
+        
         try:
+            # Immediate defer to prevent Discord timeout
+            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            
             guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
