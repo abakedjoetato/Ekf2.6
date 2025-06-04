@@ -364,8 +364,13 @@ class Stats(discord.Cog):
 
             await ctx.defer()
 
-            # Get combined stats
-            stats = await self.get_player_combined_stats(guild_id or 0, player_characters, server)
+            # Get combined stats with timeout protection
+            import asyncio
+            
+            async def get_stats():
+                return await self.get_player_combined_stats(guild_id or 0, player_characters, server)
+            
+            stats = await asyncio.wait_for(get_stats(), timeout=8.0)
 
             total_kills = stats['kills']
             total_deaths = stats['deaths']
@@ -418,13 +423,18 @@ class Stats(discord.Cog):
                 await ctx.followup.send(embed=embed)
 
         except Exception as e:
-            logger.error(f"Failed to show stats: {e}")
-            import traceback
-            logger.error(f"Stack trace: {traceback.format_exc()}")
-            if ctx.response.is_done():
-                await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
+            import asyncio
+            if isinstance(e, asyncio.TimeoutError):
+                logger.error(f"Database timeout in /stats command for guild {ctx.guild.id if ctx.guild else 0}")
+                await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
             else:
-                await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
+                logger.error(f"Failed to show stats: {e}")
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                if ctx.response.is_done():
+                    await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
+                else:
+                    await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
 
     async def _validate_player_data(self, guild_id: int, player_characters: List[str], server_id: str = None) -> bool:
         """Validate that player data exists in the database"""

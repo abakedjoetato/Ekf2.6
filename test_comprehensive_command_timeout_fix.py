@@ -80,11 +80,11 @@ async def test_command_timeout_fixes():
         
         bot.db_manager = MockDatabaseManager()
         
-        # Load cogs
-        await bot.add_cog(Core(bot))
-        await bot.add_cog(AdminChannels(bot))
-        await bot.add_cog(Stats(bot))
-        await bot.add_cog(Linking(bot))
+        # Load cogs using py-cord 2.6.1 compatible method
+        bot.add_cog(Core(bot))
+        bot.add_cog(AdminChannels(bot))
+        bot.add_cog(Stats(bot))
+        bot.add_cog(Linking(bot))
         
         print(f"✅ Loaded {len(bot.cogs)} cogs successfully")
         
