@@ -33,14 +33,8 @@ class Core(discord.Cog):
     @discord.slash_command(name="info", description="Show bot information")
     async def info(self, ctx: discord.ApplicationContext):
         """Display bot information and statistics"""
-        # Immediate defer to prevent Discord timeout
-        try:
-            await ctx.defer()
-        except discord.errors.NotFound:
-            return
-        except Exception as e:
-            logger.error(f"Failed to defer interaction: {e}")
-            return
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
             
         try:
             # Create bot info embed manually for reliability

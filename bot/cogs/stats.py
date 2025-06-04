@@ -895,27 +895,13 @@ class Stats(discord.Cog):
     @discord.slash_command(name="online", description="Show currently online players")
     async def online(self, ctx: discord.ApplicationContext):
         """Show currently online players"""
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
         import asyncio
         logger.info(f"Starting /online command for guild {ctx.guild.id if ctx.guild else 'None'}")
         
         try:
-            # Immediate defer to prevent Discord timeout
-            try:
-
-                await ctx.defer()
-
-            except discord.errors.NotFound:
-
-                # Interaction already expired, respond immediately
-
-                await ctx.respond("Processing...", ephemeral=True)
-
-            except Exception as e:
-
-                logger.error(f"Failed to defer interaction: {e}")
-
-                await ctx.respond("Processing...", ephemeral=True)
-            logger.info("Context deferred successfully")
             
             if not ctx.guild:
                 try:
