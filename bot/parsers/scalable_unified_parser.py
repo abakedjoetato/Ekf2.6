@@ -5,6 +5,7 @@ Enterprise-grade unified log processing with Deadside.log focus, file rotation d
 
 import asyncio
 import logging
+import discord
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from bot.utils.scalable_unified_processor import ScalableUnifiedProcessor
@@ -71,7 +72,7 @@ class ScalableUnifiedParser:
                             await processor.send_event_embeds(events)
                             
                             # Update voice channel with current player count
-                            await self._update_voice_channel_for_server(guild_id, server)
+                            await self._update_voice_channel_for_guild(guild_id)
                             
                             guild_results.extend(events)
                             logger.info(f"Processed {len(events)} events for {server.get('name', 'Unknown')}")
@@ -85,60 +86,131 @@ class ScalableUnifiedParser:
         return results
     
     async def _fetch_server_logs(self, server_config: Dict) -> str:
-        """Fetch log data from server via SFTP"""
+        """Fetch log data from server via SFTP using environment credentials"""
         try:
-            from bot.utils.sftp_manager import get_sftp_connection
+            import asyncssh
+            import os
             
-            # Get SFTP connection details
-            host = server_config.get('host')
-            username = server_config.get('sftp_username')
-            password = server_config.get('sftp_password')
-            log_path = server_config.get('log_path', '/home/steam/dayzserver/profiles/deathlogs')
+            # Use environment variables for SSH connection
+            host = os.getenv('SSH_HOST')
+            username = os.getenv('SSH_USERNAME')
+            password = os.getenv('SSH_PASSWORD')
+            port = int(os.getenv('SSH_PORT', '22'))
             
             if not host or not username or not password:
-                logger.debug(f"Missing SFTP credentials for server {server_config.get('name', 'Unknown')}")
+                logger.debug(f"Missing SSH credentials in environment variables")
                 return ""
             
-            # Connect and fetch recent log data
-            async with get_sftp_connection(host, username, password) as sftp:
-                # Look for Deadside.log files (main log file)
-                log_file_path = f"{log_path}/Deadside.log"
-                
-                try:
-                    # Get file info first
-                    file_stat = await sftp.stat(log_file_path)
-                    file_size = file_stat.size
+            # Connect via SFTP
+            async with asyncssh.connect(
+                host, 
+                port=port,
+                username=username, 
+                password=password,
+                known_hosts=None
+            ) as conn:
+                async with conn.start_sftp_client() as sftp:
+                    # Look for Deadside.log in the server directory
+                    server_path = server_config.get('path', '/root/servers/79.127.236.1_7020/actual1')
+                    log_file_path = f"{server_path}/Deadside.log"
                     
-                    # Read last 50KB for recent events (adjust as needed)
-                    read_size = min(51200, file_size)  # 50KB
-                    start_pos = max(0, file_size - read_size)
-                    
-                    # Read the log data
-                    async with sftp.open(log_file_path, 'r') as f:
-                        await f.seek(start_pos)
-                        log_data = await f.read()
+                    try:
+                        # Check if file exists and get size
+                        file_stat = await sftp.stat(log_file_path)
+                        file_size = file_stat.size
                         
-                    logger.debug(f"Fetched {len(log_data)} bytes from {server_config.get('name', 'Unknown')} log")
-                    return log_data
-                    
-                except FileNotFoundError:
-                    logger.debug(f"Log file not found: {log_file_path}")
-                    return ""
+                        # Read last 20KB for recent events (reasonable size for connection logs)
+                        read_size = min(20480, file_size)  # 20KB
+                        start_pos = max(0, file_size - read_size)
+                        
+                        # Read the log data
+                        async with sftp.open(log_file_path, 'r') as f:
+                            await f.seek(start_pos)
+                            log_data = await f.read()
+                            
+                        logger.info(f"Fetched {len(log_data)} bytes from {server_config.get('name', 'Unknown')} log file")
+                        return log_data
+                        
+                    except FileNotFoundError:
+                        logger.debug(f"Log file not found: {log_file_path}")
+                        return ""
+                    except Exception as file_error:
+                        logger.error(f"Error reading log file {log_file_path}: {file_error}")
+                        return ""
                     
         except Exception as e:
             logger.error(f"Failed to fetch logs for server {server_config.get('name', 'Unknown')}: {e}")
             return ""
+    
+    async def _update_voice_channel_for_guild(self, guild_id: int):
+        """Update voice channel with current player count for a guild"""
+        try:
+            # Get online player count from database
+            online_count = await self.bot.db_manager.player_sessions.count_documents({
+                'guild_id': guild_id,
+                'state': 'online'
+            })
             
-            # Log summary with activity info
-            activity_info = await self._get_activity_summary()
-            logger.info(f"📊 Scalable unified parser completed: {results.get('successful_guilds', 0)}/{results.get('total_guilds', 0)} guilds, {results.get('processed_servers', 0)} servers processed, {results.get('rotated_servers', 0)} servers rotated{activity_info}")
+            # Get guild configuration
+            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            if not guild_config:
+                return
             
-            # Cleanup stale sessions periodically
-            if self.state_manager:
-                await self.state_manager.cleanup_stale_sessions()
+            # Find voice channel ID
+            voice_channel_id = None
+            server_channels = guild_config.get('server_channels', {})
+            
+            # Check for voice channel in server configurations
+            for server_key, channels in server_channels.items():
+                if isinstance(channels, dict):
+                    voice_channel_id = channels.get('voice_counter') or channels.get('playercountvc')
+                    if voice_channel_id:
+                        break
+            
+            # Check legacy channels if not found
+            if not voice_channel_id:
+                legacy_channels = guild_config.get('channels', {})
+                voice_channel_id = legacy_channels.get('voice_counter') or legacy_channels.get('playercountvc')
+            
+            if not voice_channel_id:
+                return
+            
+            # Get Discord guild and channel
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                return
+            
+            voice_channel = guild.get_channel(voice_channel_id)
+            if not voice_channel or voice_channel.type != discord.ChannelType.voice:
+                return
+            
+            # Create channel name with player count
+            server_name = "Emerald"  # Default server name
+            servers = guild_config.get('servers', [])
+            if servers:
+                server_name = servers[0].get('name', 'Emerald').replace(' EU', '').replace(' Server', '')
+            
+            # Determine status emoji
+            max_players = 60  # Default max players
+            if servers:
+                max_players = servers[0].get('max_players', 60)
+            
+            if online_count == 0:
+                emoji = "🔴"
+            elif online_count >= max_players * 0.8:
+                emoji = "🟡"
+            else:
+                emoji = "🟢"
+            
+            new_name = f"{emoji} {server_name} | {online_count}/{max_players}"
+            
+            # Update channel name if different
+            if voice_channel.name != new_name:
+                await voice_channel.edit(name=new_name)
+                logger.info(f"Updated voice channel to: {new_name}")
             
         except Exception as e:
-            logger.error(f"Scalable unified parser execution failed: {e}")
+            logger.error(f"Failed to update voice channel for guild {guild_id}: {e}")
     
     async def _update_activity_tracking(self, results: Dict[str, Any]):
         """Update server activity tracking for smart scheduling"""
