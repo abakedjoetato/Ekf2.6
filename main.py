@@ -568,17 +568,23 @@ class EmeraldKillfeedBot(commands.Bot):
                 return
             logger.info("✅ Scheduler setup: Success")
 
-            # STEP 6: Schedule parsers
+            # STEP 6: Schedule threaded parsers to prevent command timeouts
             if self.killfeed_parser:
+                # Create threaded wrapper for killfeed parser
+                self.threaded_killfeed = create_threaded_parser(self.killfeed_parser)
+                
                 self.scheduler.add_job(
-                    self.killfeed_parser.run_killfeed_parser,
+                    self._run_killfeed_threaded,
                     'interval',
                     minutes=5,
                     id='scalable_killfeed_parser'
                 )
-                logger.info("📡 Scalable killfeed parser scheduled")
+                logger.info("📡 Scalable killfeed parser scheduled (threaded)")
 
             if self.unified_log_parser:
+                # Create threaded wrapper for unified parser  
+                self.threaded_unified = create_threaded_parser(self.unified_log_parser)
+                
                 try:
                     # Remove existing job if it exists
                     try:
@@ -587,18 +593,18 @@ class EmeraldKillfeedBot(commands.Bot):
                         pass
 
                     self.scheduler.add_job(
-                        self.unified_log_parser.run_log_parser,
+                        self._run_unified_threaded,
                         'interval',
                         seconds=180,
                         id='unified_log_parser',
                         max_instances=1,
                         coalesce=True
                     )
-                    logger.info("📜 Unified log parser scheduled (180s interval)")
+                    logger.info("📜 Unified log parser scheduled (threaded, 180s interval)")
 
-                    # Run initial parse
-                    asyncio.create_task(self.unified_log_parser.run_log_parser())
-                    logger.info("🔥 Initial unified log parser run triggered")
+                    # Run initial parse in background thread
+                    asyncio.create_task(self._run_unified_threaded())
+                    logger.info("🔥 Initial unified log parser run triggered (threaded)")
 
                 except Exception as e:
                     logger.error(f"Failed to schedule unified log parser: {e}")
@@ -708,6 +714,20 @@ class EmeraldKillfeedBot(commands.Bot):
             
         except Exception as e:
             logger.error("Failed to clean up guild data: %s", e)
+
+    async def _run_killfeed_threaded(self):
+        """Run killfeed parser in background thread"""
+        try:
+            await self.threaded_killfeed.run_parser_threaded()
+        except Exception as e:
+            logger.error(f"Threaded killfeed parser failed: {e}")
+    
+    async def _run_unified_threaded(self):
+        """Run unified parser in background thread"""
+        try:
+            await self.threaded_unified.run_parser_threaded()
+        except Exception as e:
+            logger.error(f"Threaded unified parser failed: {e}")
 
     async def close(self):
         """Clean shutdown"""
