@@ -1,98 +1,92 @@
-#!/usr/bin/env python3
 """
-Manual Command Registration - Direct Discord API registration to bypass rate limits
+Manual Command Registration - Direct Discord API approach for py-cord 2.6.1
 """
-import asyncio
-import aiohttp
-import os
-import json
 
-async def register_commands_directly():
-    """Register commands directly via Discord API to bypass py-cord rate limits"""
+import asyncio
+import os
+import sys
+import discord
+from discord.ext import commands
+
+async def register_commands():
+    """Register commands directly to Discord"""
     
     bot_token = os.environ.get('BOT_TOKEN')
     if not bot_token:
-        print("Error: BOT_TOKEN not found")
-        return False
+        print("BOT_TOKEN not found")
+        return
     
-    # Bot application ID (extract from token or use known ID)
-    application_id = "1360004212955545623"  # Emerald's Killfeed bot ID
-    guild_id = "1219706687980568769"  # Emerald Servers guild ID
+    # Create minimal bot for command registration
+    intents = discord.Intents.default()
+    bot = commands.Bot(intents=intents)
     
-    # Define the /online command directly
-    online_command = {
-        "name": "online",
-        "description": "Show currently online players",
-        "type": 1,  # CHAT_INPUT
-        "options": [
-            {
-                "name": "server_name",
-                "description": "Server to check (leave empty for default)",
-                "type": 3,  # STRING
-                "required": False
-            }
-        ]
-    }
-    
-    # Essential commands to register
-    commands = [
-        online_command,
-        {
-            "name": "ping",
-            "description": "Check bot latency",
-            "type": 1
-        },
-        {
-            "name": "help",
-            "description": "Show help information",
-            "type": 1
-        },
-        {
-            "name": "status",
-            "description": "Show bot status",
-            "type": 1
-        }
-    ]
-    
-    headers = {
-        "Authorization": f"Bot {bot_token}",
-        "Content-Type": "application/json"
-    }
-    
-    print(f"Registering {len(commands)} commands directly via Discord API...")
-    
-    async with aiohttp.ClientSession() as session:
+    @bot.event
+    async def on_ready():
+        print(f"Connected as {bot.user}")
+        
+        guild_id = 1219706687980568769
+        guild = bot.get_guild(guild_id)
+        
+        if not guild:
+            print(f"Guild {guild_id} not found")
+            await bot.close()
+            return
+        
+        print(f"Found guild: {guild.name}")
+        
+        # Load essential cogs for command registration
         try:
-            # Register commands for the specific guild (guild commands have higher rate limits)
-            url = f"https://discord.com/api/v10/applications/{application_id}/guilds/{guild_id}/commands"
-            
-            for command in commands:
-                async with session.post(url, headers=headers, json=command) as resp:
-                    if resp.status == 200 or resp.status == 201:
-                        print(f"✅ Registered /{command['name']} command")
-                    elif resp.status == 429:
-                        print(f"⚠️ Rate limited - waiting...")
-                        retry_after = int(resp.headers.get('Retry-After', 5))
-                        await asyncio.sleep(retry_after)
-                        # Retry
-                        async with session.post(url, headers=headers, json=command) as retry_resp:
-                            if retry_resp.status in [200, 201]:
-                                print(f"✅ Registered /{command['name']} command (retry)")
-                            else:
-                                print(f"❌ Failed to register /{command['name']}: {retry_resp.status}")
-                    else:
-                        response_text = await resp.text()
-                        print(f"❌ Failed to register /{command['name']}: {resp.status} - {response_text}")
-                
-                # Small delay between registrations
-                await asyncio.sleep(0.5)
-            
-            print("Direct command registration completed")
-            return True
-            
+            bot.load_extension('bot.cogs.stats')
+            bot.load_extension('bot.cogs.admin_channels')
+            print("Loaded core cogs")
         except Exception as e:
-            print(f"Error during direct registration: {e}")
-            return False
+            print(f"Error loading cogs: {e}")
+        
+        # Get pending commands
+        commands_to_sync = bot.pending_application_commands
+        print(f"Commands to sync: {len(commands_to_sync)}")
+        
+        if not commands_to_sync:
+            print("No commands to sync")
+            await bot.close()
+            return
+        
+        # Attempt sync using py-cord 2.6.1 method
+        try:
+            # Method 1: Direct guild sync
+            synced = await bot.sync_commands(guild=guild)
+            print(f"Successfully synced {len(synced)} commands to {guild.name}")
+            
+        except Exception as sync_error:
+            print(f"Sync method 1 failed: {sync_error}")
+            
+            try:
+                # Method 2: Global sync (slower but more reliable)
+                synced = await bot.sync_commands()
+                print(f"Successfully synced {len(synced)} commands globally")
+                
+            except Exception as global_sync_error:
+                print(f"Global sync also failed: {global_sync_error}")
+                
+                # Method 3: HTTP direct approach
+                try:
+                    commands_data = [cmd.to_dict() for cmd in commands_to_sync]
+                    synced = await bot.http.bulk_upsert_guild_commands(
+                        bot.user.id, guild_id, commands_data
+                    )
+                    print(f"HTTP sync successful: {len(synced)} commands")
+                    
+                except Exception as http_error:
+                    print(f"All sync methods failed. HTTP error: {http_error}")
+        
+        await bot.close()
+    
+    try:
+        await bot.start(bot_token)
+    except Exception as e:
+        print(f"Bot start error: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(register_commands_directly())
+    # Add project root to path
+    sys.path.insert(0, '.')
+    asyncio.run(register_commands())

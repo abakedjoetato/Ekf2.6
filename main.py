@@ -282,8 +282,8 @@ class EmeraldKillfeedBot(commands.Bot):
                 logger.info(f"Syncing {len(commands)} commands to guild: {guild.name}")
                 
                 try:
-                    # Use the safer sync_commands method instead of direct HTTP calls
-                    synced = await self.sync_commands(guild_id=guild_id)
+                    # Use the correct py-cord 2.6.1 sync method
+                    synced = await self.sync_commands(guild=guild)
                     logger.info(f"✅ Guild commands synced successfully: {len(synced)} commands")
                     
                     # Set protective cooldown after successful sync
