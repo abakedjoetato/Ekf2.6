@@ -126,7 +126,7 @@ class VoiceChannelManager:
         """Parse max player count from Deadside.log command line"""
         try:
             import re
-            from bot.utils.connection_pool import ConnectionPool
+            # from bot.utils.connection_pool import ConnectionPool
             
             # Get server SSH configuration
             guild_config = await self.bot.db_manager.guild_configs.find_one({'guild_id': guild_id})

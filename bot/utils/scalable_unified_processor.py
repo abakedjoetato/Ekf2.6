@@ -421,7 +421,9 @@ class ScalableUnifiedProcessor:
                 username=username,
                 password=server_config.get('password'),
                 known_hosts=None,
-                server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521']
+                server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521'],
+                kex_algs=['diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521'],
+                encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com']
             ) as conn:
                 logger.info(f"Cold start: Connected to {server_name}")
                 
@@ -534,7 +536,7 @@ class ScalableUnifiedProcessor:
             for event in game_events:
                 embed = self._create_event_embed(event)
                 if embed:
-                    channel_type = self._get_channel_type_for_event(event.get('event'))
+                    channel_type = self._get_channel_type_for_event(event.get('event') or 'events')
                     
                     await channel_router.send_embed_to_channel(
                         guild_id=event['guild_id'],
@@ -600,7 +602,11 @@ class ScalableUnifiedProcessor:
             from datetime import timezone
             
             eos_id = event.get('eos_id')
-            if not eos_id:
+            guild_id = event.get('guild_id')
+            server_id = event.get('server_id')
+            
+            # Skip events with missing critical data to prevent database errors
+            if not eos_id or not guild_id or not server_id:
                 return
                 
             event_type = event.get('event')
