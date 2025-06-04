@@ -175,7 +175,7 @@ class ScalableUnifiedParser:
             # Update voice channel
             from bot.utils.voice_channel_manager import VoiceChannelManager
             vc_manager = VoiceChannelManager(self.bot)
-            await vc_manager.update_server_voice_channel(guild_id, server_id, server_name, total_count)
+            await vc_manager.update_voice_channel_count(guild_id, server_id, total_count, 0)
             
             logger.info(f"🔊 Voice channel updated: {server_name} - {total_count} players")
             
