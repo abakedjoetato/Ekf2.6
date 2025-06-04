@@ -1293,7 +1293,7 @@ class ScalableUnifiedProcessor:
                             # Track servers with state changes for voice channel updates
                             if state_changed:
                                 self._hot_start_state_changes.add(entry.server_name)
-                                logger.info(f"Hot start: Player {character_name} ({eosid[:8]}...) joined {entry.server_name}")
+                                logger.debug(f"Hot start: Player {character_name} ({eosid[:8]}...) joined {entry.server_name}")
                             else:
                                 logger.debug(f"No state change for {character_name} (already online)")
                         except Exception as db_error:
@@ -1308,7 +1308,7 @@ class ScalableUnifiedProcessor:
                         character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                         display_name = character_name
                         
-                        logger.info(f"Player connection: {display_name} joined {entry.server_name}")
+                        logger.debug(f"Player connection: {display_name} joined {entry.server_name}")
                         
                         # Create connection embed using proper EmbedFactory theming
                         if hasattr(self.bot, 'embed_factory'):
@@ -1360,7 +1360,7 @@ class ScalableUnifiedProcessor:
                     if self._cold_start_mode:
                         if eosid in self._cold_start_player_states:
                             del self._cold_start_player_states[eosid]
-                            logger.info(f"Player {eosid[:8]}... removed from batch update (disconnected from {entry.server_name})")
+                            logger.debug(f"Player {eosid[:8]}... removed from batch update (disconnected from {entry.server_name})")
                         state_changed = True  # For logging purposes
                     else:
                         # Hot start processing - update database with strong consistency
@@ -1382,7 +1382,7 @@ class ScalableUnifiedProcessor:
                         # Track servers with state changes for voice channel updates
                         if state_changed:
                             self._hot_start_state_changes.add(entry.server_name)
-                            logger.info(f"Hot start: Player {eosid[:8]}... left {entry.server_name}")
+                            logger.debug(f"Hot start: Player {eosid[:8]}... left {entry.server_name}")
                     
                     # Only send connection embed if state actually changed (online -> offline)
                     if state_changed and not self._cold_start_mode:
@@ -1390,7 +1390,7 @@ class ScalableUnifiedProcessor:
                         character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                         display_name = character_name
                         
-                        logger.info(f"Player connection: {display_name} left {entry.server_name}")
+                        logger.debug(f"Player connection: {display_name} left {entry.server_name}")
                         
                         # Create connection embed using proper EmbedFactory theming
                         if hasattr(self.bot, 'embed_factory'):
@@ -1794,7 +1794,7 @@ class MultiGuildUnifiedProcessor:
                 logger.info(f"Staggering processing: waiting 30 seconds before processing group {group_index + 1}/{len(server_groups)}")
                 await asyncio.sleep(30)
             
-            logger.info(f"Processing server group {group_index + 1}/{len(server_groups)} with {len(server_group)} servers")
+            logger.debug(f"Processing server group {group_index + 1}/{len(server_groups)} with {len(server_group)} servers")
             
             # Group servers by guild for this batch
             guild_batch = {}
