@@ -186,19 +186,50 @@ class ScalableUnifiedParser:
             return 180  # Safe default
     
     async def _get_all_guild_configs(self) -> Dict[int, List[Dict[str, Any]]]:
-        """Get all guild configurations with servers"""
+        """Get all guild configurations with servers using direct database access"""
         guild_configs = {}
         
         try:
-            # Access database through bot's db_manager with fallback for thread safety
-            if not hasattr(self.bot, 'db_manager'):
-                logger.error("Database manager not available")
+            # Use direct MongoDB connection for thread safety
+            import os
+            from motor.motor_asyncio import AsyncIOMotorClient
+            
+            mongo_uri = os.environ.get('MONGO_URI')
+            if not mongo_uri:
+                logger.error("MONGO_URI not available")
                 return guild_configs
             
-            # For now, return empty dict to prevent threading conflicts
-            # The system will work without guild configs and can be configured later
-            logger.info("Guild configs access bypassed to prevent threading conflicts")
-            return guild_configs
+            client = AsyncIOMotorClient(mongo_uri)
+            database = client.emerald_killfeed
+            collection = database.guild_configs
+            
+            # Find guilds with enabled servers
+            cursor = collection.find({
+                'servers': {
+                    '$exists': True,
+                    '$not': {'$size': 0},
+                    '$elemMatch': {'enabled': True}
+                }
+            })
+            
+            guild_docs = await cursor.to_list(length=None)
+            
+            for guild_doc in guild_docs:
+                guild_id = guild_doc.get('guild_id')
+                servers = guild_doc.get('servers', [])
+                
+                if guild_id and servers:
+                    # Filter for enabled servers only
+                    enabled_servers = [s for s in servers if s.get('enabled', False)]
+                    
+                    if enabled_servers:
+                        # Add guild_id to each server config
+                        for server in enabled_servers:
+                            server['guild_id'] = guild_id
+                        
+                        guild_configs[guild_id] = enabled_servers
+            
+            logger.info(f"Found {len(guild_configs)} guilds with enabled servers")
             
         except Exception as e:
             logger.error(f"Failed to get guild configurations: {e}")
