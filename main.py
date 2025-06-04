@@ -609,13 +609,10 @@ class EmeraldKillfeedBot(commands.Bot):
 
             logger.info(f"✅ {command_count} commands registered and ready for sync")
 
-            # STEP 3: Command sync - simplified and robust
-            logger.info("🔧 Starting command sync...")
-            try:
-                await self.register_commands_safely()
-                logger.info("✅ Command sync completed")
-            except Exception as sync_error:
-                logger.error(f"❌ Command sync failed: {sync_error}")
+            # STEP 3: Command sync - disabled to prevent rate limiting
+            # Commands are already loaded and functional in bot memory
+            # Sync only when commands actually change, not on every startup
+            logger.info("✅ Commands loaded and ready (sync bypassed to prevent rate limits)")
 
             # STEP 4: Set cold start flag for unified parser
             logger.info("🔄 Setting cold start flag for bot restart...")
