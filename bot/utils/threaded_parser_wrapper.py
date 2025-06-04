@@ -57,7 +57,7 @@ class ThreadedParserWrapper:
                     raise
             
             # Submit to task pool
-            result = await self.task_pool.submit(parser_execution, task_id=task_id, timeout=300)
+            result = await self.task_pool.run(parser_execution, task_id=task_id, timeout=300)
             
             logger.info(f"✅ {parser_class.__name__} completed successfully")
             return result
@@ -69,7 +69,7 @@ class ThreadedParserWrapper:
     async def cleanup(self):
         """Clean up resources"""
         if self.task_pool:
-            await self.task_pool.cleanup()
+            await self.task_pool.shutdown()
 
 # Global instance
 threaded_parser = ThreadedParserWrapper()

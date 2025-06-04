@@ -1535,20 +1535,7 @@ class DatabaseManager:
             logger.error(f"Failed to get active player sessions: {e}")
             return []
 
-    async def get_active_player_count(self, guild_id: int, server_name: str) -> int:
-        """Get count of active players for a specific server"""
-        try:
-            query = {
-                "guild_id": int(guild_id),
-                "server_name": str(server_name),
-                "state": "online"
-            }
-            count = await self.player_sessions.count_documents(query)
-            logger.debug(f"Active player count for {server_name}: {count}")
-            return count
-        except Exception as e:
-            logger.error(f"Failed to get active player count for {server_name}: {e}")
-            return 0
+
 
     async def remove_player_session(self, guild_id: int, server_id: str, player_id: str):
         """Remove player session from database"""
@@ -1906,37 +1893,4 @@ class DatabaseManager:
             logger.error(f"Failed to get player name for EOSID {eosid}: {e}")
             return None
     
-    async def update_player_state(self, guild_id: int, eosid: str, state: str, server_name: str, timestamp: datetime, skip_voice_update: bool = False) -> bool:
-        """Update player state and return True if state changed"""
-        try:
-            # Find existing session
-            existing_session = await self.player_sessions.find_one({
-                "guild_id": guild_id,
-                "player_id": eosid
-            })
-            
-            # Check if state actually changed
-            if existing_session and existing_session.get("state") == state:
-                return False  # No state change
-            
-            # Update or create session
-            await self.player_sessions.update_one(
-                {"guild_id": guild_id, "player_id": eosid},
-                {
-                    "$set": {
-                        "state": state,
-                        "server_name": server_name,
-                        "last_updated": timestamp,
-                        "guild_id": guild_id,
-                        "player_id": eosid
-                    }
-                },
-                upsert=True
-            )
-            
-            logger.debug(f"Player {eosid} state changed to {state}")
-            return True  # State changed
-            
-        except Exception as e:
-            logger.error(f"Failed to update player state for {eosid}: {e}")
-            return False
+
