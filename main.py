@@ -545,6 +545,9 @@ class EmeraldKillfeedBot(commands.Bot):
             await self.db_manager.initialize_database()
             logger.info("Database architecture initialized (PHASE 1)")
             
+            # Initialize parser instances for scheduling
+            await self.setup_parsers()
+            
             return True
             
         except Exception as e:
@@ -561,6 +564,26 @@ class EmeraldKillfeedBot(commands.Bot):
             return True
         except Exception as e:
             logger.error("Failed to start scheduler: %s", e)
+            return False
+    
+    async def setup_parsers(self):
+        """Initialize parser instances for automated scheduling"""
+        try:
+            from bot.parsers.scalable_killfeed_parser import ScalableKillfeedParser
+            from bot.parsers.scalable_unified_parser import ScalableUnifiedParser
+            
+            # Initialize killfeed parser
+            self.killfeed_parser = ScalableKillfeedParser(self)
+            logger.info("✅ Killfeed parser initialized")
+            
+            # Initialize unified log parser
+            self.unified_log_parser = ScalableUnifiedParser(self)
+            logger.info("✅ Unified log parser initialized")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize parsers: {e}")
             return False
 
     async def on_ready(self):

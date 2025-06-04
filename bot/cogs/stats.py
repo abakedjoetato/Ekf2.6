@@ -941,142 +941,43 @@ class Stats(discord.Cog):
     @discord.slash_command(name="online", description="Show currently online players")
     async def online(self, ctx: discord.ApplicationContext):
         """Show currently online players"""
-        # IMMEDIATE defer - must be first line to prevent timeout
-        
-        import asyncio
-        # IMMEDIATE defer - must be first line to prevent timeout
         await ctx.defer()
-        
-        # IMMEDIATE defer - must be first line to prevent timeout
-        await ctx.defer()
-        
-        logger.info(f"Starting /online command for guild {ctx.guild.id if ctx.guild else 'None'}")
         
         try:
-
-        
-            pass
+            import asyncio
+            
             if not ctx.guild:
-                try:
-
-                    pass
-                    if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond("This command can only be used in a server!", ephemeral=True)
-
-                    else:
-
-                        await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
-
-                except discord.errors.NotFound:
-
-                    logger.warning("Interaction expired, cannot send response")
-
-                except Exception as e:
-
-                    logger.error(f"Failed to send response: {e}")
+                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
             guild_id = ctx.guild.id
-            logger.info(f"Processing /online for guild {guild_id}")
             
-            # Ultra-fast database check with minimal timeout
-            sessions = []
-            
+            # Simple database query with basic timeout
             try:
-
-            
-                pass
-                # Try immediate fast query first
-                logger.info("Attempting fast database query")
                 cursor = self.bot.db_manager.player_sessions.find(
                     {'guild_id': guild_id, 'state': 'online'},
-                    {'character_name': 1, 'server_name': 1, '_id': 0}
-                ).limit(10)
+                    {'character_name': 1, 'server_name': 1, 'joined_at': 1, '_id': 0}
+                ).limit(50)
                 
-                sessions = []
-                try:
-
-                    pass
-                    sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=1.0)
-                except asyncio.TimeoutError:
-                    # Respond immediately with loading message, then update
-                    loading_embed = discord.Embed(
-                        title="🔄 Loading...",
-                        description="Fetching player data...",
-                        color=0x3498db
-                    )
-                    await ctx.followup.edit_message(message_id="@original", embed=loading_embed)
-                    
-                    # Try longer timeout
-                    try:
-
-                        pass
-                        sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=5.0)
-                    except asyncio.TimeoutError:
-                        error_embed = discord.Embed(
-                            title="⚠️ Database Timeout",
-                            description="Database is currently slow. Please try again.",
-                            color=0xe74c3c
-                        )
-                        await ctx.followup.edit_message(message_id="@original", embed=error_embed)
-                        return
-                
-                logger.info(f"Fast query successful: {len(sessions)} sessions found")
+                sessions = await asyncio.wait_for(cursor.to_list(length=50), timeout=3.0)
                 
             except asyncio.TimeoutError:
-                logger.warning("Fast query timed out, trying emergency fallback")
-                # Emergency fallback - return placeholder response
                 embed = discord.Embed(
-                    title="🌐 Online Players",
-                    description="Database is currently slow. Please try again in a moment.",
+                    title="⚠️ Database Timeout",
+                    description="Database is currently slow. Please try again.",
                     color=0xFFAA00
                 )
-                try:
-
-                    pass
-                    if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(embed=embed, ephemeral=True)
-
-                    else:
-
-                        await ctx.followup.send(embed=embed, ephemeral=True)
-
-                except discord.errors.NotFound:
-
-                    logger.warning("Interaction expired, cannot send response")
-
-                except Exception as e:
-
-                    logger.error(f"Failed to send response: {e}")
+                await ctx.followup.send(embed=embed)
                 return
                 
             except Exception as e:
                 logger.error(f"Database query failed: {e}")
                 embed = discord.Embed(
                     title="❌ Error",
-                    description="Unable to retrieve player data. Please try again.",
+                    description="Unable to retrieve player data.",
                     color=0xFF0000
                 )
-                try:
-
-                    pass
-                    if hasattr(ctx, 'response') and not ctx.response.is_done():
-
-                        await ctx.respond(embed=embed, ephemeral=True)
-
-                    else:
-
-                        await ctx.followup.send(embed=embed, ephemeral=True)
-
-                except discord.errors.NotFound:
-
-                    logger.warning("Interaction expired, cannot send response")
-
-                except Exception as e:
-
-                    logger.error(f"Failed to send response: {e}")
+                await ctx.followup.send(embed=embed)
                 return
             
             # Load thumbnail asset
