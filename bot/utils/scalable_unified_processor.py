@@ -1204,23 +1204,28 @@ class ScalableUnifiedProcessor:
                             character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                             
                             # Update player session using thread-safe wrapper
+                            result = None
                             if self.db_wrapper:
-                                result = await self.db_wrapper.update_player_session(
-                                {"guild_id": self.guild_id, "player_id": eosid},
-                                {
-                                    "$set": {
-                                        "state": "online",
-                                        "server_name": entry.server_name,
-                                        "last_updated": entry.timestamp,
-                                        "joined_at": entry.timestamp.isoformat(),
-                                        "platform": "Unknown",
-                                        "character_name": character_name
-                                    }
-                                },
-                                upsert=True
-                            )
+                                try:
+                                    result = await self.db_wrapper.update_player_session(
+                                    {"guild_id": self.guild_id, "player_id": eosid},
+                                    {
+                                        "$set": {
+                                            "state": "online",
+                                            "server_name": entry.server_name,
+                                            "last_updated": entry.timestamp,
+                                            "joined_at": entry.timestamp.isoformat(),
+                                            "platform": "Unknown",
+                                            "character_name": character_name
+                                        }
+                                    },
+                                    upsert=True
+                                    )
+                                except Exception as db_error:
+                                    logger.error(f"Thread-safe database operation failed: {db_error}")
+                                    result = None
                             
-                            state_changed = (result.upserted_id is not None or result.modified_count > 0) if result else False
+                            state_changed = (hasattr(result, "upserted_id") and result.upserted_id is not None) or (hasattr(result, "modified_count") and result.modified_count > 0) if result else False
                             
                             # Track servers with state changes for voice channel updates
                             if locals().get("state_changed", False):
@@ -1266,7 +1271,7 @@ class ScalableUnifiedProcessor:
                                     logger.info(f"Sent connection embed for {display_name} joining {entry.server_name}")
                             except Exception as embed_error:
                                 logger.error(f"Failed to create connection embed: {embed_error}")
-                    elif not state_changed:
+                    elif not locals().get("state_changed", False):
                         logger.debug(f"Player {eosid[:8]}... already online - no embed sent")
                 
                 except Exception as e:
@@ -1350,7 +1355,7 @@ class ScalableUnifiedProcessor:
                                     logger.info(f"Sent connection embed for {display_name} leaving {entry.server_name}")
                             except Exception as embed_error:
                                 logger.error(f"Failed to create connection embed: {embed_error}")
-                    elif not state_changed:
+                    elif not locals().get("state_changed", False):
                         logger.debug(f"Player {eosid[:8]}... already offline - no embed sent")
                 
                 except Exception as e:
