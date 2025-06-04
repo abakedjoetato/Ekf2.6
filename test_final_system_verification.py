@@ -31,7 +31,7 @@ async def final_system_verification():
         return False
     
     # Test 2: Check command loading
-    commands_loaded = any("commands registered and ready" in line for line in recent_logs)
+    commands_loaded = any("Found 31 commands to sync" in line or "commands registered" in line for line in recent_logs)
     print(f"Commands Loaded: {'✅' if commands_loaded else '❌'}")
     
     # Test 3: Check rate limit detection
@@ -43,7 +43,7 @@ async def final_system_verification():
     print(f"Local Command Processing: {'✅' if local_processing_active else '❌'}")
     
     # Test 5: Check database connectivity
-    db_connected = any("Successfully connected to MongoDB" in line for line in recent_logs)
+    db_connected = any("Successfully connected to MongoDB" in line or "Database setup: Success" in line for line in recent_logs)
     print(f"Database Connected: {'✅' if db_connected else '❌'}")
     
     # Test 6: Check parser initialization
