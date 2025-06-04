@@ -90,6 +90,21 @@ class ThreadSafeDBWrapper:
             )
         return None
 
+    @property
+    def player_sessions(self):
+        """Thread-safe access to player_sessions collection"""
+        return self.db_manager.player_sessions if self.db_manager else None
+    
+    async def record_kill(self, *args, **kwargs):
+        """Thread-safe kill recording"""
+        try:
+            return await self.safe_db_operation(
+                lambda: self.db_manager.record_kill(*args, **kwargs)
+            )
+        except Exception as e:
+            logger.error(f"Failed to record kill: {e}")
+            return None
+
 def thread_safe_db_operation(func):
     """Decorator to make database operations thread-safe"""
     @wraps(func)
@@ -105,3 +120,4 @@ def thread_safe_db_operation(func):
             logger.error(f"Database operation {func.__name__} failed: {e}")
             return None
     return wrapper
+

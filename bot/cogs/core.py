@@ -111,7 +111,7 @@ class Core(discord.Cog):
             logger.error(f"Failed to ping: {e}")
             await ctx.respond("Failed to check latency.", ephemeral=True)
 
-    @discord.slash_command(name="help", description="Show help information")
+        @discord.slash_command(name="help", description="Show help information")
     async def help(self, ctx):
         """Display help information and command categories"""
         try:
@@ -122,94 +122,36 @@ class Core(discord.Cog):
                 color=0x3498DB,
                 timestamp=datetime.now(timezone.utc)
             )
-
-            # Free commands
+            
             embed.add_field(
-                name="🆓 Free Commands",
-                value="• `/info` - Bot information\n• `/ping` - Check latency\n• `/link` - Link characters\n• `/linked` - View linked characters\n• `/stats` - Player statistics",
-                inline=False
+                name="📊 Statistics",
+                value="`/stats` - Player statistics
+`/leaderboard` - Top players",
+                inline=True
             )
-
-            # Premium commands
+            
             embed.add_field(
-                name="Premium Commands",
-                value="• `/balance` - Check wallet\n• `/work` - Earn money\n• `/bounty` - Bounty system\n• `/faction` - Faction management\n• `/gambling` - Casino games",
-                inline=False
+                name="🔧 Admin",
+                value="`/setchannel` - Configure channels
+`/status` - Bot status",
+                inline=True
             )
-
-            # Admin commands
+            
             embed.add_field(
-                name="🛠️ Admin Commands",
-                value="• `/server` - Server management\n• `/premium` - Premium management\n• `/eco` - Economy administration",
-                inline=False
+                name="💰 Economy",
+                value="`/balance` - Check credits
+`/daily` - Daily rewards",
+                inline=True
             )
-
-            embed.add_field(
-                name="Getting Started",
-                value="1. Link your character with `/link <name>`\n2. Check stats with `/stats`\n3. Upgrade to premium for full features!",
-                inline=False
-            )
-
-            # Set thumbnail using main logo
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
-            embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
-            await ctx.respond(embed=embed, file=main_file)
-
+            
+            embed.set_footer(text="Emerald's Killfeed Bot", icon_url=ctx.bot.user.display_avatar.url)
+            await ctx.respond(embed=embed)
+            
         except Exception as e:
             logger.error(f"Failed to show help: {e}")
-            await ctx.respond("Failed to show help information.", ephemeral=True)
+            await ctx.respond("Failed to retrieve help information.", ephemeral=True)
 
-    @discord.slash_command(name="status", description="Check bot and system status")
-    async def status(self, ctx: discord.ApplicationContext):
-        """Display comprehensive bot status information"""
-        try:
-            # Check database connection
-            db_status = " Connected"
-            try:
-                await self.bot.mongo_client.admin.command('ping')
-            except:
-                db_status = " Disconnected"
-
-            # Check scheduler status
-            scheduler_status = " Running" if self.bot.scheduler.running else " Stopped"
-
-            embed = discord.Embed(
-                title="System Status",
-                description="Current bot and system status",
-                color=0x00FF7F,
-                timestamp=datetime.now(timezone.utc)
-            )
-
-            embed.add_field(
-                name="🤖 Bot Status",
-                value=f"• Status: ** Online**\n• Uptime: **{self._format_uptime()}**\n• Latency: **{round(self.bot.latency * 1000)}ms**",
-                inline=True
-            )
-
-            embed.add_field(
-                name="🔗 Connections",
-                value=f"• Database: **{db_status}**\n• Scheduler: **{scheduler_status}**\n• Discord: ** Connected**",
-                inline=True
-            )
-
-            embed.add_field(
-                name="Statistics",
-                value=f"• Guilds: **{len(self.bot.guilds)}**\n• Users: **{len(self.bot.users)}**\n• Commands: **{len(self.bot.pending_application_commands)}**",
-                inline=True
-            )
-
-            # Set thumbnail using main logo
-            main_file = discord.File("./assets/main.png", filename="main.png")
-            embed.set_thumbnail(url="attachment://main.png")
-            embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
-            await ctx.respond(embed=embed, file=main_file)
-
-        except Exception as e:
-            logger.error(f"Failed to show status: {e}")
-            await ctx.respond("Failed to retrieve status information.", ephemeral=True)
+    
 
     def _format_uptime(self) -> str:
         """Format bot uptime in human readable format"""

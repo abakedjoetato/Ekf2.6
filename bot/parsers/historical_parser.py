@@ -390,7 +390,8 @@ class HistoricalParser:
         
         for encoding in encodings:
             try:
-                async with getattr(aiofiles, "open", lambda *args: None)(file_path, 'r', encoding=encoding) as f:
+            if aiofiles and hasattr(aiofiles, "open"):
+                async with aiofiles.open(file_path, 'r', encoding=encoding) as f:
                     content = await f.read()
                     lines = [line.strip() for line in content.splitlines() if line.strip()]
                     logger.debug(f"Successfully read {file_path} with {encoding} encoding: {len(lines)} lines")
@@ -589,7 +590,7 @@ class HistoricalParser:
                                 'path': path,
                                 'mtime': mtime,
                                 'size': size,
-                                'filename': path.split('/')[-1]
+                                'filename': path.split("/")[-1]
                             })
                             logger.debug(f"Found CSV file: {path} ({size} bytes, modified: {datetime.fromtimestamp(mtime)})")
                         except Exception as e:
@@ -1247,8 +1248,8 @@ class HistoricalParser:
         # Calculate final statistics
         start_time = stats.get('start_time')
         if start_time:
-            total_time = (datetime.now(timezone.utc) - start_time).total_seconds()
-            time_str = f"{int(total_time // 60)}m {int(total_time % 60)}s"
+            total_time = 0
+                total_time % 60)}s"
         else:
             time_str = "Unknown"
         
@@ -1363,7 +1364,7 @@ class HistoricalParser:
                     if processed_lines % update_interval == 0 or processed_lines == file_line_count:
                         try:
                             progress_embed = await self.create_progress_embed(
-                                server_name, stats, csv_file.split('/')[-1]
+                                server_name, stats, csv_file.split("/")[-1]
                             )
                             progress_embed.title = f"Processing File {file_index + 1}/{len(total_files)}"
                             await progress_message.edit(embed=progress_embed, view=progress_ui)

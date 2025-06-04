@@ -753,8 +753,14 @@ class EmeraldKillfeedBot(commands.Bot):
                     # Cancel any pending database operations
                     await asyncio.sleep(0.1)
 
-                if hasattr(self, 'db_manager') and self.db_manager and hasattr(self.db_manager, 'close'):
-                    self.db_manager.close()
+                if hasattr(self, 'db_manager') and self.db_manager:
+                    try:
+                        if hasattr(self.db_manager, 'close'):
+                            self.db_manager.close()
+                        elif hasattr(self.db_manager, 'client') and hasattr(self.db_manager.client, 'close'):
+                            self.db_manager.client.close()
+                    except Exception as close_error:
+                        logger.debug(f"Database close method not available: {close_error}")
                     logger.info("MongoDB connection closed")
             except Exception as e:
                 logger.error(f"Error closing MongoDB connection: {e}")
@@ -789,9 +795,15 @@ class EmeraldKillfeedBot(commands.Bot):
                 self.scheduler.shutdown()
                 logger.info("Scheduler stopped")
 
-            if hasattr(self, 'db_manager') and self.db_manager and hasattr(self.db_manager, 'close'):
-                self.db_manager.close()
-                logger.info("MongoDB connection closed")
+            if hasattr(self, 'db_manager') and self.db_manager:
+                    try:
+                        if hasattr(self.db_manager, 'close'):
+                            self.db_manager.close()
+                        elif hasattr(self.db_manager, 'client') and hasattr(self.db_manager.client, 'close'):
+                            self.db_manager.client.close()
+                    except Exception as close_error:
+                        logger.debug(f"Database close method not available: {close_error}")
+                    logger.info("MongoDB connection closed")
 
             await super().close()
             logger.info("Bot shutdown complete")
