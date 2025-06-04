@@ -262,38 +262,44 @@ class ScalableUnifiedProcessor:
                 # Only send embeds for specific state transitions
                 if change['old_state'] == 'queued' and change['new_state'] == 'online':
                     # Player connected (queued -> online)
-                    embed_data = {
-                        'type': 'connection',
-                        'event': 'player_connected',
-                        'player_name': change['player_name'],
-                        'eos_id': change['eos_id'],
-                        'timestamp': change['timestamp'],
-                        'guild_id': change['guild_id'],
-                        'server_id': change['server_id']
-                    }
+                    import discord
+                    from datetime import datetime, timezone
+                    
+                    embed = discord.Embed(
+                        title="🟢 Player Connected",
+                        description=f"**{change['player_name']}** joined the server",
+                        color=0x00FF00,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
+                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
+                    
                     await channel_router.send_embed_to_channel(
                         guild_id=change['guild_id'],
                         server_id=change['server_id'],
                         channel_type='killfeed',
-                        embed=embed_data
+                        embed=embed
                     )
                 
                 elif change['old_state'] == 'online' and change['new_state'] == 'offline':
                     # Player disconnected (online -> offline)
-                    embed_data = {
-                        'type': 'connection',
-                        'event': 'player_disconnected',
-                        'player_name': change['player_name'],
-                        'eos_id': change['eos_id'],
-                        'timestamp': change['timestamp'],
-                        'guild_id': change['guild_id'],
-                        'server_id': change['server_id']
-                    }
+                    import discord
+                    from datetime import datetime, timezone
+                    
+                    embed = discord.Embed(
+                        title="🔴 Player Disconnected",
+                        description=f"**{change['player_name']}** left the server",
+                        color=0xFF0000,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
+                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
+                    
                     await channel_router.send_embed_to_channel(
                         guild_id=change['guild_id'],
                         server_id=change['server_id'],
                         channel_type='killfeed',
-                        embed=embed_data
+                        embed=embed
                     )
             
             return True
