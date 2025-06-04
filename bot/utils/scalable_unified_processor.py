@@ -614,18 +614,12 @@ class ScalableUnifiedProcessor:
                 logger.error(f"Server {server_config.get('server_name', 'Unknown')} missing SSH credentials in database")
                 return ""
             
-            # Get log path from server config with priority order
-            # 1. ssh_config.log_path (preferred for unified parser)
-            # 2. log_path field
-            # 3. fallback path
-            ssh_config = server_config.get('ssh_config', {})
-            log_path = (
-                ssh_config.get('log_path') or 
-                server_config.get('log_path') or 
-                '/home/baked/server/logs/latest.log'
-            )
+            # Build dynamic log path: ./{host}_{_id}/Logs/Deadside.log
+            server_id = server_config.get('_id') or server_config.get('server_id')
+            log_path = f"./{ssh_host}_{server_id}/Logs/Deadside.log"
             
             logger.info(f"Connecting to {ssh_host}:{ssh_port} as {ssh_username} for {server_config.get('server_name', 'Unknown')}")
+            logger.info(f"Using dynamic log path: {log_path}")
             
             # Create connection config for the robust connection manager
             connection_config = {
