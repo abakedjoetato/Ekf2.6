@@ -108,19 +108,38 @@ class AdminChannels(discord.Cog):
                 await ctx.respond(embed=embed, ephemeral=True)
                 return
             
-            # Update guild configuration with server-specific channels
+            # Update guild configuration with server-specific channels using correct collection access
             update_field = f"server_channels.{server_id}.{channel_type}"
-            await self.bot.db_manager.guilds.update_one(
-                {"guild_id": guild_id},
-                {
-                    "$set": {
-                        update_field: channel.id,
-                        f"server_channels.{server_id}.{channel_type}_enabled": True,
-                        f"server_channels.{server_id}.{channel_type}_updated": datetime.now(timezone.utc)
-                    }
-                },
-                upsert=True
-            )
+            
+            # Use timeout-protected database operation to prevent hanging
+            try:
+                import asyncio
+                
+                # Wrap database operation with timeout to prevent hanging
+                async def db_update():
+                    return await self.bot.db_manager.db.server_channels.update_one(
+                        {"guild_id": guild_id},
+                        {
+                            "$set": {
+                                update_field: channel.id,
+                                f"server_channels.{server_id}.{channel_type}_enabled": True,
+                                f"server_channels.{server_id}.{channel_type}_updated": datetime.now(timezone.utc)
+                            }
+                        },
+                        upsert=True
+                    )
+                
+                # Execute with 5-second timeout
+                await asyncio.wait_for(db_update(), timeout=5.0)
+                
+            except asyncio.TimeoutError:
+                logger.error(f"Database operation timed out for guild {guild_id}")
+                await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
+                return
+            except Exception as db_error:
+                logger.error(f"Database update failed: {db_error}")
+                await ctx.respond("Database operation failed. Please try again.", ephemeral=True)
+                return
             
             # Create success embed
             embed = discord.Embed(
