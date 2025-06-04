@@ -4,6 +4,7 @@ Handles log parsing and event detection with proper syntax
 """
 
 import asyncio
+import asyncssh
 import logging
 import re
 from datetime import datetime
@@ -420,7 +421,7 @@ class ScalableUnifiedProcessor:
                 username=username,
                 password=server_config.get('password'),
                 known_hosts=None,
-                server_host_key_algs=[]
+                server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521']
             ) as conn:
                 logger.info(f"Cold start: Connected to {server_name}")
                 
@@ -431,8 +432,9 @@ class ScalableUnifiedProcessor:
                 try:
                     async with conn.start_sftp_client() as sftp:
                         # Read entire log file chronologically
-                        log_content = await sftp.get(log_path, encoding='utf-8', errors='ignore')
-                        log_lines = log_content.splitlines()
+                        async with sftp.open(log_path, 'r') as f:
+                            log_content = await f.read()
+                            log_lines = log_content.splitlines()
                         
                         all_events = []
                         

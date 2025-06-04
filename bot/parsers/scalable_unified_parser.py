@@ -98,6 +98,40 @@ class ScalableUnifiedParser:
             import traceback
             logger.error(f"Parser traceback: {traceback.format_exc()}")
     
+    async def _update_voice_channel_final(self, guild_id: int, server_id: str, server_name: str):
+        """Update voice channel count once at the end of cold start"""
+        try:
+            from bot.utils.voice_channel_manager import VoiceChannelManager
+            voice_manager = VoiceChannelManager(self.bot)
+            await voice_manager.update_voice_channel_count(guild_id, server_id)
+            logger.info(f"🔊 Voice channel updated: {server_name} - cold start complete")
+        except Exception as e:
+            logger.error(f"Error updating voice channel for {server_name}: {e}")
+    
+    async def _set_parser_state(self, guild_id: int, server_id: str, timestamp: Optional[str]):
+        """Set parser state for future hot starts"""
+        try:
+            await self.bot.db_manager.parser_states.update_one(
+                {
+                    'guild_id': guild_id,
+                    'server_id': server_id,
+                    'parser_type': 'unified'
+                },
+                {
+                    '$set': {
+                        'guild_id': guild_id,
+                        'server_id': server_id,
+                        'parser_type': 'unified',
+                        'last_timestamp': timestamp,
+                        'last_updated': datetime.now(timezone.utc)
+                    }
+                },
+                upsert=True
+            )
+            logger.info(f"Parser state set for server {server_id}")
+        except Exception as e:
+            logger.error(f"Error setting parser state: {e}")
+    
     async def _process_guild_with_mode(self, guild_id: int, servers: List[Dict], processor, is_cold_start: bool):
         """Process guild with cold or hot start mode"""
         try:
