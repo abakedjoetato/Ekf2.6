@@ -115,9 +115,10 @@ class ScalableUnifiedProcessor:
             for event_type, pattern in self.event_patterns.items():
                 match = pattern.search(message)
                 if match:
-                    # Apply advanced normalization for events
+                    # Apply advanced normalization for events (may return None for filtered missions)
                     normalized_event = self._normalize_event_data(event_type, match.groups(), timestamp, message)
-                    return normalized_event
+                    if normalized_event is not None:
+                        return normalized_event
             
             return None
             
@@ -404,7 +405,7 @@ class ScalableUnifiedProcessor:
         }
         return mapping.get(event_type, 'events')
     
-    def _normalize_event_data(self, event_type: str, match_groups: tuple, timestamp: datetime, raw_message: str) -> Dict[str, Any]:
+    def _normalize_event_data(self, event_type: str, match_groups: tuple, timestamp: datetime, raw_message: str) -> Optional[Dict[str, Any]]:
         """Advanced normalization for mission and event data"""
         normalized = {
             'timestamp': timestamp,
@@ -414,13 +415,19 @@ class ScalableUnifiedProcessor:
             'raw_message': raw_message
         }
         
-        # Mission normalization
+        # Mission normalization with level filtering
         if event_type in ['mission_start', 'mission_end']:
             mission_name = match_groups[0] if match_groups else 'Unknown Mission'
+            mission_level = self._extract_mission_level(mission_name)
+            
+            # Block missions below level 3
+            if mission_level < 3:
+                return None  # Skip low-level missions
+            
             # Normalize mission names for consistent display
             normalized['mission_name'] = self._normalize_mission_name(mission_name)
             normalized['mission_state'] = 'READY' if event_type == 'mission_start' else 'WAITING'
-            normalized['mission_level'] = self._extract_mission_level(mission_name)
+            normalized['mission_level'] = mission_level
             
         # Airdrop normalization
         elif event_type in ['airdrop_flying', 'airdrop_dropping', 'airdrop_dead']:
@@ -637,8 +644,9 @@ class ScalableUnifiedProcessor:
             
             for event in game_events:
                 # Use advanced normalization and embed factory for consistent formatting
-                embed_data, channel_type = await self._create_event_embed(event)
-                if embed_data:
+                embed_result = await self._create_event_embed(event)
+                if embed_result:
+                    embed_data, channel_type = embed_result
                     await channel_router.send_embed_to_channel(
                         guild_id=event['guild_id'],
                         server_id=event['server_id'],
