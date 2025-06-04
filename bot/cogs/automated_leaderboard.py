@@ -47,13 +47,10 @@ class AutomatedLeaderboard(discord.Cog):
             pass
             logger.info("Running automated leaderboard update...")
 
-            # Get all guilds with leaderboard channels configured (either server-specific or guild default)
+            # Get all guilds with leaderboard channels configured
             guilds_cursor = self.bot.db_manager.guilds.find({
-                "$or": [
-                    {"channels.leaderboard": {"$exists": True, "$ne": None}},
-                    {"server_channels.default.leaderboard": {"$exists": True, "$ne": None}}
-                ],
-                "leaderboard_enabled": True
+                "leaderboard_enabled": True,
+                "leaderboard_channel": {"$exists": True, "$ne": None}
             })
 
             guilds_with_leaderboard = await guilds_cursor.to_list(length=None)
