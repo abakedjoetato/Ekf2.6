@@ -63,8 +63,6 @@ class ScalableUnifiedProcessor:
         self._cold_start_player_states = {}  # Memory storage for cold start batch processing
         self._hot_start_state_changes = set()  # Track servers with state changes during hot starts
         self._player_name_cache = {}  # Cache for player names from join queue events
-        # Thread-safe database wrapper to prevent event loop errors
-        self.safe_db = ThreadSafeDBWrapper(bot.db_manager) if bot and hasattr(bot, 'db_manager') else None
         
     async def process_guild_servers(self, server_configs: List[Dict[str, Any]], 
                                   progress_callback=None) -> Dict[str, Any]:
@@ -1198,7 +1196,7 @@ class ScalableUnifiedProcessor:
                             'character_name': character_name
                         }
                         logger.debug(f"Player {character_name} ({eosid[:8]}...) queued for batch update (online on {entry.server_name})")
-                        state_changed = True  # For logging purposes
+                        state_changed = True
                     else:
                         # Hot start processing - update database immediately and track for voice updates
                         try:
@@ -1225,7 +1223,7 @@ class ScalableUnifiedProcessor:
                             state_changed = (result.upserted_id is not None or result.modified_count > 0) if result else False
                             
                             # Track servers with state changes for voice channel updates
-                            if state_changed:
+                            if locals().get("state_changed", False):
                                 self._hot_start_state_changes.add(entry.server_name)
                                 logger.debug(f"Hot start: Player {character_name} ({eosid[:8]}...) joined {entry.server_name}")
                             else:
@@ -1237,7 +1235,7 @@ class ScalableUnifiedProcessor:
                             state_changed = False
                     
                     # Only send connection embed if state actually changed (offline -> online)
-                    if state_changed and not self._cold_start_mode:
+                    if locals().get("state_changed", False) and not self._cold_start_mode:
                         # Use character name from cache if available, fallback to database
                         character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                         display_name = character_name
@@ -1295,7 +1293,7 @@ class ScalableUnifiedProcessor:
                         if eosid in self._cold_start_player_states:
                             del self._cold_start_player_states[eosid]
                             logger.debug(f"Player {eosid[:8]}... removed from batch update (disconnected from {entry.server_name})")
-                        state_changed = True  # For logging purposes
+                        state_changed = True
                     else:
                         # Hot start processing - update database using thread-safe wrapper
                         if self.db_wrapper:
@@ -1316,12 +1314,12 @@ class ScalableUnifiedProcessor:
                                 state_changed = False
                         
                         # Track servers with state changes for voice channel updates
-                        if state_changed:
+                        if locals().get("state_changed", False):
                             self._hot_start_state_changes.add(entry.server_name)
                             logger.debug(f"Hot start: Player {eosid[:8]}... left {entry.server_name}")
                     
                     # Only send connection embed if state actually changed (online -> offline)
-                    if state_changed and not self._cold_start_mode:
+                    if locals().get("state_changed", False) and not self._cold_start_mode:
                         # Use character name from cache if available, fallback to database
                         character_name = self._player_name_cache.get(eosid, f'Player{eosid[:8]}')
                         display_name = character_name
