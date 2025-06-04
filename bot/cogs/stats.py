@@ -536,13 +536,26 @@ class Stats(discord.Cog):
             import asyncio
             
             async def get_sessions():
-                return await self.bot.db_manager.player_sessions.find({
-                    'guild_id': guild_id,
-                    'state': 'online'
-                }).to_list(length=50)
+                # Use more efficient query with proper indexing hint
+                cursor = self.bot.db_manager.player_sessions.find(
+                    {'guild_id': guild_id, 'state': 'online'},
+                    {'character_name': 1, 'player_name': 1, 'server_name': 1, 'joined_at': 1, '_id': 0}
+                ).limit(50)
+                return await cursor.to_list(length=50)
             
-            # Execute with timeout to prevent hanging
-            sessions = await asyncio.wait_for(get_sessions(), timeout=5.0)
+            # Execute with shorter timeout and retry logic
+            try:
+                sessions = await asyncio.wait_for(get_sessions(), timeout=3.0)
+            except asyncio.TimeoutError:
+                # Fallback: try with even more restrictive query
+                try:
+                    cursor = self.bot.db_manager.player_sessions.find(
+                        {'guild_id': guild_id, 'state': 'online'}
+                    ).limit(20)
+                    sessions = await asyncio.wait_for(cursor.to_list(length=20), timeout=2.0)
+                except asyncio.TimeoutError:
+                    await ctx.followup.send("Database is taking too long to respond. Please try again in a moment.", ephemeral=True)
+                    return
             
             # Load thumbnail asset
             file_path = "./assets/Connections.png"
@@ -645,15 +658,15 @@ class Stats(discord.Cog):
             
         except Exception as e:
             import asyncio
+            logger.error(f"Error in /online command: {e}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            
             if isinstance(e, asyncio.TimeoutError):
                 logger.error(f"Database timeout in /online command for guild {ctx.guild.id if ctx.guild else 0}")
-                await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+                await ctx.followup.send("Database query timed out. Please try again in a moment.", ephemeral=True)
             else:
-                logger.error(f"Failed to fetch online players: {e}")
-                if ctx.response.is_done():
-                    await ctx.followup.send("Failed to fetch online players.", ephemeral=True)
-                else:
-                    await ctx.respond("Failed to fetch online players.", ephemeral=True)
+                await ctx.followup.send("Failed to fetch online players. Please try again.", ephemeral=True)
 
     async def _display_single_server_players(self, ctx, server_name: str, server_players: list):
         """Display players for a single specific server"""
