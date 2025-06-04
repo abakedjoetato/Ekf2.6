@@ -291,8 +291,10 @@ class EmeraldKillfeedBot(commands.Bot):
                         if latest_retry > 30:  # Any significant rate limit
                             rate_limit_detected = True
                             logger.info(f"✅ Commands loaded and ready (active rate limit detected: {latest_retry}s)")
-                            logger.info("🔧 Enabling local command processing to bypass rate limits")
-                            self._enable_local_command_processing()
+                            logger.info("🔧 Attempting guild-specific sync to bypass global rate limits")
+                            guild_sync_success = await self._attempt_guild_specific_sync(guild)
+                            if not guild_sync_success:
+                                logger.error("Guild-specific sync also failed - commands may not be available")
                             return
             except Exception as e:
                 logger.debug(f"Could not check rate limit status: {e}")
@@ -318,8 +320,10 @@ class EmeraldKillfeedBot(commands.Bot):
                                 if time_diff < 60:  # Rate limit within last minute
                                     rate_limit_detected = True
                                     logger.info(f"✅ Commands loaded and ready (recent rate limit detected {time_diff:.0f}s ago)")
-                                    logger.info("🔧 Enabling local command processing to bypass rate limits")
-                                    self._enable_local_command_processing()
+                                    logger.info("🔧 Attempting guild-specific sync to bypass global rate limits")
+                                    guild_sync_success = await self._attempt_guild_specific_sync(guild)
+                                    if not guild_sync_success:
+                                        logger.error("Guild-specific sync also failed - commands may not be available")
                                     return
                             except ValueError:
                                 continue
@@ -344,11 +348,24 @@ class EmeraldKillfeedBot(commands.Bot):
                         with open(cooldown_file, 'w') as f:
                             f.write(cooldown_time.isoformat())
                     except asyncio.TimeoutError:
-                        # Sync taking too long (likely rate limited) - cancel and use fallback
+                        # Sync taking too long (likely rate limited) - cancel and use guild fallback
                         sync_task.cancel()
-                        logger.warning("Global sync timed out (likely rate limited), enabling local processing...")
-                        self._enable_local_command_processing()
-                        return
+                        logger.warning("Global sync timed out (likely rate limited), attempting guild-specific sync...")
+                        
+                        # Try guild-specific sync as fallback
+                        guild_sync_success = await self._attempt_guild_specific_sync(guild)
+                        if guild_sync_success:
+                            # Set shorter cooldown for successful guild sync
+                            cooldown_time = datetime.utcnow() + timedelta(hours=2)
+                            with open(cooldown_file, 'w') as f:
+                                f.write(cooldown_time.isoformat())
+                            return
+                        else:
+                            logger.error("Both global and guild sync failed - commands may not be available in Discord")
+                            cooldown_time = datetime.utcnow() + timedelta(hours=8)
+                            with open(cooldown_file, 'w') as f:
+                                f.write(cooldown_time.isoformat())
+                            return
                         
                 except discord.HTTPException as e:
                     if e.status == 429:
@@ -796,26 +813,36 @@ class EmeraldKillfeedBot(commands.Bot):
         except Exception as e:
             logger.error(f"Command sync recovery failed: {e}")
     
-    def _enable_local_command_processing(self):
-        """Enable local command processing without Discord sync"""
+    async def _attempt_guild_specific_sync(self, guild):
+        """Attempt guild-specific command sync as fallback"""
         try:
-            logger.info("🔧 Enabling local command processing mode...")
+            logger.info(f"🔧 Attempting guild-specific sync for {guild.name}...")
             
-            # Create a flag file to indicate local processing is active
-            with open('local_commands_active.txt', 'w') as f:
-                f.write(datetime.utcnow().isoformat())
+            # Use shorter timeout for guild sync
+            guild_synced = await asyncio.wait_for(
+                self.sync_commands(guild_ids=[guild.id]), 
+                timeout=8.0
+            )
             
-            # Set commands as "synced" locally to enable processing
-            if hasattr(self, 'pending_application_commands'):
-                for command in self.pending_application_commands:
-                    # Mark commands as available for local processing
-                    if hasattr(command, '_enable_local_processing'):
-                        command._enable_local_processing = True
-            
-            logger.info("✅ Local command processing enabled - commands available without Discord sync")
-            
+            if guild_synced:
+                logger.info(f"✅ Guild-specific sync successful: {len(guild_synced)} commands available in {guild.name}")
+                return True
+            else:
+                logger.warning(f"Guild sync returned no commands for {guild.name}")
+                return False
+                
+        except asyncio.TimeoutError:
+            logger.warning(f"Guild-specific sync timed out for {guild.name}")
+            return False
+        except discord.HTTPException as e:
+            if e.status == 429:
+                logger.warning(f"Guild sync rate limited for {guild.name}")
+            else:
+                logger.error(f"Guild sync HTTP error for {guild.name}: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Failed to enable local command processing: {e}")
+            logger.error(f"Guild sync failed for {guild.name}: {e}")
+            return False
 
     async def _run_killfeed_threaded(self):
         """Run killfeed parser in background thread"""
