@@ -917,14 +917,14 @@ class EmeraldKillfeedBot(commands.Bot):
     async def _run_killfeed_threaded(self):
         """Run killfeed parser in background thread"""
         try:
-            await self.threaded_killfeed.run_parser_threaded()
+            await self.killfeed_parser.run_killfeed_parser()
         except Exception as e:
             logger.error(f"Threaded killfeed parser failed: {e}")
     
     async def _run_unified_threaded(self):
         """Run unified parser in background thread"""
         try:
-            await self.threaded_unified.run_parser_threaded()
+            await self.unified_log_parser.run_log_parser()
         except Exception as e:
             logger.error(f"Threaded unified parser failed: {e}")
 

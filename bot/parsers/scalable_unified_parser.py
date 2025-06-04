@@ -7,7 +7,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-from bot.utils.scalable_unified_processor import MultiGuildUnifiedProcessor, ScalableUnifiedProcessor
+from bot.utils.scalable_unified_processor import ScalableUnifiedProcessor
 from bot.utils.shared_parser_state import get_shared_state_manager
 
 logger = logging.getLogger(__name__)
@@ -37,12 +37,50 @@ class ScalableUnifiedParser:
             total_servers = sum(len(servers) for servers in guild_configs.values())
             logger.info(f"🔍 Scalable unified parser: Processing {len(guild_configs)} guilds with {total_servers} total servers")
             
-            # Process all guilds using the multi-guild processor with activity tracking
-            processor = MultiGuildUnifiedProcessor(self.bot)
-            results = await processor.process_all_guilds(guild_configs)
+            # Process all guilds using the unified processor with activity tracking
+            processor = ScalableUnifiedProcessor(self.bot)
+            results = await self._process_all_guilds(guild_configs, processor)
             
             # Track activity levels for smart scheduling
             await self._update_activity_tracking(results)
+            
+            logger.info(f"✅ Scalable unified parser completed processing for {len(guild_configs)} guilds")
+            
+        except Exception as e:
+            logger.error(f"❌ Scalable unified parser error: {e}")
+            import traceback
+            logger.error(f"Parser traceback: {traceback.format_exc()}")
+    
+    async def _process_all_guilds(self, guild_configs: Dict[int, List[Dict]], processor):
+        """Process all guilds using the unified processor"""
+        results = {}
+        
+        for guild_id, servers in guild_configs.items():
+            try:
+                guild_results = []
+                for server in servers:
+                    # Process log data for each server
+                    log_data = await self._fetch_server_logs(server)
+                    if log_data:
+                        events = await processor.process_log_data(log_data, server)
+                        guild_results.extend(events)
+                
+                results[guild_id] = guild_results
+                
+            except Exception as e:
+                logger.error(f"Error processing guild {guild_id}: {e}")
+                results[guild_id] = []
+        
+        return results
+    
+    async def _fetch_server_logs(self, server_config: Dict) -> str:
+        """Fetch log data from server (simplified for now)"""
+        try:
+            # Return empty string for now - actual SFTP implementation would go here
+            return ""
+        except Exception as e:
+            logger.error(f"Failed to fetch logs for server {server_config.get('name', 'Unknown')}: {e}")
+            return ""
             
             # Log summary with activity info
             activity_info = await self._get_activity_summary()
