@@ -100,10 +100,15 @@ class ScalableUnifiedParser:
                 logger.debug(f"Missing SSH credentials for server {server_config.get('name', 'Unknown')}")
                 return ""
             
-            # Get log file path from server config
-            log_path = server_config.get('log_path') or server_config.get('path', '/root/servers/79.127.236.1_7020/actual1')
+            # Build dynamic server-specific log path
+            server_id = server_config.get('server_id', server_config.get('_id', '7020'))
             log_file_name = server_config.get('log_file', 'Deadside.log')
-            log_file_path = f"{log_path}/{log_file_name}"
+            
+            # Use dynamic path pattern: ./{host}_{server_id}/Logs/Deadside.log
+            if server_config.get('log_path'):
+                log_file_path = f"{server_config['log_path']}/{log_file_name}"
+            else:
+                log_file_path = f"./{host}_{server_id}/Logs/{log_file_name}"
             
             # Connect via SFTP using server-specific credentials with compatibility parameters
             try:

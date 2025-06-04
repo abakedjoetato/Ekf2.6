@@ -34,10 +34,11 @@ async def configure_server_credentials():
             print(f"  SSH_PORT: {ssh_port}")
             return
         
-        # Create server configuration
+        # Create server configuration with correct server_id for dynamic path
         server_config = {
             "name": "Emerald EU",
-            "server_id": "emerald_eu_main",
+            "server_id": "7020",
+            "_id": "7020",
             "enabled": True,
             "host": ssh_host,
             "sftp_host": ssh_host,
@@ -45,7 +46,6 @@ async def configure_server_credentials():
             "sftp_password": ssh_password,
             "sftp_port": int(ssh_port),
             "port": int(ssh_port),
-            "log_path": "/root/servers/79.127.236.1_7020/actual1",
             "log_file": "Deadside.log",
             "path": "/root/servers/79.127.236.1_7020/actual1",
             "killfeed_path": "/root/servers/79.127.236.1_7020/actual1/killfeed.csv"
