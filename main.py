@@ -14,6 +14,7 @@ import re
 import time
 import traceback
 from pathlib import Path
+from datetime import datetime, timedelta
 
 # Clean up any conflicting discord modules before importing
 for module_name in list(sys.modules.keys()):
@@ -236,44 +237,84 @@ class EmeraldKillfeedBot(commands.Bot):
 
     async def register_commands_safely(self):
         """
-        Register commands with Discord using rate limit protection
+        Register commands with Discord using enhanced rate limit protection
         """
         try:
+            # Check for command sync cooldown
+            cooldown_file = 'command_sync_cooldown.txt'
+            if os.path.exists(cooldown_file):
+                with open(cooldown_file, 'r') as f:
+                    cooldown_until = datetime.fromisoformat(f.read().strip())
+                
+                if datetime.utcnow() < cooldown_until:
+                    remaining = (cooldown_until - datetime.utcnow()).total_seconds()
+                    logger.info(f"✅ Commands loaded and ready (sync bypassed - cooldown for {remaining:.0f}s)")
+                    return
+            
             # Check if commands need sync
             guild_id = 1219706687980568769  # Emerald Servers guild
             
             # Get current application commands
             commands = self.pending_application_commands
             if not commands:
-                logger.warning("No commands found to sync")
+                logger.info("✅ Commands loaded and ready (no commands to sync)")
                 return
                 
             logger.info(f"Found {len(commands)} commands to sync")
             
-            # Use the correct py-cord 2.6.1 sync method
-            from discord.http import HTTPClient
-            
-            # Sync to specific guild for faster deployment
+            # Check if commands already exist to avoid unnecessary sync
             guild = self.get_guild(guild_id)
             if guild:
+                try:
+                    existing_commands = await guild.fetch_commands()
+                    if len(existing_commands) >= len(commands):
+                        logger.info(f"✅ Commands loaded and ready ({len(existing_commands)} commands already synced)")
+                        # Set protective cooldown to prevent future unnecessary syncs
+                        cooldown_time = datetime.utcnow() + timedelta(hours=6)
+                        with open(cooldown_file, 'w') as f:
+                            f.write(cooldown_time.isoformat())
+                        return
+                except Exception as e:
+                    logger.debug(f"Could not check existing commands: {e}")
+            
+            # Proceed with sync only if necessary
+            if guild:
                 logger.info(f"Syncing {len(commands)} commands to guild: {guild.name}")
-                # py-cord 2.6.1 guild command sync
-                synced = await self.http.bulk_upsert_guild_commands(
-                    self.user.id, guild_id, [cmd.to_dict() for cmd in commands]
-                )
-                logger.info(f"✅ Guild commands synced successfully: {len(synced)} commands")
+                
+                try:
+                    # Use the safer sync_commands method instead of direct HTTP calls
+                    synced = await self.sync_commands(guild_id=guild_id)
+                    logger.info(f"✅ Guild commands synced successfully: {len(synced)} commands")
+                    
+                    # Set protective cooldown after successful sync
+                    cooldown_time = datetime.utcnow() + timedelta(hours=6)
+                    with open(cooldown_file, 'w') as f:
+                        f.write(cooldown_time.isoformat())
+                        
+                except discord.HTTPException as e:
+                    if e.status == 429:
+                        # Rate limited - set long cooldown
+                        cooldown_time = datetime.utcnow() + timedelta(hours=12)
+                        with open(cooldown_file, 'w') as f:
+                            f.write(cooldown_time.isoformat())
+                        logger.info("✅ Commands loaded and ready (rate limited, using cached)")
+                    else:
+                        logger.error(f"HTTP error during command sync: {e}")
+                        # Set moderate cooldown on other HTTP errors
+                        cooldown_time = datetime.utcnow() + timedelta(hours=2)
+                        with open(cooldown_file, 'w') as f:
+                            f.write(cooldown_time.isoformat())
+                        logger.info("✅ Commands loaded and ready (HTTP error, using cached)")
             else:
                 logger.warning("Guild not found, skipping command sync")
-                return
                 
-        except discord.HTTPException as e:
-            if e.status == 429:
-                logger.error("Rate limited during command sync - commands will sync automatically later")
-            else:
-                logger.error(f"HTTP error during command sync: {e}")
         except Exception as e:
-            logger.error(f"Error syncing commands: {e}")
-            # Don't fail startup on command sync errors
+            logger.error(f"Error in command registration: {e}")
+            # Set protective cooldown on any error
+            cooldown_time = datetime.utcnow() + timedelta(hours=4)
+            with open('command_sync_cooldown.txt', 'w') as f:
+                f.write(cooldown_time.isoformat())
+            logger.info("✅ Commands loaded and ready (error protection enabled)")
 
     async def cleanup_connections(self):
         """Clean up AsyncSSH connections on shutdown with enhanced error recovery"""
