@@ -24,7 +24,7 @@ class ScalableUnifiedParser:
         self.last_activity_check = None
         
     async def run_log_parser(self):
-        """Main scheduled unified log parser execution with adaptive scheduling"""
+        """Main scheduled unified log parser execution with cold/hot start modes"""
         try:
             logger.info("🔍 Starting scalable unified log parser run...")
             
@@ -38,12 +38,27 @@ class ScalableUnifiedParser:
             total_servers = sum(len(servers) for servers in guild_configs.values())
             logger.info(f"🔍 Scalable unified parser: Processing {len(guild_configs)} guilds with {total_servers} total servers")
             
-            # Process all guilds using the unified processor with activity tracking
-            processor = ScalableUnifiedProcessor(self.bot)
-            results = await self._process_all_guilds(guild_configs, processor)
-            
-            # Track activity levels for smart scheduling
-            await self._update_activity_tracking(results)
+            # Determine cold vs hot start mode for each guild
+            for guild_id, servers in guild_configs.items():
+                try:
+                    # Check if parser state exists for this guild
+                    parser_state = await self.bot.db_manager.parser_states.find_one({
+                        'guild_id': guild_id,
+                        'parser_type': 'unified'
+                    })
+                    
+                    is_cold_start = not parser_state
+                    mode = "COLD" if is_cold_start else "HOT"
+                    
+                    logger.info(f"🔧 Guild {guild_id}: {mode} START mode")
+                    
+                    # Process guild with appropriate mode
+                    processor = ScalableUnifiedProcessor(self.bot)
+                    await self._process_guild_with_mode(guild_id, servers, processor, is_cold_start)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process guild {guild_id}: {e}")
+                    continue
             
             logger.info(f"✅ Scalable unified parser completed processing for {len(guild_configs)} guilds")
             
@@ -51,6 +66,121 @@ class ScalableUnifiedParser:
             logger.error(f"❌ Scalable unified parser error: {e}")
             import traceback
             logger.error(f"Parser traceback: {traceback.format_exc()}")
+    
+    async def _process_guild_with_mode(self, guild_id: int, servers: List[Dict], processor, is_cold_start: bool):
+        """Process guild with cold or hot start mode"""
+        try:
+            for server_config in servers:
+                server_id = server_config.get('server_id', 'default')
+                server_name = server_config.get('server_name', 'Unknown')
+                
+                if is_cold_start:
+                    # COLD START: Process all events, track states, send NO embeds, update voice channel once at end
+                    logger.info(f"❄️ COLD START: {server_name} - Processing all events chronologically, no embeds")
+                    
+                    # Process all log data chronologically from beginning
+                    events = await processor.process_log_data_cold_start(
+                        server_config=server_config,
+                        guild_id=guild_id
+                    )
+                    
+                    if events:
+                        # Update player sessions without sending embeds
+                        await processor.update_player_sessions_cold(events, guild_id, server_id)
+                        
+                        # Update voice channel count once at the end
+                        await self._update_voice_channel_final(guild_id, server_id, server_name)
+                        
+                        # Set parser state for future hot starts
+                        await self._set_parser_state(guild_id, server_id, events[-1].get('timestamp'))
+                        
+                        logger.info(f"❄️ COLD START complete: {server_name} - {len(events)} events processed, voice channel updated")
+                    
+                else:
+                    # HOT START: Process new events since last run, send all embeds, update voice channel once at end
+                    logger.info(f"🔥 HOT START: {server_name} - Processing new events, sending embeds")
+                    
+                    # Get last parser state
+                    parser_state = await self.bot.db_manager.parser_states.find_one({
+                        'guild_id': guild_id,
+                        'server_id': server_id,
+                        'parser_type': 'unified'
+                    })
+                    
+                    last_timestamp = parser_state.get('last_timestamp') if parser_state else None
+                    
+                    # Process only new events since last run
+                    events = await processor.process_log_data_hot_start(
+                        server_config=server_config,
+                        guild_id=guild_id,
+                        last_timestamp=last_timestamp
+                    )
+                    
+                    if events:
+                        # Update player sessions and send connection embeds
+                        state_changes = await processor.update_player_sessions(events)
+                        
+                        # Send connection embeds for state changes
+                        if state_changes:
+                            await processor.send_connection_embeds_batch(state_changes)
+                        
+                        # Send game event embeds
+                        game_events = [e for e in events if e.get('type') == 'event']
+                        if game_events:
+                            await processor.send_event_embeds_batch(game_events)
+                        
+                        # Update voice channel count once at the end
+                        await self._update_voice_channel_final(guild_id, server_id, server_name)
+                        
+                        # Update parser state for next run
+                        await self._set_parser_state(guild_id, server_id, events[-1].get('timestamp'))
+                        
+                        logger.info(f"🔥 HOT START complete: {server_name} - {len(events)} events processed, embeds sent")
+                    else:
+                        logger.info(f"🔥 HOT START: {server_name} - No new events")
+                        
+        except Exception as e:
+            logger.error(f"Failed to process guild {guild_id} with mode: {e}")
+    
+    async def _update_voice_channel_final(self, guild_id: int, server_id: str, server_name: str):
+        """Update voice channel count once at the end to avoid spam"""
+        try:
+            # Get total online + queued players for this server
+            total_count = await self.bot.db_manager.player_sessions.count_documents({
+                'guild_id': guild_id,
+                'server_id': server_id,
+                'state': {'$in': ['online', 'queued']}
+            })
+            
+            # Update voice channel
+            from bot.utils.voice_channel_manager import VoiceChannelManager
+            vc_manager = VoiceChannelManager(self.bot)
+            await vc_manager.update_server_voice_channel(guild_id, server_id, server_name, total_count)
+            
+            logger.info(f"🔊 Voice channel updated: {server_name} - {total_count} players")
+            
+        except Exception as e:
+            logger.error(f"Failed to update voice channel for {server_name}: {e}")
+    
+    async def _set_parser_state(self, guild_id: int, server_id: str, last_timestamp):
+        """Set parser state for next run"""
+        try:
+            await self.bot.db_manager.parser_states.update_one(
+                {
+                    'guild_id': guild_id,
+                    'server_id': server_id,
+                    'parser_type': 'unified'
+                },
+                {
+                    '$set': {
+                        'last_timestamp': last_timestamp,
+                        'last_updated': datetime.now(timezone.utc)
+                    }
+                },
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Failed to set parser state: {e}")
     
     async def _process_all_guilds(self, guild_configs: Dict[int, List[Dict]], processor):
         """Process all guilds using the unified processor"""
