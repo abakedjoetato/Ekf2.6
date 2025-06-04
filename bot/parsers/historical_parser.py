@@ -260,7 +260,7 @@ class HistoricalParser:
                 report['critical_error'] = "Failed to establish SFTP connection"
                 return [], report
 
-            server_id = str(server_config.get('_id', 'unknown'))
+            server_id = str(server_config.get('_id', server_config.get('server_id', 'unknown')))
             sftp_host = server_config.get('host')
             remote_path = f"./{sftp_host}_{server_id}/actual1/deathlogs/"
 
@@ -457,7 +457,7 @@ class HistoricalParser:
         """Get or create SFTP connection with enhanced error handling and compatibility"""
         try:
             # Get SFTP credentials with proper fallbacks
-            server_id = str(server_config.get('_id', 'unknown'))
+            server_id = str(server_config.get('_id', server_config.get('server_id', 'unknown')))
             sftp_host = server_config.get('host') or server_config.get('sftp_host', '')
             sftp_port = int(server_config.get('port') or server_config.get('sftp_port', 22))
             sftp_username = server_config.get('username') or server_config.get('sftp_username', '')
@@ -559,7 +559,7 @@ class HistoricalParser:
                 report['critical_error'] = "Failed to establish SFTP connection"
                 return [], report
 
-            server_id = str(server_config.get('_id', 'unknown'))
+            server_id = str(server_config.get('_id', server_config.get('server_id', 'unknown')))
             sftp_host = server_config.get('host')
             # Use consistent path pattern with _id (same as killfeed parser)
             remote_path = f"./{sftp_host}_{server_id}/actual1/deathlogs/"

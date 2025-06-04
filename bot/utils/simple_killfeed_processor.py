@@ -50,7 +50,7 @@ class SimpleKillfeedProcessor:
     def _get_killfeed_path(self) -> str:
         """Get the killfeed path for this server"""
         host = self.server_config.get('host', 'unknown')
-        server_id = self.server_config.get('server_id', self.server_config.get('_id', 'unknown'))
+        server_id = self.server_config.get('_id', self.server_config.get('server_id', 'unknown'))
         return f"./{host}_{server_id}/actual1/deathlogs/"
     
     async def process_server_killfeed(self, progress_callback=None) -> Dict[str, Any]:
