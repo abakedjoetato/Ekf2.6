@@ -242,20 +242,15 @@ class ScalableUnifiedProcessor:
                     # Calculate hash of first line
                     current_hash = hashlib.md5(first_line.encode()).hexdigest()
                     
-                    # Get stored state
-                    stored_state = await self.state_manager.get_parser_state(self.guild_id, server_name) if self.state_manager else None
+                    # Skip parser state for now to avoid threading conflicts
+                    stored_state = None
                     
                     rotation_detected = False
                     last_position = 0
                     last_line = 0
                     
-                    # Check if this is a cold start (bot restart scenario)
-                    if self.bot and hasattr(self.bot, 'db_manager'):
-                        # Check for cold start flag (bot restart indicator)
-                        guild_config = await self.bot.db_manager.guild_configs.find_one({
-                            "guild_id": self.guild_id
-                        })
-                        cold_start_required = guild_config.get('cold_start_required', False) if guild_config else False
+                    # Force cold start to avoid database conflicts in threading
+                    cold_start_required = True
                         
                         # COLD START CONDITIONS:
                         # 1. Cold start flag set (bot restart)

@@ -83,14 +83,27 @@ class SharedParserStateManager:
                     del self.active_sessions[server_key]
     
     async def get_parser_state(self, guild_id: int, server_name: str) -> Optional[ParserState]:
-        """Get the current parsing state for a server"""
+        """Get the current parsing state for a server using direct database connection"""
         try:
-            collection = self.db_manager.db.shared_parser_states
+            # Use direct MongoDB connection for thread safety
+            import os
+            from motor.motor_asyncio import AsyncIOMotorClient
+            
+            mongo_uri = os.environ.get('MONGO_URI')
+            if not mongo_uri:
+                logger.error("MONGO_URI not available")
+                return None
+            
+            client = AsyncIOMotorClient(mongo_uri)
+            database = client.emerald_killfeed
+            collection = database.shared_parser_states
             
             state_doc = await collection.find_one({
                 'guild_id': guild_id,
                 'server_name': server_name
             })
+            
+            await client.close()
             
             if state_doc:
                 return ParserState(
@@ -115,7 +128,18 @@ class SharedParserStateManager:
                                 parser_type: str, file_timestamp: Optional[str] = None) -> bool:
         """Update the parsing state for a server"""
         try:
-            collection = self.db_manager.db.shared_parser_states
+            # Use direct MongoDB connection for thread safety
+            import os
+            from motor.motor_asyncio import AsyncIOMotorClient
+            
+            mongo_uri = os.environ.get('MONGO_URI')
+            if not mongo_uri:
+                logger.error("MONGO_URI not available")
+                return False
+            
+            client = AsyncIOMotorClient(mongo_uri)
+            database = client.emerald_killfeed
+            collection = database.shared_parser_states
             
             state_data = {
                 'guild_id': guild_id,
@@ -136,6 +160,7 @@ class SharedParserStateManager:
                 upsert=True
             )
             
+            await client.close()
             logger.debug(f"Updated parser state for {guild_id}/{server_name} by {parser_type}")
             return True
             
