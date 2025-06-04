@@ -940,158 +940,79 @@ class Stats(discord.Cog):
 
     @discord.slash_command(name="online", description="Show currently online players")
     async def online(self, ctx: discord.ApplicationContext):
-        """Show currently online players"""
+        """Show currently online players with optimized performance"""
+        # Immediate defer to prevent timeouts
         try:
             await ctx.defer()
         except discord.errors.NotFound:
-            # Interaction expired before defer, try to respond directly
-            logger.warning("Interaction expired during defer, attempting direct response")
+            logger.warning("Interaction expired during defer")
+            return
+        except Exception as e:
+            logger.error(f"Failed to defer interaction: {e}")
             return
         
         try:
-            import asyncio
-            
             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
             guild_id = ctx.guild.id
+            logger.info(f"Processing /online command for guild {guild_id}")
             
-            # Optimized database query with minimal timeout
+            # Fast, optimized database query
             try:
-                # Use aggregate pipeline for better performance
-                pipeline = [
-                    {'$match': {'guild_id': guild_id, 'state': 'online'}},
-                    {'$project': {
-                        'character_name': 1, 
-                        'player_name': 1,
-                        'server_name': 1, 
-                        'server_id': 1,
-                        'joined_at': 1, 
-                        '_id': 0
-                    }},
-                    {'$limit': 50}
-                ]
-                
-                cursor = self.bot.db_manager.player_sessions.aggregate(pipeline)
-                sessions = await asyncio.wait_for(cursor.to_list(length=50), timeout=2.0)
-                
-            except asyncio.TimeoutError:
-                embed = discord.Embed(
-                    title="⚠️ Database Timeout",
-                    description="Database is currently slow. Please try again.",
-                    color=0xFFAA00
-                )
-                await ctx.followup.send(embed=embed)
-                return
+                sessions = await self.bot.db_manager.player_sessions.find(
+                    {'guild_id': guild_id, 'state': 'online'},
+                    {'character_name': 1, 'player_name': 1, 'server_name': 1, 'server_id': 1, '_id': 0}
+                ).limit(50).to_list(length=50)
                 
             except Exception as e:
-                logger.error(f"Database query failed: {e}")
+                logger.error(f"Database query failed in /online: {e}")
                 embed = discord.Embed(
-                    title="❌ Error",
-                    description="Unable to retrieve player data.",
+                    title="❌ Database Error",
+                    description="Unable to retrieve player data. Please try again.",
                     color=0xFF0000
                 )
                 await ctx.followup.send(embed=embed)
                 return
             
-            # Load thumbnail asset
-            file_path = "./assets/Connections.png"
-            try:
-
-                pass
-                file = discord.File(file_path, filename="Connections.png")
-            except FileNotFoundError:
-                file = None
-            
-            # Group players by server
-            servers_with_players = {}
-            for session in sessions:
-                server_name = session.get('server_name', 'Unknown')
-                if server_name not in servers_with_players:
-                    servers_with_players[server_name] = []
-                
-                # Get player name from character_name field
-                player_name = session.get('character_name', session.get('player_name', 'Unknown Player'))
-                joined_at = session.get('joined_at')
-                
-                # Calculate session time
-                session_time = ""
-                if joined_at:
-                    try:
-
-                        pass
-                        if isinstance(joined_at, str):
-                            join_time = datetime.fromisoformat(joined_at.replace('Z', '+00:00'))
-                        else:
-                            join_time = joined_at
-                        
-                        time_diff = datetime.now(timezone.utc) - join_time
-                        hours = int(time_diff.total_seconds() // 3600)
-                        minutes = int((time_diff.total_seconds() % 3600) // 60)
-                        
-                        if hours > 0:
-                            session_time = f" ({hours}h {minutes}m)"
-                        else:
-                            session_time = f" ({minutes}m)"
-                    except:
-                        session_time = ""
-                
-                servers_with_players[server_name].append({
-                    'name': player_name,
-                    'session_time': session_time
-                })
-            
-            # Create embed based on server count
-            if len(servers_with_players) == 1:
-                # Single server - show server name in title
-                server_name = list(servers_with_players.keys())[0]
-                players = servers_with_players[server_name]
-                
+            # Create simple embed
+            if not sessions:
                 embed = discord.Embed(
-                    title=f"🌐 {server_name} ({len(players)} online)",
-                    color=0x00FF00,
+                    title="🌐 No Players Online",
+                    description="No players are currently online on any server.",
+                    color=0xFFAA00,
                     timestamp=datetime.now(timezone.utc)
                 )
-                
-                if players:
-                    player_lines = []
-                    for i, player in enumerate(players[:20], 1):
-                        player_lines.append(f"`{i:2d}.` **{player['name']}**{player['session_time']}")
-                    
-                    embed.description = "\n".join(player_lines)
-                else:
-                    embed.description = "No players currently online"
-                    
             else:
-                # Multiple servers - show all servers
-                total_players = sum(len(players) for players in servers_with_players.values())
+                # Group by server
+                servers = {}
+                for session in sessions:
+                    server_name = session.get('server_name', 'Unknown')
+                    player_name = session.get('character_name') or session.get('player_name', 'Unknown')
+                    if server_name not in servers:
+                        servers[server_name] = []
+                    servers[server_name].append(player_name)
                 
+                total_players = len(sessions)
                 embed = discord.Embed(
-                    title="🌐 Online Players - All Servers",
-                    description=f"**{total_players}** players currently online across all servers",
+                    title=f"🌐 Online Players ({total_players})",
                     color=0x00FF00,
                     timestamp=datetime.now(timezone.utc)
                 )
                 
-                for server_name, players in servers_with_players.items():
-                    if players:
-                        player_lines = []
-                        for i, player in enumerate(players[:10], 1):
-                            player_lines.append(f"`{i:2d}.` **{player['name']}**{player['session_time']}")
-                        
-                        embed.add_field(
-                            name=f"🌐 {server_name} ({len(players)} online)",
-                            value="\n".join(player_lines),
-                            inline=False
-                        )
+                for server_name, players in servers.items():
+                    player_list = []
+                    for i, player in enumerate(players[:15], 1):
+                        player_list.append(f"`{i:2d}.` **{player}**")
+                    
+                    embed.add_field(
+                        name=f"🌐 {server_name} ({len(players)} online)",
+                        value="\n".join(player_list) if player_list else "No players",
+                        inline=False
+                    )
             
-            # Set thumbnail and footer
-            embed.set_thumbnail(url="attachment://Connections.png")
-            embed.set_footer(
-                text="Updated every 3 minutes • Use /online <server> for detailed view",
-                icon_url="attachment://Connections.png"
-            )
+            embed.set_footer(text="Updated every 3 minutes")
             
             if file:
                 try:
