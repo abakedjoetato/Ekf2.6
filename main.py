@@ -557,7 +557,7 @@ class EmeraldKillfeedBot(commands.Bot):
             # STEP 6: Schedule threaded parsers to prevent command timeouts
             if self.killfeed_parser:
                 # Create threaded wrapper for killfeed parser
-                self.threaded_killfeed = ThreadedParserWrapper()
+                self.threaded_killfeed = ThreadedParserWrapper(self.killfeed_parser)
                 
                 self.scheduler.add_job(
                     self._run_killfeed_threaded,
@@ -569,7 +569,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
             if self.unified_log_parser:
                 # Create threaded wrapper for unified parser  
-                self.threaded_unified = ThreadedParserWrapper()
+                self.threaded_unified = ThreadedParserWrapper(self.unified_log_parser)
                 
                 try:
                     # Remove existing job if it exists

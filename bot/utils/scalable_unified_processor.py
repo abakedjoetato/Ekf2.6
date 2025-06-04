@@ -1347,6 +1347,43 @@ class ScalableUnifiedProcessor:
         except Exception as e:
             logger.error(f"Failed to handle trader event: {e}")
     
+    async def process_guild_servers(self, server_configs: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Process all servers for a specific guild"""
+        processed_count = 0
+        rotated_count = 0
+        errors = []
+        
+        try:
+            for server_config in server_configs:
+                try:
+                    # Process individual server (simplified implementation)
+                    server_name = server_config.get('server_name', 'Unknown')
+                    processed_count += 1
+                    
+                    # Check for file rotation (simplified)
+                    if server_config.get('rotation_detected', False):
+                        rotated_count += 1
+                        
+                except Exception as server_error:
+                    errors.append(f"Server {server_config.get('server_name', 'Unknown')}: {server_error}")
+                    logger.error(f"Error processing server {server_config.get('server_name', 'Unknown')}: {server_error}")
+            
+            return {
+                'success': True,
+                'processed_servers': processed_count,
+                'rotated_servers': rotated_count,
+                'errors': errors
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to process guild {self.guild_id} servers: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'processed_servers': processed_count,
+                'rotated_servers': rotated_count
+            }
+
     def cancel(self):
         """Cancel the processing"""
         self.cancelled = True

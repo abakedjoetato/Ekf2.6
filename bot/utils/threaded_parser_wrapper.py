@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 class ThreadedParserWrapper:
     """Enhanced wrapper for running parsers in background threads with proper loop management"""
     
-    def __init__(self):
+    def __init__(self, parser=None):
         self.task_pool = TaskPool(max_workers=20)
         self._main_loop = None
         self._active_threads = set()
+        self.parser = parser
     
     def set_main_loop(self, loop):
         """Set the main event loop for coordination"""
