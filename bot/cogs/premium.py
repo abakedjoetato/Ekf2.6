@@ -391,7 +391,23 @@ class Premium(discord.Cog):
             guild_config = await self.bot.db_manager.get_guild(guild_id)
 
             if not guild_config:
-                await ctx.followup.send("This guild is not configured!", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("This guild is not configured!", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("This guild is not configured!", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
 
             # Find server in the guild config
@@ -409,7 +425,23 @@ class Premium(discord.Cog):
                     break
 
             if not server_found:
-                await ctx.followup.send(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send(f"Server **{server_id}** not found in this guild!", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
 
             # Trigger refresh with the bot's historical parser directly and pass target channel
@@ -434,17 +466,89 @@ class Premium(discord.Cog):
                     embed.set_thumbnail(url="attachment://main.png")
                     embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                    await ctx.followup.send(embed=embed, file=main_file, ephemeral=True)
+                    try:
+
+
+                        if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+
+                            await ctx.respond(embed=embed, file=main_file, ephemeral=True)
+
+
+                        else:
+
+
+                            await ctx.followup.send(embed=embed, file=main_file, ephemeral=True)
+
+
+                    except discord.errors.NotFound:
+
+
+                        logger.warning("Interaction expired, cannot send response")
+
+
+                    except Exception as e:
+
+
+                        logger.error(f"Failed to send response: {e}")
 
                 except Exception as e:
                     logger.error(f"Failed to trigger refresh: {e}")
-                    await ctx.followup.send("Failed to trigger server refresh. Please try again.", ephemeral=True)
+                    try:
+
+                        if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                            await ctx.respond("Failed to trigger server refresh. Please try again.", ephemeral=True)
+
+                        else:
+
+                            await ctx.followup.send("Failed to trigger server refresh. Please try again.", ephemeral=True)
+
+                    except discord.errors.NotFound:
+
+                        logger.warning("Interaction expired, cannot send response")
+
+                    except Exception as e:
+
+                        logger.error(f"Failed to send response: {e}")
             else:
-                await ctx.followup.send("Parser system not available for refresh.", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("Parser system not available for refresh.", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("Parser system not available for refresh.", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
 
         except Exception as e:
             logger.error(f"Failed to refresh server: {e}")
-            await ctx.followup.send("Failed to refresh server. Please try again.", ephemeral=True)
+            try:
+
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                    await ctx.respond("Failed to refresh server. Please try again.", ephemeral=True)
+
+                else:
+
+                    await ctx.followup.send("Failed to refresh server. Please try again.", ephemeral=True)
+
+            except discord.errors.NotFound:
+
+                logger.warning("Interaction expired, cannot send response")
+
+            except Exception as e:
+
+                logger.error(f"Failed to send response: {e}")
 
 def setup(bot):
     bot.add_cog(Premium(bot))

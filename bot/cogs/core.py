@@ -79,7 +79,21 @@ class Core(discord.Cog):
     async def ping(self, ctx):
         """Check bot response time and latency"""
         try:
-            await ctx.defer()
+            try:
+
+                await ctx.defer()
+
+            except discord.errors.NotFound:
+
+                # Interaction already expired, respond immediately
+
+                await ctx.respond("Processing...", ephemeral=True)
+
+            except Exception as e:
+
+                logger.error(f"Failed to defer interaction: {e}")
+
+                await ctx.respond("Processing...", ephemeral=True)
             latency = round(self.bot.latency * 1000)
 
             embed = discord.Embed(
@@ -115,7 +129,21 @@ class Core(discord.Cog):
     async def help(self, ctx):
         """Display help information and command categories"""
         try:
-            await ctx.defer()
+            try:
+
+                await ctx.defer()
+
+            except discord.errors.NotFound:
+
+                # Interaction already expired, respond immediately
+
+                await ctx.respond("Processing...", ephemeral=True)
+
+            except Exception as e:
+
+                logger.error(f"Failed to defer interaction: {e}")
+
+                await ctx.respond("Processing...", ephemeral=True)
             embed = discord.Embed(
                 title="❓ Help & Commands",
                 description="Complete guide to Emerald's Killfeed Bot",

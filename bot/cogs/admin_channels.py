@@ -63,7 +63,21 @@ class AdminChannels(discord.Cog):
         
         try:
             # Immediate defer to prevent Discord timeout
-            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            try:
+
+                await ctx.defer()
+
+            except discord.errors.NotFound:
+
+                # Interaction already expired, respond immediately
+
+                await ctx.respond("Processing...", ephemeral=True)
+
+            except Exception as e:
+
+                logger.error(f"Failed to defer interaction: {e}")
+
+                await ctx.respond("Processing...", ephemeral=True)
             
             guild_id = (ctx.guild.id if ctx.guild else None)
             channel_config = self.channel_types[channel_type]
@@ -98,7 +112,23 @@ class AdminChannels(discord.Cog):
                     )
                     
                     embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-                    await ctx.followup.send(embed=embed, ephemeral=True)
+                    try:
+
+                        if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                            await ctx.respond(embed=embed, ephemeral=True)
+
+                        else:
+
+                            await ctx.followup.send(embed=embed, ephemeral=True)
+
+                    except discord.errors.NotFound:
+
+                        logger.warning("Interaction expired, cannot send response")
+
+                    except Exception as e:
+
+                        logger.error(f"Failed to send response: {e}")
                     return
             
             # Validate channel type
@@ -110,7 +140,23 @@ class AdminChannels(discord.Cog):
                     description=f"Channel type **{channel_type}** requires a **{type_name}** channel!",
                     color=0xFF6B6B
                 )
-                await ctx.followup.send(embed=embed, ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
             
             # Update guild configuration with server-specific channels using correct collection access
@@ -139,11 +185,43 @@ class AdminChannels(discord.Cog):
                 
             except asyncio.TimeoutError:
                 logger.error(f"Database operation timed out for guild {guild_id}")
-                await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
             except Exception as db_error:
                 logger.error(f"Database update failed: {db_error}")
-                await ctx.followup.send("Database operation failed. Please try again.", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("Database operation failed. Please try again.", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("Database operation failed. Please try again.", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
             
             # Create success embed
@@ -201,13 +279,53 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
             
-            await ctx.followup.send(embed=embed)
+            try:
+
+            
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+            
+                    await ctx.respond(embed=embed)
+
+            
+                else:
+
+            
+                    await ctx.followup.send(embed=embed)
+
+            
+            except discord.errors.NotFound:
+
+            
+                logger.warning("Interaction expired, cannot send response")
+
+            
+            except Exception as e:
+
+            
+                logger.error(f"Failed to send response: {e}")
             
             logger.info(f"Set {channel_type} channel to {channel.id} in guild {guild_id}")
             
         except Exception as e:
             logger.error(f"Failed to set {channel_type} channel: {e}")
-            await ctx.followup.send("Failed to configure channel.", ephemeral=True)
+            try:
+
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                    await ctx.respond("Failed to configure channel.", ephemeral=True)
+
+                else:
+
+                    await ctx.followup.send("Failed to configure channel.", ephemeral=True)
+
+            except discord.errors.NotFound:
+
+                logger.warning("Interaction expired, cannot send response")
+
+            except Exception as e:
+
+                logger.error(f"Failed to send response: {e}")
     
     @discord.slash_command(name="setchannels", description="Configure multiple channels at once")
     @discord.default_permissions(administrator=True)
@@ -253,7 +371,23 @@ class AdminChannels(discord.Cog):
                 expected_type = channel_config['type']
                 if channel.type != expected_type:
                     type_name = "voice" if expected_type == discord.ChannelType.voice else "text"
-                    await ctx.followup.send(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+                    try:
+
+                        if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                            await ctx.respond(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+
+                        else:
+
+                            await ctx.followup.send(f"**{channel_type}** requires a **{type_name}** channel! {channel.mention} is invalid.", ephemeral=True)
+
+                    except discord.errors.NotFound:
+
+                        logger.warning("Interaction expired, cannot send response")
+
+                    except Exception as e:
+
+                        logger.error(f"Failed to send response: {e}")
                     return
                 
                 # Add to updates
@@ -282,11 +416,43 @@ class AdminChannels(discord.Cog):
                         value="\n".join([ch for ch in configured_channels if 'killfeed' in ch]),
                         inline=False
                     )
-                await ctx.followup.send(embed=embed, ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
             
             if not channel_updates:
-                await ctx.followup.send("No valid channels provided to configure.", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("No valid channels provided to configure.", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("No valid channels provided to configure.", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
             
             # Apply all updates at once
@@ -318,13 +484,53 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
             
-            await ctx.followup.send(embed=embed)
+            try:
+
+            
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+            
+                    await ctx.respond(embed=embed)
+
+            
+                else:
+
+            
+                    await ctx.followup.send(embed=embed)
+
+            
+            except discord.errors.NotFound:
+
+            
+                logger.warning("Interaction expired, cannot send response")
+
+            
+            except Exception as e:
+
+            
+                logger.error(f"Failed to send response: {e}")
             
             logger.info(f"Configured {len(configured_channels)} channels for guild {guild_id}, server {server_id}")
             
         except Exception as e:
             logger.error(f"Failed to set multiple channels: {e}")
-            await ctx.followup.send("Failed to configure channels.", ephemeral=True)
+            try:
+
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                    await ctx.respond("Failed to configure channels.", ephemeral=True)
+
+                else:
+
+                    await ctx.followup.send("Failed to configure channels.", ephemeral=True)
+
+            except discord.errors.NotFound:
+
+                logger.warning("Interaction expired, cannot send response")
+
+            except Exception as e:
+
+                logger.error(f"Failed to send response: {e}")
 
     @discord.slash_command(name="clearchannels", description="Clear all configured channels")
     @discord.default_permissions(administrator=True)
@@ -344,7 +550,23 @@ class AdminChannels(discord.Cog):
                     description=f"No channels are currently configured for server **{server_id}**.",
                     color=0x3498DB
                 )
-                await ctx.followup.send(embed=embed, ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
             
             # Clear all channels for this server
@@ -392,13 +614,53 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
             
-            await ctx.followup.send(embed=embed)
+            try:
+
+            
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+            
+                    await ctx.respond(embed=embed)
+
+            
+                else:
+
+            
+                    await ctx.followup.send(embed=embed)
+
+            
+            except discord.errors.NotFound:
+
+            
+                logger.warning("Interaction expired, cannot send response")
+
+            
+            except Exception as e:
+
+            
+                logger.error(f"Failed to send response: {e}")
             
             logger.info(f"Cleared all channel configurations for guild {guild_id}")
             
         except Exception as e:
             logger.error(f"Failed to clear channels: {e}")
-            await ctx.followup.send("Failed to clear channel configurations.", ephemeral=True)
+            try:
+
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                    await ctx.respond("Failed to clear channel configurations.", ephemeral=True)
+
+                else:
+
+                    await ctx.followup.send("Failed to clear channel configurations.", ephemeral=True)
+
+            except discord.errors.NotFound:
+
+                logger.warning("Interaction expired, cannot send response")
+
+            except Exception as e:
+
+                logger.error(f"Failed to send response: {e}")
     
     @discord.slash_command(name="channels", description="View current channel configuration")
     async def view_channels(self, ctx,
@@ -466,11 +728,51 @@ class AdminChannels(discord.Cog):
             
             embed.set_footer(text="= Premium Required • Powered by Discord.gg/EmeraldServers")
             
-            await ctx.followup.send(embed=embed)
+            try:
+
+            
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+            
+                    await ctx.respond(embed=embed)
+
+            
+                else:
+
+            
+                    await ctx.followup.send(embed=embed)
+
+            
+            except discord.errors.NotFound:
+
+            
+                logger.warning("Interaction expired, cannot send response")
+
+            
+            except Exception as e:
+
+            
+                logger.error(f"Failed to send response: {e}")
             
         except Exception as e:
             logger.error(f"Failed to view channels: {e}")
-            await ctx.followup.send("Failed to retrieve channel configuration.", ephemeral=True)
+            try:
+
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                    await ctx.respond("Failed to retrieve channel configuration.", ephemeral=True)
+
+                else:
+
+                    await ctx.followup.send("Failed to retrieve channel configuration.", ephemeral=True)
+
+            except discord.errors.NotFound:
+
+                logger.warning("Interaction expired, cannot send response")
+
+            except Exception as e:
+
+                logger.error(f"Failed to send response: {e}")
 
 def setup(bot):
     bot.add_cog(AdminChannels(bot))

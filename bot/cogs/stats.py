@@ -52,7 +52,23 @@ class Stats(discord.Cog):
         Returns (character_list, display_name) or None if not found.
         """
         if not ctx.guild:
-            await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
+            try:
+
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                    await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+
+                else:
+
+                    await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
+
+            except discord.errors.NotFound:
+
+                logger.warning("Interaction expired, cannot send response")
+
+            except Exception as e:
+
+                logger.error(f"Failed to send response: {e}")
             return
             
         guild_id = ctx.guild.id if ctx.guild else 0
@@ -296,10 +312,40 @@ class Stats(discord.Cog):
         
         try:
             # Immediate defer to prevent Discord timeout
-            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            try:
+
+                await ctx.defer()
+
+            except discord.errors.NotFound:
+
+                # Interaction already expired, respond immediately
+
+                await ctx.respond("Processing...", ephemeral=True)
+
+            except Exception as e:
+
+                logger.error(f"Failed to defer interaction: {e}")
+
+                await ctx.respond("Processing...", ephemeral=True)
             
             if not ctx.guild:
-                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("This command can only be used in a server!", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
 
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -319,7 +365,23 @@ class Stats(discord.Cog):
                             break
                     
                     if not server_found:
-                        await ctx.followup.send("Server not found for this guild.", ephemeral=True)
+                        try:
+
+                            if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                                await ctx.respond("Server not found for this guild.", ephemeral=True)
+
+                            else:
+
+                                await ctx.followup.send("Server not found for this guild.", ephemeral=True)
+
+                        except discord.errors.NotFound:
+
+                            logger.warning("Interaction expired, cannot send response")
+
+                        except Exception as e:
+
+                            logger.error(f"Failed to send response: {e}")
                         return
 
             # Handle different target types
@@ -327,10 +389,29 @@ class Stats(discord.Cog):
                 # No target specified - use author
                 resolve_result = await self.resolve_player(ctx, ctx.author)
                 if not resolve_result:
-                    await ctx.followup.send(
+                    try:
+
+                        if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                            await ctx.respond(
                         "You don't have any linked characters! Use `/link <character>` to get started.",
                         ephemeral=True
                     )
+
+                        else:
+
+                            await ctx.followup.send(
+                        "You don't have any linked characters! Use `/link <character>` to get started.",
+                        ephemeral=True
+                    )
+
+                    except discord.errors.NotFound:
+
+                        logger.warning("Interaction expired, cannot send response")
+
+                    except Exception as e:
+
+                        logger.error(f"Failed to send response: {e}")
                     return
                 player_characters, display_name = resolve_result
             else:
@@ -350,24 +431,83 @@ class Stats(discord.Cog):
                     # It's a user mention
                     resolve_result = await self.resolve_player(ctx, user_mention)
                     if not resolve_result:
-                        await ctx.followup.send(
+                        try:
+
+                            if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                                await ctx.respond(
                             f"{user_mention.mention} doesn't have any linked characters!",
                             ephemeral=True
                         )
+
+                            else:
+
+                                await ctx.followup.send(
+                            f"{user_mention.mention} doesn't have any linked characters!",
+                            ephemeral=True
+                        )
+
+                        except discord.errors.NotFound:
+
+                            logger.warning("Interaction expired, cannot send response")
+
+                        except Exception as e:
+
+                            logger.error(f"Failed to send response: {e}")
                         return
                     player_characters, display_name = resolve_result
                 else:
                     # It's a raw player name
                     resolve_result = await self.resolve_player(ctx, target)
                     if not resolve_result:
-                        await ctx.followup.send(
+                        try:
+
+                            if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                                await ctx.respond(
                             "Unable to find a linked user or matching player by that name.",
                             ephemeral=True
                         )
+
+                            else:
+
+                                await ctx.followup.send(
+                            "Unable to find a linked user or matching player by that name.",
+                            ephemeral=True
+                        )
+
+                        except discord.errors.NotFound:
+
+                            logger.warning("Interaction expired, cannot send response")
+
+                        except Exception as e:
+
+                            logger.error(f"Failed to send response: {e}")
                         return
                     player_characters, display_name = resolve_result
 
-            await ctx.defer()
+            try:
+
+
+                await ctx.defer()
+
+
+            except discord.errors.NotFound:
+
+
+                # Interaction already expired, respond immediately
+
+
+                await ctx.respond("Processing...", ephemeral=True)
+
+
+            except Exception as e:
+
+
+                logger.error(f"Failed to defer interaction: {e}")
+
+
+                await ctx.respond("Processing...", ephemeral=True)
 
             # Get combined stats with timeout protection
             import asyncio
@@ -394,7 +534,31 @@ class Stats(discord.Cog):
                 embed.set_thumbnail(url="attachment://WeaponStats.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
                 
-                await ctx.followup.send(embed=embed, file=weaponstats_file)
+                try:
+
+                
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                
+                        await ctx.respond(embed=embed, file=weaponstats_file)
+
+                
+                    else:
+
+                
+                        await ctx.followup.send(embed=embed, file=weaponstats_file)
+
+                
+                except discord.errors.NotFound:
+
+                
+                    logger.warning("Interaction expired, cannot send response")
+
+                
+                except Exception as e:
+
+                
+                    logger.error(f"Failed to send response: {e}")
                 return
 
             # Revolutionary 20/10 Stats Embed - Advanced Military Intelligence Profile
@@ -423,23 +587,103 @@ class Stats(discord.Cog):
             embed, file = await EmbedFactory.build_advanced_stats_profile(embed_data)
 
             if file:
-                await ctx.followup.send(embed=embed, file=file)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, file=file)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, file=file)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
             else:
-                await ctx.followup.send(embed=embed)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
 
         except Exception as e:
             import asyncio
             if isinstance(e, asyncio.TimeoutError):
                 logger.error(f"Database timeout in /stats command for guild {ctx.guild.id if ctx.guild else 0}")
-                await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("Command timed out. Database may be slow.", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("Command timed out. Database may be slow.", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
             else:
                 logger.error(f"Failed to show stats: {e}")
                 import traceback
                 logger.error(f"Stack trace: {traceback.format_exc()}")
                 if ctx.response.is_done():
-                    await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
+                    try:
+
+                        if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                            await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
+
+                        else:
+
+                            await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
+
+                    except discord.errors.NotFound:
+
+                        logger.warning("Interaction expired, cannot send response")
+
+                    except Exception as e:
+
+                        logger.error(f"Failed to send response: {e}")
                 else:
-                    await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
+                    try:
+
+                        if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                            await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
+
+                        else:
+
+                            await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
+
+                    except discord.errors.NotFound:
+
+                        logger.warning("Interaction expired, cannot send response")
+
+                    except Exception as e:
+
+                        logger.error(f"Failed to send response: {e}")
 
     async def _validate_player_data(self, guild_id: int, player_characters: List[str], server_id: str = None) -> bool:
         """Validate that player data exists in the database"""
@@ -470,7 +714,23 @@ class Stats(discord.Cog):
         """Compare your stats with another player"""
         try:
             if not ctx.guild:
-                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("This command can only be used in a server!", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
 
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -478,7 +738,23 @@ class Stats(discord.Cog):
             user2 = user
 
             if user1.id == user2.id:
-                await ctx.followup.send("You can't compare stats with yourself!", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("You can't compare stats with yourself!", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("You can't compare stats with yourself!", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
 
             # Get both players' data
@@ -486,20 +762,79 @@ class Stats(discord.Cog):
             player2_data = await self.bot.db_manager.get_linked_player(guild_id or 0, user2.id)
 
             if not player1_data or not isinstance(player1_data, dict):
-                await ctx.followup.send(
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(
                     "You don't have any linked characters! Use `/link <character>` to get started.",
                     ephemeral=True
                 )
+
+                    else:
+
+                        await ctx.followup.send(
+                    "You don't have any linked characters! Use `/link <character>` to get started.",
+                    ephemeral=True
+                )
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
 
             if not player2_data or not isinstance(player2_data, dict):
-                await ctx.followup.send(
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(
                     f"{user2.mention} doesn't have any linked characters!",
                     ephemeral=True
                 )
+
+                    else:
+
+                        await ctx.followup.send(
+                    f"{user2.mention} doesn't have any linked characters!",
+                    ephemeral=True
+                )
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
 
-            await ctx.defer()
+            try:
+
+
+                await ctx.defer()
+
+
+            except discord.errors.NotFound:
+
+
+                # Interaction already expired, respond immediately
+
+
+                await ctx.respond("Processing...", ephemeral=True)
+
+
+            except Exception as e:
+
+
+                logger.error(f"Failed to defer interaction: {e}")
+
+
+                await ctx.respond("Processing...", ephemeral=True)
 
             # Get stats for both players
             stats1 = await self.get_player_combined_stats(guild_id or 0, player1_data['linked_characters'])
@@ -517,13 +852,61 @@ class Stats(discord.Cog):
             embed, file_attachment = await EmbedFactory.build('comparison', embed_data)
 
             if file_attachment:
-                await ctx.followup.send(embed=embed, file=file_attachment)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, file=file_attachment)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, file=file_attachment)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
             else:
-                await ctx.followup.send(embed=embed)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
 
         except Exception as e:
             logger.error(f"Failed to compare stats: {e}")
-            await ctx.followup.send("Failed to compare statistics.", ephemeral=True)
+            try:
+
+                if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                    await ctx.respond("Failed to compare statistics.", ephemeral=True)
+
+                else:
+
+                    await ctx.followup.send("Failed to compare statistics.", ephemeral=True)
+
+            except discord.errors.NotFound:
+
+                logger.warning("Interaction expired, cannot send response")
+
+            except Exception as e:
+
+                logger.error(f"Failed to send response: {e}")
 
     @discord.slash_command(name="online", description="Show currently online players")
     async def online(self, ctx: discord.ApplicationContext):
@@ -533,11 +916,41 @@ class Stats(discord.Cog):
         
         try:
             # Immediate defer to prevent Discord timeout
-            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            try:
+
+                await ctx.defer()
+
+            except discord.errors.NotFound:
+
+                # Interaction already expired, respond immediately
+
+                await ctx.respond("Processing...", ephemeral=True)
+
+            except Exception as e:
+
+                logger.error(f"Failed to defer interaction: {e}")
+
+                await ctx.respond("Processing...", ephemeral=True)
             logger.info("Context deferred successfully")
             
             if not ctx.guild:
-                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("This command can only be used in a server!", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
                 
             guild_id = ctx.guild.id
@@ -554,7 +967,29 @@ class Stats(discord.Cog):
                     {'character_name': 1, 'server_name': 1, '_id': 0}
                 ).limit(10)
                 
-                sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=1.5)
+                sessions = []
+                try:
+                    sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=1.0)
+                except asyncio.TimeoutError:
+                    # Respond immediately with loading message, then update
+                    loading_embed = discord.Embed(
+                        title="🔄 Loading...",
+                        description="Fetching player data...",
+                        color=0x3498db
+                    )
+                    await ctx.edit_original_response(embed=loading_embed)
+                    
+                    # Try longer timeout
+                    try:
+                        sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=5.0)
+                    except asyncio.TimeoutError:
+                        error_embed = discord.Embed(
+                            title="⚠️ Database Timeout",
+                            description="Database is currently slow. Please try again.",
+                            color=0xe74c3c
+                        )
+                        await ctx.edit_original_response(embed=error_embed)
+                        return, timeout=1.5)
                 logger.info(f"Fast query successful: {len(sessions)} sessions found")
                 
             except asyncio.TimeoutError:
@@ -565,7 +1000,23 @@ class Stats(discord.Cog):
                     description="Database is currently slow. Please try again in a moment.",
                     color=0xFFAA00
                 )
-                await ctx.followup.send(embed=embed, ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
                 
             except Exception as e:
@@ -575,7 +1026,23 @@ class Stats(discord.Cog):
                     description="Unable to retrieve player data. Please try again.",
                     color=0xFF0000
                 )
-                await ctx.followup.send(embed=embed, ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
                 return
             
             # Load thumbnail asset
@@ -673,9 +1140,41 @@ class Stats(discord.Cog):
             )
             
             if file:
-                await ctx.followup.send(embed=embed, file=file)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed, file=file)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed, file=file)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
             else:
-                await ctx.followup.send(embed=embed)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond(embed=embed)
+
+                    else:
+
+                        await ctx.followup.send(embed=embed)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
             
         except Exception as e:
             import asyncio
@@ -685,9 +1184,41 @@ class Stats(discord.Cog):
             
             if isinstance(e, asyncio.TimeoutError):
                 logger.error(f"Database timeout in /online command for guild {ctx.guild.id if ctx.guild else 0}")
-                await ctx.followup.send("Database query timed out. Please try again in a moment.", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("Database query timed out. Please try again in a moment.", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("Database query timed out. Please try again in a moment.", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
             else:
-                await ctx.followup.send("Failed to fetch online players. Please try again.", ephemeral=True)
+                try:
+
+                    if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                        await ctx.respond("Failed to fetch online players. Please try again.", ephemeral=True)
+
+                    else:
+
+                        await ctx.followup.send("Failed to fetch online players. Please try again.", ephemeral=True)
+
+                except discord.errors.NotFound:
+
+                    logger.warning("Interaction expired, cannot send response")
+
+                except Exception as e:
+
+                    logger.error(f"Failed to send response: {e}")
 
     async def _display_single_server_players(self, ctx, server_name: str, server_players: list):
         """Display players for a single specific server"""
@@ -751,7 +1282,23 @@ class Stats(discord.Cog):
         
         # Create and attach the logo file
         connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
-        await ctx.followup.send(embed=embed, file=connections_file)
+        try:
+
+            if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                await ctx.respond(embed=embed, file=connections_file)
+
+            else:
+
+                await ctx.followup.send(embed=embed, file=connections_file)
+
+        except discord.errors.NotFound:
+
+            logger.warning("Interaction expired, cannot send response")
+
+        except Exception as e:
+
+            logger.error(f"Failed to send response: {e}")
 
     async def _display_all_servers_players(self, ctx, servers_with_players: dict, servers: list):
         """Display players across all servers in the guild"""
@@ -828,7 +1375,23 @@ class Stats(discord.Cog):
         
         # Create and attach the logo file
         connections_file = discord.File("./assets/Connections.png", filename="Connections.png")
-        await ctx.followup.send(embed=embed, file=connections_file)
+        try:
+
+            if hasattr(ctx, 'response') and not ctx.response.is_done():
+
+                await ctx.respond(embed=embed, file=connections_file)
+
+            else:
+
+                await ctx.followup.send(embed=embed, file=connections_file)
+
+        except discord.errors.NotFound:
+
+            logger.warning("Interaction expired, cannot send response")
+
+        except Exception as e:
+
+            logger.error(f"Failed to send response: {e}")
 
 def setup(bot):
     bot.add_cog(Stats(bot))
