@@ -102,7 +102,7 @@ class EmeraldKillfeedBot(commands.Bot):
             help_command=None,
             status=discord.Status.online,
             activity=discord.Game(name="Emerald's Killfeed v2.0"),
-            auto_sync_commands=False  # Disable automatic command syncing
+            auto_sync_commands=True  # Enable command syncing for Discord registration
         )
 
         # Initialize variables
@@ -236,11 +236,31 @@ class EmeraldKillfeedBot(commands.Bot):
 
     async def register_commands_safely(self):
         """
-        DISABLED: All Discord command sync operations disabled to prevent rate limiting
-        Commands are loaded and functional in bot memory without requiring Discord sync
+        Register commands with Discord using rate limit protection
         """
-        logger.info("Command sync disabled - commands functional without Discord API sync")
-        return
+        try:
+            # Check if commands need sync
+            guild_id = 1219706687980568769  # Emerald Servers guild
+            
+            # Sync commands to the specific guild for faster updates
+            guild = self.get_guild(guild_id)
+            if guild:
+                logger.info(f"Syncing commands to guild: {guild.name}")
+                synced = await self.sync_commands(guild=guild)
+                logger.info(f"✅ Guild commands synced successfully: {len(synced)} commands")
+            else:
+                logger.warning("Guild not found, syncing globally")
+                synced = await self.sync_commands()
+                logger.info(f"✅ Global commands synced successfully: {len(synced)} commands")
+                
+        except discord.HTTPException as e:
+            if e.status == 429:
+                logger.error("Rate limited during command sync - commands will sync automatically later")
+            else:
+                logger.error(f"HTTP error during command sync: {e}")
+        except Exception as e:
+            logger.error(f"Error syncing commands: {e}")
+            # Don't fail startup on command sync errors
 
     async def cleanup_connections(self):
         """Clean up AsyncSSH connections on shutdown with enhanced error recovery"""
@@ -567,6 +587,10 @@ class EmeraldKillfeedBot(commands.Bot):
                 logger.warning("⚠️ Assets directory not found - creating default structure")
                 self.assets_path.mkdir(exist_ok=True)
 
+            # STEP 8: Register commands with Discord
+            logger.info("🔄 Registering commands with Discord...")
+            await self.register_commands_safely()
+            
             logger.info("🎉 Bot setup completed successfully!")
             self._setup_complete = True
 
