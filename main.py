@@ -525,11 +525,15 @@ class EmeraldKillfeedBot(commands.Bot):
             if not self.command_sync_recovery:
                 self.command_sync_recovery = initialize_command_sync_recovery(self)
                 logger.info("🔧 Command sync recovery system initialized")
+                
+                # Schedule recovery attempt after rate limit cooldown
+                asyncio.create_task(self._schedule_command_sync_recovery())
 
             # STEP 4: Command sync - disabled to prevent rate limiting
             # Commands are already loaded and functional in bot memory
             # Sync only when commands actually change, not on every startup
             logger.info("✅ Commands loaded and ready (sync bypassed to prevent rate limits)")
+            logger.info("🔄 Command sync recovery will attempt restoration after rate limits clear")
 
             # STEP 4: Set cold start flag for unified parser
             logger.info("🔄 Setting cold start flag for bot restart...")
@@ -709,6 +713,24 @@ class EmeraldKillfeedBot(commands.Bot):
             
         except Exception as e:
             logger.error("Failed to clean up guild data: %s", e)
+    
+    async def _schedule_command_sync_recovery(self):
+        """Schedule command sync recovery after rate limit cooldown"""
+        try:
+            # Wait for rate limit to clear (conservative estimate)
+            logger.info("⏱️ Scheduling command sync recovery in 6 minutes...")
+            await asyncio.sleep(360)  # 6 minutes
+            
+            if self.command_sync_recovery:
+                logger.info("🔄 Attempting command sync recovery...")
+                success = await self.command_sync_recovery.attempt_command_sync_recovery()
+                if success:
+                    logger.info("✅ Command sync recovery successful!")
+                else:
+                    logger.warning("⚠️ Command sync recovery failed, commands may not be available in Discord")
+                    
+        except Exception as e:
+            logger.error(f"Command sync recovery failed: {e}")
 
     async def _run_killfeed_threaded(self):
         """Run killfeed parser in background thread"""
