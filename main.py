@@ -55,7 +55,7 @@ except Exception as e:
 from bot.parsers.historical_parser import HistoricalParser
 from bot.parsers.unified_log_parser import UnifiedLogParser
 from bot.utils.task_pool import get_task_pool, shutdown_task_pool, dispatch_background_with_lock
-from bot.utils.threaded_parser_wrapper import create_threaded_parser
+from bot.utils.threaded_parser_wrapper import ThreadedParserWrapper
 
 # Load environment variables (optional for Railway)
 load_dotenv()
@@ -412,89 +412,51 @@ class EmeraldKillfeedBot(commands.Bot):
             logger.error(f"Failed to cleanup {parser_name} parser connections: {e}")
 
     async def setup_database(self):
-        """Setup MongoDB connection"""
-        mongo_uri = os.getenv('MONGODB_URI') or os.getenv('MONGO_URI')
-        if not mongo_uri:
-            logger.error("MongoDB URI not found in environment variables")
-            return False
-
+        """Setup MongoDB connection with proper loop management"""
         try:
-            self.mongo_client = AsyncIOMotorClient(mongo_uri)
-            self.database = self.mongo_client.emerald_killfeed
-
-            # Initialize database manager without caching to prevent command registration issues
+            # Set main loop for thread-safe operations
+            main_loop = asyncio.get_running_loop()
+            logger.info(f"Main bot loop established: {id(main_loop)}")
+            
+            from pymongo.errors import ServerSelectionTimeoutError
+            from motor.motor_asyncio import AsyncIOMotorClient
             from bot.models.database import DatabaseManager
+            from bot.utils.thread_safe_db_wrapper import ThreadSafeDBWrapper
             
-            # Create direct database manager
-            self.db_manager = DatabaseManager(self.mongo_client)
+            # Test basic connection first
+            logger.info("Testing MongoDB connection...")
+            self.mongo_client = AsyncIOMotorClient(
+                os.environ.get("MONGO_URI"),
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=20000,
+                maxPoolSize=50,
+                minPoolSize=5
+            )
             
-            # Ensure consistent access pattern
-            self.database = self.db_manager  # Legacy compatibility
-
-            # Test connection
+            # Test the connection
             await self.mongo_client.admin.command('ping')
             logger.info("Successfully connected to MongoDB")
-
-            # Initialize database indexes
-            await self.db_manager.initialize_indexes()
+            
+            # Initialize database manager
+            self.db_manager = DatabaseManager(self.mongo_client)
+            
+            # Setup thread-safe wrapper with main loop
+            self.db_wrapper = ThreadSafeDBWrapper(self.db_manager)
+            self.db_wrapper.set_main_loop(main_loop)
+            
+            # Initialize database architecture
+            await self.db_manager.initialize_database()
             logger.info("Database architecture initialized (PHASE 1)")
             
-            # Premium system initialization handled by premium_manager_v2
-
-            # Initialize batch sender for rate limit management
-            from bot.utils.batch_sender import BatchSender
-            self.batch_sender = BatchSender(self)
-
-            # Initialize advanced rate limiter
-            from bot.utils.advanced_rate_limiter import AdvancedRateLimiter
-            self.advanced_rate_limiter = AdvancedRateLimiter(self)
-
-            # Initialize channel router
-            from bot.utils.channel_router import ChannelRouter
-            self.channel_router = ChannelRouter(self)
-            
-            # Initialize embed factory
-            from bot.utils.embed_factory import EmbedFactory
-            self.embed_factory = EmbedFactory()
-            
-            # Initialize voice channel batcher to prevent rate limiting
-            from bot.utils.voice_channel_batch import VoiceChannelBatcher
-            self.voice_channel_batcher = VoiceChannelBatcher(self)
-
-            # Initialize premium manager v2 with cached database
-            from bot.utils.premium_manager_v2 import PremiumManagerV2
-            self.premium_manager_v2 = PremiumManagerV2(self.db_manager)
-            
-            # Legacy compatibility for existing code
-            self.premium_manager = self.premium_manager_v2
-
-            # Initialize connection manager for scalable parsing
-            from bot.utils.connection_pool import connection_manager
-            await connection_manager.start()
-            logger.info("Connection pool manager started for scalable parsing")
-
-            # Initialize shared parser state management
-            from bot.utils.shared_parser_state import initialize_shared_state_manager
-            initialize_shared_state_manager(self.db_manager)
-            logger.info("Shared parser state manager initialized")
-
-            # Initialize parsers (PHASE 2) - Data parsers for killfeed & log events
-            from bot.parsers.scalable_killfeed_parser import ScalableKillfeedParser
-            self.killfeed_parser = ScalableKillfeedParser(self)
-            from bot.parsers.scalable_historical_parser import ScalableHistoricalParser
-            self.historical_parser = ScalableHistoricalParser(self)
-            from bot.parsers.scalable_unified_parser import ScalableUnifiedParser
-            self.unified_log_parser = ScalableUnifiedParser(self)
-            # Ensure consistent parser access
-            self.log_parser = self.unified_log_parser  # Legacy compatibility
-            logger.info("Parsers initialized (PHASE 2) + Scalable Killfeed Parser + Scalable Historical Parser + Scalable Unified Parser + Advanced Rate Limiter + Batch Sender + Channel Router")
-
             return True
-
+            
         except Exception as e:
-            logger.error("Failed to connect to MongoDB: %s", e)
+            logger.error(f"Failed to connect to MongoDB: {e}")
+            logger.error("❌ Database setup failed - operating in limited mode")
+            self.db_manager = None
+            self.db_wrapper = None
             return False
-
     def setup_scheduler(self):
         """Setup background job scheduler"""
         try:
@@ -595,7 +557,7 @@ class EmeraldKillfeedBot(commands.Bot):
             # STEP 6: Schedule threaded parsers to prevent command timeouts
             if self.killfeed_parser:
                 # Create threaded wrapper for killfeed parser
-                self.threaded_killfeed = create_threaded_parser(self.killfeed_parser)
+                self.threaded_killfeed = ThreadedParserWrapper()
                 
                 self.scheduler.add_job(
                     self._run_killfeed_threaded,

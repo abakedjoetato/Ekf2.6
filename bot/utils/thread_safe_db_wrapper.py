@@ -6,8 +6,9 @@ execute in the correct asyncio event loop context
 
 import asyncio
 import logging
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable, Coroutine, Optional
 from functools import wraps
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -17,41 +18,58 @@ class ThreadSafeDBWrapper:
     def __init__(self, db_manager):
         self.db_manager = db_manager
         self._main_loop = None
+        self._thread_local = threading.local()
     
     def set_main_loop(self, loop):
         """Set the main event loop for thread-safe operations"""
         self._main_loop = loop
+        logger.info(f"Main event loop set: {id(loop)}")
+    
+    def _get_current_loop_info(self):
+        """Get current loop information safely"""
+        try:
+            current_loop = asyncio.get_running_loop()
+            return current_loop, id(current_loop)
+        except RuntimeError:
+            return None, None
     
     async def safe_db_operation(self, operation: Callable, *args, **kwargs):
         """Execute database operation safely, handling thread boundary issues"""
         try:
-            # Get current loop information
-            current_loop = None
-            try:
-                current_loop = asyncio.get_running_loop()
-            except RuntimeError:
-                # No running loop - we're in a different thread
-                pass
+            current_loop, current_id = self._get_current_loop_info()
+            main_id = id(self._main_loop) if self._main_loop else None
             
-            # If we have a main loop and we're not in it, use asyncio.run_coroutine_threadsafe
-            if self._main_loop and current_loop != self._main_loop:
+            logger.debug(f"DB operation {operation.__name__}: current_loop={current_id}, main_loop={main_id}")
+            
+            # If we're in a different thread/loop and have a main loop
+            if self._main_loop and current_loop and current_loop != self._main_loop:
+                logger.debug(f"Cross-thread operation detected for {operation.__name__}")
+                
                 if asyncio.iscoroutinefunction(operation):
-                    # Execute in the main loop from another thread
-                    future = asyncio.run_coroutine_threadsafe(
-                        operation(*args, **kwargs), 
-                        self._main_loop
-                    )
-                    return future.result(timeout=30)  # 30 second timeout
+                    # Create a new task in the main loop
+                    async def _execute_in_main():
+                        try:
+                            return await operation(*args, **kwargs)
+                        except Exception as e:
+                            logger.error(f"Main loop execution failed for {operation.__name__}: {e}")
+                            raise
+                    
+                    # Submit to main loop
+                    future = asyncio.run_coroutine_threadsafe(_execute_in_main(), self._main_loop)
+                    return future.result(timeout=30)
                 else:
-                    # For non-coroutine functions, just call directly
+                    # For non-coroutine functions, execute directly
                     return operation(*args, **kwargs)
             
-            # We're in the correct loop or no main loop set
+            # We're in the correct loop or no main loop conflict
             if asyncio.iscoroutinefunction(operation):
                 return await operation(*args, **kwargs)
             else:
                 return operation(*args, **kwargs)
                 
+        except asyncio.TimeoutError:
+            logger.error(f"Database operation {operation.__name__} timed out after 30 seconds")
+            return None
         except Exception as e:
             logger.error(f"Database operation {operation.__name__} failed: {e}")
             return None
@@ -59,6 +77,12 @@ class ThreadSafeDBWrapper:
     async def get_guild(self, guild_id: int):
         """Thread-safe guild retrieval"""
         return await self.safe_db_operation(self.db_manager.get_guild, guild_id)
+    
+    async def get_guild_servers(self, guild_id: int):
+        """Thread-safe guild servers retrieval"""
+        if hasattr(self.db_manager, 'get_guild_servers'):
+            return await self.safe_db_operation(self.db_manager.get_guild_servers, guild_id)
+        return []
     
     async def get_active_player_count(self, guild_id: int, server_name: str):
         """Thread-safe player count retrieval"""
@@ -98,26 +122,27 @@ class ThreadSafeDBWrapper:
     async def record_kill(self, *args, **kwargs):
         """Thread-safe kill recording"""
         try:
-            return await self.safe_db_operation(
-                lambda: self.db_manager.record_kill(*args, **kwargs)
-            )
+            if hasattr(self.db_manager, 'record_kill'):
+                return await self.safe_db_operation(
+                    self.db_manager.record_kill, 
+                    *args, 
+                    **kwargs
+                )
+            return None
         except Exception as e:
             logger.error(f"Failed to record kill: {e}")
             return None
-
-def thread_safe_db_operation(func):
-    """Decorator to make database operations thread-safe"""
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
+    
+    async def update_parser_state(self, *args, **kwargs):
+        """Thread-safe parser state update"""
         try:
-            return await func(*args, **kwargs)
-        except RuntimeError as e:
-            if "attached to a different loop" in str(e):
-                logger.warning(f"Skipping {func.__name__} - different event loop")
-                return None
-            raise
-        except Exception as e:
-            logger.error(f"Database operation {func.__name__} failed: {e}")
+            if hasattr(self.db_manager, 'update_parser_state'):
+                return await self.safe_db_operation(
+                    self.db_manager.update_parser_state, 
+                    *args, 
+                    **kwargs
+                )
             return None
-    return wrapper
-
+        except Exception as e:
+            logger.error(f"Failed to update parser state: {e}")
+            return None
