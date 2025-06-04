@@ -41,8 +41,11 @@ class Linking(discord.Cog):
     @discord.slash_command(name="link", description="Link your Discord account to a character")
     async def link(self, ctx, character: str):
         """Link Discord account to a character name"""
+        import asyncio
+        
         try:
-            await ctx.defer()
+            # Immediate defer to prevent Discord timeout
+            await asyncio.wait_for(ctx.defer(), timeout=2.0)
             
             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
@@ -164,7 +167,7 @@ class Linking(discord.Cog):
                 if ctx.response.is_done():
                     await ctx.followup.send("Failed to link character.", ephemeral=True)
                 else:
-                    await ctx.respond("Failed to link character.", ephemeral=True)
+                    await ctx.followup.send("Failed to link character.", ephemeral=True)
     
     alt = discord.SlashCommandGroup("alt", "Manage alternate characters")
     
@@ -178,7 +181,7 @@ class Linking(discord.Cog):
             # Check if user has any linked characters
             player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
             if not player_data:
-                await ctx.respond(
+                await ctx.followup.send(
                     "You must link your main character first using `/link <character>`!",
                     ephemeral=True
                 )
@@ -187,17 +190,17 @@ class Linking(discord.Cog):
             # Validate character name
             character = character.strip()
             if not character:
-                await ctx.respond("Character name cannot be empty!", ephemeral=True)
+                await ctx.followup.send("Character name cannot be empty!", ephemeral=True)
                 return
             
             if len(character) > 32:
-                await ctx.respond("Character name too long! Maximum 32 characters.", ephemeral=True)
+                await ctx.followup.send("Character name too long! Maximum 32 characters.", ephemeral=True)
                 return
             
             # Validate that player exists in PvP data
             actual_player_name = await self.bot.db_manager.find_player_in_pvp_data(guild_id, character)
             if not actual_player_name:
-                await ctx.respond(
+                await ctx.followup.send(
                     f"Player **{character}** not found in the database! Make sure you've played on the server and the name is spelled correctly.",
                     ephemeral=True
                 )
@@ -208,7 +211,7 @@ class Linking(discord.Cog):
             
             # Check if character is already linked
             if character in player_data['linked_characters']:
-                await ctx.respond(f"**{character}** is already linked to your account!", ephemeral=True)
+                await ctx.followup.send(f"**{character}** is already linked to your account!", ephemeral=True)
                 return
             
             # Check if character is linked to another user
@@ -218,7 +221,7 @@ class Linking(discord.Cog):
             })
             
             if existing_link and existing_link['discord_id'] != discord_id:
-                await ctx.respond(
+                await ctx.followup.send(
                     f"Character **{character}** is already linked to another Discord account!",
                     ephemeral=True
                 )
@@ -253,13 +256,13 @@ class Linking(discord.Cog):
                 embed.set_thumbnail(url="attachment://Connections.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                await ctx.respond(embed=embed, file=connections_file)
+                await ctx.followup.send(embed=embed, file=connections_file)
             else:
-                await ctx.respond("Failed to add alternate character.", ephemeral=True)
+                await ctx.followup.send("Failed to add alternate character.", ephemeral=True)
                 
         except Exception as e:
             logger.error(f"Failed to add alt character: {e}")
-            await ctx.respond("Failed to add alternate character.", ephemeral=True)
+            await ctx.followup.send("Failed to add alternate character.", ephemeral=True)
     
     @alt.command(name="remove", description="Remove an alternate character")
     async def alt_remove(self, ctx: discord.ApplicationContext, character: str):
@@ -271,18 +274,18 @@ class Linking(discord.Cog):
             # Get player data
             player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
             if not player_data:
-                await ctx.respond("You don't have any linked characters!", ephemeral=True)
+                await ctx.followup.send("You don't have any linked characters!", ephemeral=True)
                 return
             
             # Validate character name
             character = character.strip()
             if character not in player_data['linked_characters']:
-                await ctx.respond(f"**{character}** is not linked to your account!", ephemeral=True)
+                await ctx.followup.send(f"**{character}** is not linked to your account!", ephemeral=True)
                 return
             
             # Prevent removing primary character if it's the only one
             if len(player_data['linked_characters']) == 1:
-                await ctx.respond(
+                await ctx.followup.send(
                     "Cannot remove your only character! Use `/unlink` to remove all characters.",
                     ephemeral=True
                 )
@@ -332,18 +335,23 @@ class Linking(discord.Cog):
                 embed.set_thumbnail(url="attachment://Connections.png")
                 embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-                await ctx.respond(embed=embed, file=connections_file)
+                await ctx.followup.send(embed=embed, file=connections_file)
             else:
-                await ctx.respond("Failed to remove alternate character.", ephemeral=True)
+                await ctx.followup.send("Failed to remove alternate character.", ephemeral=True)
                 
         except Exception as e:
             logger.error(f"Failed to remove alt character: {e}")
-            await ctx.respond("Failed to remove alternate character.", ephemeral=True)
+            await ctx.followup.send("Failed to remove alternate character.", ephemeral=True)
     
     @discord.slash_command(name="linked", description="View your linked characters")
     async def linked(self, ctx: discord.ApplicationContext, user: discord.Member = None):
         """View linked characters for yourself or another user"""
+        import asyncio
+        
         try:
+            # Immediate defer to prevent Discord timeout
+            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            
             guild_id = (ctx.guild.id if ctx.guild else None)
             target_user = user or ctx.user
             
@@ -352,12 +360,12 @@ class Linking(discord.Cog):
             
             if not player_data:
                 if target_user == ctx.user:
-                    await ctx.respond(
+                    await ctx.followup.send(
                         "You don't have any linked characters! Use `/link <character>` to get started.",
                         ephemeral=True
                     )
                 else:
-                    await ctx.respond(
+                    await ctx.followup.send(
                         f"{target_user.mention} doesn't have any linked characters!",
                         ephemeral=True
                     )
@@ -394,16 +402,21 @@ class Linking(discord.Cog):
             embed.set_thumbnail(url="attachment://Connections.png")
             embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
 
-            await ctx.respond(embed=embed, file=connections_file)
+            await ctx.followup.send(embed=embed, file=connections_file)
             
         except Exception as e:
             logger.error(f"Failed to show linked characters: {e}")
-            await ctx.respond("Failed to retrieve linked characters.", ephemeral=True)
+            await ctx.followup.send("Failed to retrieve linked characters.", ephemeral=True)
     
     @discord.slash_command(name="unlink", description="Unlink all your characters")
     async def unlink(self, ctx: discord.ApplicationContext):
         """Unlink all characters from your Discord account"""
+        import asyncio
+        
         try:
+            # Immediate defer to prevent Discord timeout
+            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            
             guild_id = (ctx.guild.id if ctx.guild else None)
             discord_id = ctx.user.id
             
@@ -411,7 +424,7 @@ class Linking(discord.Cog):
             player_data = await self.bot.db_manager.get_linked_player(guild_id, discord_id)
             
             if not player_data:
-                await ctx.respond("You don't have any linked characters!", ephemeral=True)
+                await ctx.followup.send("You don't have any linked characters!", ephemeral=True)
                 return
             
             # Create confirmation embed
@@ -533,7 +546,7 @@ class Linking(discord.Cog):
             view.bot = self.bot
             
             # Send confirmation message with buttons
-            await ctx.respond(embed=embed, view=view)
+            await ctx.followup.send(embed=embed, view=view)
             
             # Store message reference for timeout handling
             try:
@@ -545,7 +558,7 @@ class Linking(discord.Cog):
         except Exception as e:
             logger.error(f"Failed to unlink characters: {e}")
             try:
-                await ctx.respond("Failed to unlink characters. Please try again.", ephemeral=True)
+                await ctx.followup.send("Failed to unlink characters. Please try again.", ephemeral=True)
             except:
                 # If ctx.respond fails, try followup
                 try:

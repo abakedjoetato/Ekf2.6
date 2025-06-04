@@ -52,7 +52,7 @@ class Stats(discord.Cog):
         Returns (character_list, display_name) or None if not found.
         """
         if not ctx.guild:
-            await ctx.respond("❌ This command must be used in a server", ephemeral=True)
+            await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
             return
             
         guild_id = ctx.guild.id if ctx.guild else 0
@@ -292,9 +292,14 @@ class Stats(discord.Cog):
                    target: discord.Option(str, "Target user or player name", required=False) = None,
                    server: discord.Option(str, "Server to view stats for", required=False) = None):
         """View PvP statistics for yourself, another user, or a player name"""
+        import asyncio
+        
         try:
+            # Immediate defer to prevent Discord timeout
+            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            
             if not ctx.guild:
-                await ctx.respond("This command can only be used in a server!", ephemeral=True)
+                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
 
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -314,7 +319,7 @@ class Stats(discord.Cog):
                             break
                     
                     if not server_found:
-                        await ctx.respond("Server not found for this guild.", ephemeral=True)
+                        await ctx.followup.send("Server not found for this guild.", ephemeral=True)
                         return
 
             # Handle different target types
@@ -322,7 +327,7 @@ class Stats(discord.Cog):
                 # No target specified - use author
                 resolve_result = await self.resolve_player(ctx, ctx.author)
                 if not resolve_result:
-                    await ctx.respond(
+                    await ctx.followup.send(
                         "You don't have any linked characters! Use `/link <character>` to get started.",
                         ephemeral=True
                     )
@@ -345,7 +350,7 @@ class Stats(discord.Cog):
                     # It's a user mention
                     resolve_result = await self.resolve_player(ctx, user_mention)
                     if not resolve_result:
-                        await ctx.respond(
+                        await ctx.followup.send(
                             f"{user_mention.mention} doesn't have any linked characters!",
                             ephemeral=True
                         )
@@ -355,7 +360,7 @@ class Stats(discord.Cog):
                     # It's a raw player name
                     resolve_result = await self.resolve_player(ctx, target)
                     if not resolve_result:
-                        await ctx.respond(
+                        await ctx.followup.send(
                             "Unable to find a linked user or matching player by that name.",
                             ephemeral=True
                         )
@@ -434,7 +439,7 @@ class Stats(discord.Cog):
                 if ctx.response.is_done():
                     await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
                 else:
-                    await ctx.respond("Failed to retrieve statistics.", ephemeral=True)
+                    await ctx.followup.send("Failed to retrieve statistics.", ephemeral=True)
 
     async def _validate_player_data(self, guild_id: int, player_characters: List[str], server_id: str = None) -> bool:
         """Validate that player data exists in the database"""
@@ -465,7 +470,7 @@ class Stats(discord.Cog):
         """Compare your stats with another player"""
         try:
             if not ctx.guild:
-                await ctx.respond("This command can only be used in a server!", ephemeral=True)
+                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
 
             guild_id = ctx.guild.id if ctx.guild else 0
@@ -473,7 +478,7 @@ class Stats(discord.Cog):
             user2 = user
 
             if user1.id == user2.id:
-                await ctx.respond("You can't compare stats with yourself!", ephemeral=True)
+                await ctx.followup.send("You can't compare stats with yourself!", ephemeral=True)
                 return
 
             # Get both players' data
@@ -481,14 +486,14 @@ class Stats(discord.Cog):
             player2_data = await self.bot.db_manager.get_linked_player(guild_id or 0, user2.id)
 
             if not player1_data or not isinstance(player1_data, dict):
-                await ctx.respond(
+                await ctx.followup.send(
                     "You don't have any linked characters! Use `/link <character>` to get started.",
                     ephemeral=True
                 )
                 return
 
             if not player2_data or not isinstance(player2_data, dict):
-                await ctx.respond(
+                await ctx.followup.send(
                     f"{user2.mention} doesn't have any linked characters!",
                     ephemeral=True
                 )
@@ -518,44 +523,60 @@ class Stats(discord.Cog):
 
         except Exception as e:
             logger.error(f"Failed to compare stats: {e}")
-            await ctx.respond("Failed to compare statistics.", ephemeral=True)
+            await ctx.followup.send("Failed to compare statistics.", ephemeral=True)
 
     @discord.slash_command(name="online", description="Show currently online players")
     async def online(self, ctx: discord.ApplicationContext):
         """Show currently online players"""
+        import asyncio
+        logger.info(f"Starting /online command for guild {ctx.guild.id if ctx.guild else 'None'}")
+        
         try:
-            await ctx.defer()
+            # Immediate defer to prevent Discord timeout
+            await asyncio.wait_for(ctx.defer(), timeout=2.0)
+            logger.info("Context deferred successfully")
             
             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
             guild_id = ctx.guild.id
+            logger.info(f"Processing /online for guild {guild_id}")
             
-            # Add timeout protection for database operations
-            import asyncio
+            # Ultra-fast database check with minimal timeout
+            sessions = []
             
-            async def get_sessions():
-                # Use more efficient query with proper indexing hint
+            try:
+                # Try immediate fast query first
+                logger.info("Attempting fast database query")
                 cursor = self.bot.db_manager.player_sessions.find(
                     {'guild_id': guild_id, 'state': 'online'},
-                    {'character_name': 1, 'player_name': 1, 'server_name': 1, 'joined_at': 1, '_id': 0}
-                ).limit(50)
-                return await cursor.to_list(length=50)
-            
-            # Execute with shorter timeout and retry logic
-            try:
-                sessions = await asyncio.wait_for(get_sessions(), timeout=3.0)
+                    {'character_name': 1, 'server_name': 1, '_id': 0}
+                ).limit(10)
+                
+                sessions = await asyncio.wait_for(cursor.to_list(length=10), timeout=1.5)
+                logger.info(f"Fast query successful: {len(sessions)} sessions found")
+                
             except asyncio.TimeoutError:
-                # Fallback: try with even more restrictive query
-                try:
-                    cursor = self.bot.db_manager.player_sessions.find(
-                        {'guild_id': guild_id, 'state': 'online'}
-                    ).limit(20)
-                    sessions = await asyncio.wait_for(cursor.to_list(length=20), timeout=2.0)
-                except asyncio.TimeoutError:
-                    await ctx.followup.send("Database is taking too long to respond. Please try again in a moment.", ephemeral=True)
-                    return
+                logger.warning("Fast query timed out, trying emergency fallback")
+                # Emergency fallback - return placeholder response
+                embed = discord.Embed(
+                    title="🌐 Online Players",
+                    description="Database is currently slow. Please try again in a moment.",
+                    color=0xFFAA00
+                )
+                await ctx.followup.send(embed=embed, ephemeral=True)
+                return
+                
+            except Exception as e:
+                logger.error(f"Database query failed: {e}")
+                embed = discord.Embed(
+                    title="❌ Error",
+                    description="Unable to retrieve player data. Please try again.",
+                    color=0xFF0000
+                )
+                await ctx.followup.send(embed=embed, ephemeral=True)
+                return
             
             # Load thumbnail asset
             file_path = "./assets/Connections.png"
