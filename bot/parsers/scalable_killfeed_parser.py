@@ -59,37 +59,50 @@ class ScalableKillfeedParser:
             logger.error(f"Scalable killfeed parser execution failed: {e}")
     
     async def _get_all_guilds_with_servers(self) -> Dict[int, List[Dict[str, Any]]]:
-        """Get all guilds that have connected servers"""
+        """Get all guilds that have connected servers using direct database access"""
         guilds_with_servers = {}
         
         try:
-            # Access database through bot's db_manager
-            if not hasattr(self.bot, 'db_manager') or not getattr(self.bot, 'cached_db_manager', self.bot.db_manager):
-                logger.error("Database manager not available")
+            # Use direct MongoDB connection for thread safety
+            import os
+            from motor.motor_asyncio import AsyncIOMotorClient
+            
+            mongo_uri = os.environ.get('MONGO_URI')
+            if not mongo_uri:
+                logger.error("MONGO_URI not available")
                 return guilds_with_servers
             
-            # Access database collection directly from db_manager
-            collection = getattr(self.bot, 'cached_db_manager', self.bot.db_manager).guild_configs
+            client = AsyncIOMotorClient(mongo_uri)
+            database = client.emerald_killfeed
+            collection = database.guild_configs
             
+            # Find guilds with enabled servers for killfeed processing
             cursor = collection.find({
                 'servers': {
                     '$exists': True,
-                    '$ne': []
+                    '$not': {'$size': 0},
+                    '$elemMatch': {'enabled': True}
                 }
             })
             
-            async for guild_doc in cursor:
+            guild_docs = await cursor.to_list(length=None)
+            
+            for guild_doc in guild_docs:
                 guild_id = guild_doc.get('guild_id')
-                if guild_id:
-                    # Include all servers regardless of killfeed configuration
-                    connected_servers = []
-                    for server in guild_doc.get('servers', []):
-                        # Add guild_id to server config for processing
-                        server['guild_id'] = guild_id
-                        connected_servers.append(server)
+                servers = guild_doc.get('servers', [])
+                
+                if guild_id and servers:
+                    # Filter for enabled servers only
+                    enabled_servers = [s for s in servers if s.get('enabled', False)]
                     
-                    if connected_servers:
-                        guilds_with_servers[guild_id] = connected_servers
+                    if enabled_servers:
+                        # Add guild_id to each server config
+                        for server in enabled_servers:
+                            server['guild_id'] = guild_id
+                        
+                        guilds_with_servers[guild_id] = enabled_servers
+            
+            logger.info(f"Found {len(guilds_with_servers)} guilds with enabled servers for killfeed")
             
         except Exception as e:
             logger.error(f"Failed to get guilds with servers: {e}")
