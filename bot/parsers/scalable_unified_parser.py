@@ -101,18 +101,23 @@ class ScalableUnifiedParser:
                 return ""
             
             # Get log file path from server config
-            log_path = server_config.get('log_path', server_config.get('path', '/home/steam/dayzserver/profiles'))
+            log_path = server_config.get('log_path') or server_config.get('path', '/root/servers/79.127.236.1_7020/actual1')
             log_file_name = server_config.get('log_file', 'Deadside.log')
             log_file_path = f"{log_path}/{log_file_name}"
             
-            # Connect via SFTP using server-specific credentials
+            # Connect via SFTP using server-specific credentials with compatibility parameters
             try:
                 async with asyncssh.connect(
                     host, 
                     port=int(port),
                     username=username, 
                     password=password,
-                    known_hosts=None
+                    known_hosts=None,
+                    kex_algs=['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521'],
+                    encryption_algs=['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc'],
+                    mac_algs=['hmac-sha1', 'hmac-sha2-256', 'hmac-sha2-512'],
+                    compression_algs=['none'],
+                    server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-dss']
                 ) as conn:
                     async with conn.start_sftp_client() as sftp:
                         try:

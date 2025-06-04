@@ -1,65 +1,66 @@
 """
-Test Unified Parser Fix - Verify the parser is now properly fetching and processing logs
+Test Unified Parser Fix - Verify SSH connection and player session tracking
 """
 
 import asyncio
-import logging
-from bot.models.database import DatabaseManager
-from bot.parsers.scalable_unified_parser import ScalableUnifiedParser
+import sys
+import os
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-class MockBot:
-    def __init__(self, db_manager):
-        self.db_manager = db_manager
-        
-    def get_guild(self, guild_id):
-        return None  # Simplified for testing
+# Add bot directory to path
+sys.path.insert(0, os.path.join(os.getcwd(), 'bot'))
 
 async def test_unified_parser():
-    """Test the unified parser with actual database connection"""
+    """Test the unified parser with the SSH connection fix"""
     try:
-        # Initialize database
-        db_manager = DatabaseManager()
-        await db_manager.initialize()
+        from bot.parsers.scalable_unified_parser import ScalableUnifiedParser
+        from bot.database.database_manager import DatabaseManager
         
-        # Create mock bot
-        bot = MockBot(db_manager)
+        # Create mock bot with database manager
+        class MockBot:
+            def __init__(self):
+                self.db_manager = None
+                
+            async def setup_db(self):
+                self.db_manager = DatabaseManager()
+                await self.db_manager.initialize()
+                return True
         
-        # Initialize unified parser
+        bot = MockBot()
+        if not await bot.setup_db():
+            print("❌ Database setup failed")
+            return
+        
+        # Create parser
         parser = ScalableUnifiedParser(bot)
         
-        # Test guild configuration retrieval
-        guild_configs = await parser._get_all_guild_configs()
-        print(f"Found guild configurations: {len(guild_configs)}")
+        print("🔍 Testing unified parser with SSH connection fix...")
         
-        for guild_id, servers in guild_configs.items():
-            print(f"Guild {guild_id}: {len(servers)} servers")
-            for server in servers:
-                print(f"  Server: {server.get('name')} - Enabled: {server.get('enabled', False)}")
+        # Run parser manually
+        await parser.run_log_parser()
         
-        # Test manual processing for the guild
-        if guild_configs:
-            guild_id = list(guild_configs.keys())[0]
-            print(f"\nTesting manual processing for guild {guild_id}...")
+        # Check if player sessions were created
+        guild_id = 1219706687980568769
+        sessions = await bot.db_manager.player_sessions.find(
+            {'guild_id': guild_id, 'state': 'online'}
+        ).to_list(length=10)
+        
+        print(f"✅ Found {len(sessions)} online player sessions")
+        
+        if sessions:
+            for session in sessions:
+                print(f"   Player: {session.get('character_name', session.get('player_name'))}")
+                print(f"   Server: {session.get('server_name')}")
+                print(f"   Status: {session.get('state')}")
+        else:
+            print("   No online sessions found - checking if connection worked...")
             
-            result = await parser.process_guild_manual(guild_id)
-            print(f"Manual processing result: {result}")
+            # Check all sessions regardless of state
+            all_sessions = await bot.db_manager.player_sessions.find(
+                {'guild_id': guild_id}
+            ).to_list(length=10)
+            print(f"   Total sessions in database: {len(all_sessions)}")
         
-        # Check current player sessions
-        player_count = await db_manager.player_sessions.count_documents({'state': 'online'})
-        print(f"Current online players: {player_count}")
-        
-        # Check all player sessions
-        all_sessions = await db_manager.player_sessions.count_documents({})
-        print(f"Total player sessions: {all_sessions}")
-        
-        # List some recent sessions
-        recent_sessions = await db_manager.player_sessions.find({}).limit(5).to_list(length=5)
-        print(f"\nRecent sessions:")
-        for session in recent_sessions:
-            print(f"  {session.get('character_name')} - {session.get('state')} - {session.get('last_seen')}")
+        await bot.db_manager.close()
         
     except Exception as e:
         print(f"Test failed: {e}")

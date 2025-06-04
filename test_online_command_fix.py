@@ -1,70 +1,84 @@
 """
-Test Online Command Fix - Check if /online command now works properly
+Test /online Command Fix - Verify real player data processing
 """
 
 import asyncio
-import logging
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from bot.models.database import DatabaseManager
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 async def test_online_command():
-    """Test the /online command functionality"""
+    """Test the /online command with real server data"""
     try:
-        # Connect to database using same method as main bot
+        # Connect to database
         mongo_uri = os.getenv('MONGO_URI')
         if not mongo_uri:
-            print("❌ MONGO_URI environment variable not found")
+            print("Missing MONGO_URI environment variable")
             return
         
         client = AsyncIOMotorClient(mongo_uri)
-        db_manager = DatabaseManager(client)
-        await db_manager.initialize()
+        db = client.EmeraldDB
         
-        # Check current player sessions
         guild_id = 1219706687980568769  # Emerald Servers
         
-        # Count total sessions
-        total_sessions = await db_manager.player_sessions.count_documents({'guild_id': guild_id})
-        print(f"Total player sessions for guild {guild_id}: {total_sessions}")
+        print("🔍 Testing /online command data sources...")
         
-        # Count online sessions
-        online_sessions = await db_manager.player_sessions.count_documents({
-            'guild_id': guild_id,
-            'state': 'online'
-        })
-        print(f"Online player sessions: {online_sessions}")
+        # Check player sessions (what /online command queries)
+        sessions = await db.player_sessions.find(
+            {'guild_id': guild_id, 'state': 'online'}
+        ).to_list(length=50)
         
-        # List all sessions
-        all_sessions = await db_manager.player_sessions.find({'guild_id': guild_id}).to_list(length=50)
-        print(f"\nAll player sessions:")
-        for session in all_sessions:
-            print(f"  {session.get('character_name')} - {session.get('state')} - Server: {session.get('server_name')} - Last seen: {session.get('last_seen')}")
+        print(f"✅ Online player sessions: {len(sessions)}")
         
-        # Test the guild configuration
-        guild_config = await db_manager.get_guild(guild_id)
-        if guild_config:
-            print(f"\nGuild configuration found:")
-            print(f"  Servers: {len(guild_config.get('servers', []))}")
-            for server in guild_config.get('servers', []):
-                print(f"    {server.get('name')} - Enabled: {server.get('enabled', False)}")
+        if sessions:
+            print("   Current online players:")
+            for session in sessions[:5]:  # Show first 5
+                player = session.get('character_name') or session.get('player_name', 'Unknown')
+                server = session.get('server_name', 'Unknown')
+                print(f"   - {player} on {server}")
         else:
-            print(f"❌ No guild configuration found for {guild_id}")
+            print("   No online sessions found")
+            
+            # Check all sessions regardless of state
+            all_sessions = await db.player_sessions.find(
+                {'guild_id': guild_id}
+            ).to_list(length=10)
+            print(f"   Total sessions in database: {len(all_sessions)}")
+            
+            if all_sessions:
+                print("   Recent session states:")
+                for session in all_sessions[:3]:
+                    player = session.get('character_name') or session.get('player_name', 'Unknown')
+                    state = session.get('state', 'unknown')
+                    print(f"   - {player}: {state}")
         
-        # Check if SSH credentials are available
-        ssh_host = os.getenv('SSH_HOST')
-        ssh_user = os.getenv('SSH_USERNAME')
-        ssh_pass = os.getenv('SSH_PASSWORD')
+        # Check voice channel data (fallback for /online command)
+        voice_data = await db.guilds.find_one(
+            {'guild_id': guild_id},
+            {'voice_channel_count': 1, 'servers': 1}
+        )
         
-        print(f"\nSSH Configuration:")
-        print(f"  Host: {'✅' if ssh_host else '❌'} {ssh_host or 'Not set'}")
-        print(f"  Username: {'✅' if ssh_user else '❌'} {ssh_user or 'Not set'}")
-        print(f"  Password: {'✅' if ssh_pass else '❌'} {'Set' if ssh_pass else 'Not set'}")
+        if voice_data:
+            vc_count = voice_data.get('voice_channel_count', 0)
+            servers = voice_data.get('servers', [])
+            print(f"✅ Voice channel player count: {vc_count}")
+            print(f"✅ Configured servers: {len(servers)}")
+            
+            if servers:
+                for server in servers:
+                    name = server.get('name', 'Unknown')
+                    enabled = server.get('enabled', False)
+                    print(f"   - {name}: {'Enabled' if enabled else 'Disabled'}")
         
-        await client.close()
+        client.close()
+        
+        # Summary
+        print(f"\n📊 /online Command Status:")
+        if sessions:
+            print(f"   Will show {len(sessions)} online players from real server data")
+        elif all_sessions:
+            print(f"   Has {len(all_sessions)} total sessions but none currently online")
+        else:
+            print(f"   No player session data - will show voice channel count ({vc_count if voice_data else 0})")
         
     except Exception as e:
         print(f"Test failed: {e}")
