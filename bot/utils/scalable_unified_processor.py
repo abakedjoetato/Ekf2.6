@@ -24,23 +24,33 @@ class ScalableUnifiedProcessor:
     def _compile_connection_patterns(self) -> Dict[str, re.Pattern]:
         """Compile regex patterns for connection events - Real Deadside server format"""
         return {
-            # Queue state - player joining
-            'player_queue': re.compile(r'LogNet: Join request: /Game/Maps/world_[^?]*\?.*?login=([^?]+).*?eosid=\|([a-f0-9]+).*?Name=([^?]+)', re.IGNORECASE),
-            # Connected state - player registered 
+            # Queue state - player joining (based on actual log format)
+            'player_queue': re.compile(r'LogNet: Join request: /Game/Maps/world_[^?]*\?.*?login=([^?&]+).*?eosid=\|([a-f0-9]+).*?Name=([^?&]+)', re.IGNORECASE),
+            # Connected state - player registered (based on actual log format)
             'player_connect': re.compile(r'LogOnline: Warning: Player \|([a-f0-9]+) successfully registered!', re.IGNORECASE),
-            # Disconnected state - player left
-            'player_disconnect': re.compile(r'LogNet: UChannel::Close:.*UniqueId: EOS:\|([a-f0-9]+)', re.IGNORECASE)
+            # Disconnected state - player left (based on actual log format)
+            'player_disconnect': re.compile(r'LogNet: UChannel::Close:.*?UniqueId: EOS:\|([a-f0-9]+)', re.IGNORECASE)
         }
     
     def _compile_event_patterns(self) -> Dict[str, re.Pattern]:
-        """Compile regex patterns for game events - Updated for real Deadside server format"""
+        """Compile regex patterns for game events - Based on real Deadside log format"""
         return {
-            'mission_start': re.compile(r'LogSFPS: Mission (\w+) switched to READY', re.IGNORECASE),
-            'mission_end': re.compile(r'LogSFPS: Mission (\w+) switched to WAITING', re.IGNORECASE),
-            'airdrop': re.compile(r'LogSFPS: AirDrop switched to Dropping', re.IGNORECASE),
-            'patrol_active': re.compile(r'LogSFPS: PatrolPoint (\w+) switched to ACTIVE', re.IGNORECASE),
-            'patrol_initial': re.compile(r'LogSFPS: PatrolPoint (\w+) switched to INITIAL', re.IGNORECASE),
-            'vehicle_deleted': re.compile(r'LogSFPS: .*Del vehicle.*Total (\d+)', re.IGNORECASE)
+            # Mission events - exact format from logs
+            'mission_start': re.compile(r'LogSFPS: Mission (GA_[^_]+_[^_]+_[^_\s]+(?:_[^_\s]+)*) switched to READY', re.IGNORECASE),
+            'mission_end': re.compile(r'LogSFPS: Mission (GA_[^_]+_[^_]+_[^_\s]+(?:_[^_\s]+)*) switched to WAITING', re.IGNORECASE),
+            # Airdrop events - exact format from logs  
+            'airdrop_flying': re.compile(r'LogSFPS: AirDrop switched to Flying', re.IGNORECASE),
+            'airdrop_dropping': re.compile(r'LogSFPS: AirDrop switched to Dropping', re.IGNORECASE),
+            'airdrop_dead': re.compile(r'LogSFPS: AirDrop switched to Dead', re.IGNORECASE),
+            # Helicrash events (if they exist in logs)
+            'helicrash_ready': re.compile(r'LogSFPS: Helicopter.*switched to READY', re.IGNORECASE),
+            'helicrash_crash': re.compile(r'LogSFPS: Helicopter.*crash', re.IGNORECASE),
+            # Trader events (if they exist in logs)
+            'trader_arrival': re.compile(r'LogSFPS: Trader.*arrived', re.IGNORECASE),
+            'trader_departure': re.compile(r'LogSFPS: Trader.*departure', re.IGNORECASE),
+            # Vehicle events
+            'vehicle_add': re.compile(r'LogSFPS: \[ASFPSGameMode::NewVehicle_Add\] Add vehicle.*Total (\d+)', re.IGNORECASE),
+            'vehicle_del': re.compile(r'LogSFPS: \[ASFPSGameMode::DelVehicle\].*Total (\d+)', re.IGNORECASE)
         }
     
     def parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
@@ -253,81 +263,73 @@ class ScalableUnifiedProcessor:
             return False
     
     async def _send_connection_embeds(self, state_changes: List[Dict[str, Any]]) -> bool:
-        """Send connection embeds only for actual state changes"""
+        """Send connection embeds using themed embed factory"""
         try:
             from bot.utils.channel_router import ChannelRouter
+            from bot.utils.embed_factory import EmbedFactory
             
             channel_router = ChannelRouter(self.bot)
             
             for change in state_changes:
+                embed = None
+                channel_type = 'connections'  # Use connections channel for player events
+                
                 # Only send embeds for specific state transitions
                 if change['old_state'] == 'queued' and change['new_state'] == 'online':
                     # Player connected (queued -> online)
-                    import discord
-                    from datetime import datetime, timezone
-                    
-                    embed = discord.Embed(
-                        title="🟢 Player Connected",
-                        description=f"**{change['player_name']}** joined the server",
-                        color=0x00FF00,
-                        timestamp=datetime.now(timezone.utc)
-                    )
-                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
-                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
-                    
-                    await channel_router.send_embed_to_channel(
-                        guild_id=change['guild_id'],
-                        server_id=change['server_id'],
-                        channel_type='killfeed',
-                        embed=embed
-                    )
+                    embed_data = {
+                        'player_name': change['player_name'],
+                        'eos_id': change['eos_id'],
+                        'server_name': change.get('server_name', 'Unknown'),
+                        'timestamp': change.get('timestamp')
+                    }
+                    embed = EmbedFactory.create_player_connect_embed(embed_data)
                 
                 elif change['old_state'] == 'online' and change['new_state'] == 'offline':
                     # Player disconnected (online -> offline)
-                    import discord
-                    from datetime import datetime, timezone
-                    
-                    embed = discord.Embed(
-                        title="🔴 Player Disconnected",
-                        description=f"**{change['player_name']}** left the server",
-                        color=0xFF0000,
-                        timestamp=datetime.now(timezone.utc)
-                    )
-                    embed.add_field(name="EOS ID", value=f"`{change['eos_id'][:16]}...`", inline=True)
-                    embed.add_field(name="Server", value=change.get('server_name', 'Unknown'), inline=True)
-                    
+                    embed_data = {
+                        'player_name': change['player_name'],
+                        'eos_id': change['eos_id'],
+                        'server_name': change.get('server_name', 'Unknown'),
+                        'timestamp': change.get('timestamp')
+                    }
+                    embed = EmbedFactory.create_player_disconnect_embed(embed_data)
+                
+                if embed:
                     await channel_router.send_embed_to_channel(
                         guild_id=change['guild_id'],
                         server_id=change['server_id'],
-                        channel_type='killfeed',
+                        channel_type=channel_type,
                         embed=embed
                     )
             
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send connection embeds: {e}")
+            logger.error(f"Error sending connection embeds batch: {e}")
             return False
     
     async def send_event_embeds(self, events: List[Dict[str, Any]]) -> bool:
-        """Send Discord embeds for game events"""
+        """Send Discord embeds for game events using themed embed factory"""
         if not events:
             return True
         
         try:
             from bot.utils.channel_router import ChannelRouter
+            from bot.utils.embed_factory import EmbedFactory
             
             channel_router = ChannelRouter(self.bot)
             
             for event in events:
                 if event['type'] == 'event':
-                    embed_type = self._map_event_to_embed_type(event['event'])
-                    if embed_type:
+                    embed = await self._create_themed_embed(event)
+                    if embed:
+                        channel_type = self._map_event_to_channel_type(event['event'])
                         await channel_router.send_embed_to_channel(
                             guild_id=event['guild_id'],
                             server_id=event['server_id'],
-                            channel_type=embed_type,
-                            embed=event
+                            channel_type=channel_type,
+                            embed=embed
                         )
             
             return True
@@ -336,17 +338,75 @@ class ScalableUnifiedProcessor:
             logger.error(f"Failed to send event embeds: {e}")
             return False
     
-    def _map_event_to_embed_type(self, event_type: str) -> Optional[str]:
-        """Map event types to embed types"""
+    async def _create_themed_embed(self, event: Dict[str, Any]):
+        """Create themed embed using embed factory"""
+        try:
+            from bot.utils.embed_factory import EmbedFactory
+            event_type = event['event']
+            
+            if event_type == 'mission_start':
+                mission_name = event['details'][0] if event['details'] else 'Unknown Mission'
+                embed_data = {
+                    'mission_name': mission_name,
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_mission_embed(embed_data)
+                
+            elif event_type == 'mission_end':
+                mission_name = event['details'][0] if event['details'] else 'Unknown Mission'
+                embed_data = {
+                    'mission_name': mission_name,
+                    'state': 'WAITING',
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_mission_embed(embed_data)
+                
+            elif event_type in ['airdrop_flying', 'airdrop_dropping']:
+                embed_data = {
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_airdrop_embed(embed_data)
+                
+            elif event_type in ['helicrash_ready', 'helicrash_crash']:
+                embed_data = {
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_helicrash_embed(embed_data)
+                
+            elif event_type in ['trader_arrival', 'trader_departure']:
+                embed_data = {
+                    'trader_name': 'Trader',
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_trader_embed(embed_data)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error creating themed embed: {e}")
+            return None
+    
+    def _map_event_to_channel_type(self, event_type: str) -> str:
+        """Map event types to channel types"""
         mapping = {
             'mission_start': 'missions',
             'mission_end': 'missions',
-            'airdrop': 'events',
-            'patrol_active': 'events',
-            'patrol_initial': 'events',
-            'vehicle_deleted': 'events'
+            'airdrop_flying': 'events',
+            'airdrop_dropping': 'events',
+            'airdrop_dead': 'events',
+            'helicrash_ready': 'events',
+            'helicrash_crash': 'events',
+            'trader_arrival': 'events',
+            'trader_departure': 'events',
+            'vehicle_add': 'events',
+            'vehicle_del': 'events'
         }
-        return mapping.get(event_type)
+        return mapping.get(event_type, 'events')
 
     async def process_log_data_cold_start(self, server_config: Dict[str, Any], guild_id: int) -> List[Dict[str, Any]]:
         """Process all log data chronologically from beginning for cold start"""
