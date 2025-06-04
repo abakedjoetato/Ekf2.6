@@ -35,6 +35,7 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot.models.database import DatabaseManager
+from bot.utils.command_sync_recovery import initialize_command_sync_recovery
 
 # Configure logging first
 logging.basicConfig(
@@ -117,6 +118,9 @@ class EmeraldKillfeedBot(commands.Bot):
         self.historical_parser = None
         self.unified_log_parser = None
         self.ssh_connections = []
+        
+        # Initialize command sync recovery system
+        self.command_sync_recovery = None
 
         # Missing essential properties
         self.assets_path = Path('./assets')
@@ -517,7 +521,12 @@ class EmeraldKillfeedBot(commands.Bot):
 
             logger.info(f"✅ {command_count} commands registered and ready for sync")
 
-            # STEP 3: Command sync - disabled to prevent rate limiting
+            # STEP 3: Initialize command sync recovery system
+            if not self.command_sync_recovery:
+                self.command_sync_recovery = initialize_command_sync_recovery(self)
+                logger.info("🔧 Command sync recovery system initialized")
+
+            # STEP 4: Command sync - disabled to prevent rate limiting
             # Commands are already loaded and functional in bot memory
             # Sync only when commands actually change, not on every startup
             logger.info("✅ Commands loaded and ready (sync bypassed to prevent rate limits)")
