@@ -67,6 +67,8 @@ class CasinoMainView(discord.ui.View):
         try:
 
             pass
+            pass
+            pass
             wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
             return wallet.get('balance', 0)
         except:
@@ -284,6 +286,8 @@ class CustomBetModal(discord.ui.Modal):
         try:
 
             pass
+            pass
+            pass
             bet_str = self.bet_input.value.strip().replace(',', '').replace('$', '')
             
             if not bet_str.isdigit():
@@ -402,6 +406,8 @@ class SlotsGameView(discord.ui.View):
         try:
 
             pass
+            pass
+            pass
             wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
             return wallet.get('balance', 0)
         except:
@@ -410,6 +416,8 @@ class SlotsGameView(discord.ui.View):
     async def update_balance(self, amount):
         try:
 
+            pass
+            pass
             pass
             operation = "add" if amount >= 0 else "subtract"
             return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, abs(amount), operation)
@@ -510,6 +518,8 @@ class CoinFlipGameView(discord.ui.View):
         try:
 
             pass
+            pass
+            pass
             wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
             return wallet.get('balance', 0)
         except:
@@ -518,6 +528,8 @@ class CoinFlipGameView(discord.ui.View):
     async def update_balance(self, amount):
         try:
 
+            pass
+            pass
             pass
             operation = "add" if amount >= 0 else "subtract"
             return await self.bot.db_manager.update_wallet(self.guild_id, self.user_id, abs(amount), operation)
@@ -581,6 +593,8 @@ class RouletteGameView(discord.ui.View):
     async def get_current_balance(self):
         try:
 
+            pass
+            pass
             pass
             wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
             return wallet.get('balance', 0)
@@ -669,6 +683,8 @@ class RouletteBetMenu(discord.ui.Select):
     async def update_balance(self, amount):
         try:
 
+            pass
+            pass
             pass
             operation = "add" if amount >= 0 else "subtract"
             return await self.roulette_view.bot.db_manager.update_wallet(
@@ -801,6 +817,8 @@ class RocketCrashGameView(discord.ui.View):
             try:
 
                 pass
+                pass
+                pass
                 await interaction.edit_original_response(embed=embed, view=self)
             except:
                 break
@@ -837,6 +855,8 @@ class RocketCrashGameView(discord.ui.View):
 
         
             pass
+            pass
+            pass
             await interaction.edit_original_response(embed=embed, view=self)
         except:
             pass
@@ -845,6 +865,8 @@ class RocketCrashGameView(discord.ui.View):
         """Get user's current balance"""
         try:
 
+            pass
+            pass
             pass
             wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
             return wallet.get('balance', 0)
@@ -855,6 +877,8 @@ class RocketCrashGameView(discord.ui.View):
         """Update user's balance"""
         try:
 
+            pass
+            pass
             pass
             operation = "add" if amount >= 0 else "subtract"
             return await self.bot.db_manager.update_wallet(
@@ -1076,6 +1100,8 @@ class BlackjackGameView(discord.ui.View):
 
         
             pass
+            pass
+            pass
             await interaction.edit_original_response(embed=embed, view=self)
         except:
             await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
@@ -1084,6 +1110,8 @@ class BlackjackGameView(discord.ui.View):
         """Get user's current balance"""
         try:
 
+            pass
+            pass
             pass
             wallet = await self.bot.db_manager.get_wallet(self.guild_id, self.user_id)
             return wallet.get('balance', 0)
@@ -1094,6 +1122,8 @@ class BlackjackGameView(discord.ui.View):
         """Update user's balance"""
         try:
 
+            pass
+            pass
             pass
             operation = "add" if amount >= 0 else "subtract"
             return await self.bot.db_manager.update_wallet(
@@ -1113,6 +1143,8 @@ class ProfessionalCasino(discord.Cog):
         try:
 
             pass
+            pass
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
@@ -1128,6 +1160,10 @@ class ProfessionalCasino(discord.Cog):
         await ctx.defer()
         
         try:
+
+        
+            pass
+            pass
             if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server.", ephemeral=True)
                 return

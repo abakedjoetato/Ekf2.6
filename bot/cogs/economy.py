@@ -67,8 +67,8 @@ class Economy(commands.Cog):
             logger.error(f"Error in pay command: {e}")
             await ctx.followup.send("❌ Failed to send payment", ephemeral=True)
 
-    @discord.slash_command(name="leaderboard", description="Show top users by credits")
-    async def leaderboard(self, ctx: discord.ApplicationContext):
+    @discord.slash_command(name="credits", description="Show top users by credits")
+    async def credits(self, ctx: discord.ApplicationContext):
         """Show credit leaderboard"""
         await ctx.defer()
 
@@ -93,7 +93,7 @@ class Economy(commands.Cog):
             await ctx.followup.send(embed=embed)
             
         except Exception as e:
-            logger.error(f"Error in leaderboard command: {e}")
+            logger.error(f"Error in credits command: {e}")
             await ctx.followup.send("❌ Failed to show leaderboard", ephemeral=True)
 
 def setup(bot):
