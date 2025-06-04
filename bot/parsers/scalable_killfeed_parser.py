@@ -64,12 +64,12 @@ class ScalableKillfeedParser:
         
         try:
             # Access database through bot's db_manager
-            if not hasattr(self.bot, 'db_manager') or not self.bot.db_manager:
+            if not hasattr(self.bot, 'db_manager') or not getattr(self.bot, 'cached_db_manager', self.bot.db_manager):
                 logger.error("Database manager not available")
                 return guilds_with_servers
             
             # Access database collection directly from db_manager
-            collection = self.bot.db_manager.guild_configs
+            collection = getattr(self.bot, 'cached_db_manager', self.bot.db_manager).guild_configs
             
             cursor = collection.find({
                 'servers': {
@@ -133,7 +133,7 @@ class ScalableKillfeedParser:
         """Manually trigger killfeed processing for a specific server"""
         try:
             # Get server configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await getattr(self.bot, 'cached_db_manager', self.bot.db_manager).get_guild(guild_id)
             if not guild_config or not guild_config.get('servers'):
                 return {
                     'success': False,
@@ -184,7 +184,7 @@ class ScalableKillfeedParser:
             }
             
             # Get guild configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await getattr(self.bot, 'cached_db_manager', self.bot.db_manager).get_guild(guild_id)
             if guild_config and guild_config.get('servers'):
                 status['servers_configured'] = len(guild_config['servers'])
                 

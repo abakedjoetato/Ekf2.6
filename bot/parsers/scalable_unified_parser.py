@@ -191,15 +191,15 @@ class ScalableUnifiedParser:
         
         try:
             # Access database through bot's db_manager
-            if not hasattr(self.bot, 'db_manager') or not self.bot.db_manager:
+            if not hasattr(self.bot, 'db_manager') or not getattr(self.bot, 'cached_db_manager', self.bot.db_manager):
                 logger.error("Database manager not available")
                 return guild_configs
             
             # Get the database connection
-            if hasattr(self.bot.db_manager, 'get_database'):
-                database = self.bot.db_manager.get_database()
-            elif hasattr(self.bot.db_manager, 'database'):
-                database = self.bot.db_manager.database
+            if hasattr(getattr(self.bot, 'cached_db_manager', self.bot.db_manager), 'get_database'):
+                database = getattr(self.bot, 'cached_db_manager', self.bot.db_manager).get_database()
+            elif hasattr(getattr(self.bot, 'cached_db_manager', self.bot.db_manager), 'database'):
+                database = getattr(self.bot, 'cached_db_manager', self.bot.db_manager).database
             elif hasattr(self.bot, 'database'):
                 database = self.bot.database
             else:
@@ -233,7 +233,7 @@ class ScalableUnifiedParser:
         """Manually trigger unified processing for a specific guild"""
         try:
             # Get guild configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await getattr(self.bot, 'cached_db_manager', self.bot.db_manager).get_guild(guild_id)
             if not guild_config or not guild_config.get('servers'):
                 return {
                     'success': False,
@@ -271,7 +271,7 @@ class ScalableUnifiedParser:
         """Manually trigger unified processing for a specific server"""
         try:
             # Get guild configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await getattr(self.bot, 'cached_db_manager', self.bot.db_manager).get_guild(guild_id)
             if not guild_config or not guild_config.get('servers'):
                 return {
                     'success': False,
@@ -320,7 +320,7 @@ class ScalableUnifiedParser:
             }
             
             # Get guild configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await getattr(self.bot, 'cached_db_manager', self.bot.db_manager).get_guild(guild_id)
             if guild_config and guild_config.get('servers'):
                 status['servers_configured'] = len(guild_config['servers'])
                 

@@ -760,8 +760,11 @@ async def main():
         # Create base database manager
         base_db_manager = DatabaseManager(bot.mongo_client)
         
-        # Wrap with caching layer
-        bot.db_manager = create_cached_database_manager(base_db_manager)
+        # Use direct database manager to avoid cache blocking issues
+        bot.db_manager = base_db_manager
+        
+        # Store cached version separately for parsers
+        bot.cached_db_manager = create_cached_database_manager(base_db_manager)
         
         # Initialize premium manager v2 with cached database
         bot.premium_manager_v2 = PremiumManagerV2(bot.db_manager)

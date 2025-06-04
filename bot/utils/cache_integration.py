@@ -262,8 +262,29 @@ class CachedDatabaseManager:
     # ===============================
     
     def __getattr__(self, name):
-        """Pass through any missing methods to the underlying database manager"""
-        return getattr(self.db, name)
+        """Pass through any missing methods to the underlying database manager with timeout protection"""
+        attr = getattr(self.db, name)
+        
+        # If it's a callable method, wrap it with timeout protection
+        if callable(attr):
+            async def wrapped_method(*args, **kwargs):
+                try:
+                    if asyncio.iscoroutinefunction(attr):
+                        return await asyncio.wait_for(attr(*args, **kwargs), timeout=10.0)
+                    else:
+                        return attr(*args, **kwargs)
+                except asyncio.TimeoutError:
+                    logger.error(f"Database operation {name} timed out")
+                    raise
+                except Exception as e:
+                    logger.error(f"Database operation {name} failed: {e}")
+                    raise
+            
+            # Return the wrapped method if it's async, otherwise return as-is
+            if asyncio.iscoroutinefunction(attr):
+                return wrapped_method
+        
+        return attr
 
 
 def create_cached_database_manager(database_manager):
