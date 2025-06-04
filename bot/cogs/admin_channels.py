@@ -155,9 +155,9 @@ class AdminChannels(discord.Cog):
         channel_type: discord.Option(
             str,
             description="Type of channel to set",
-            choices=["killfeed", "events", "missions", "helicrash", "airdrop", "trader", "connections", "bounties", "leaderboard"]
+            choices=["killfeed", "events", "missions", "helicrash", "airdrop", "trader", "connections", "bounties", "leaderboard", "voice_counter"]
         ),
-        channel: discord.TextChannel,
+        channel: discord.Option(discord.abc.GuildChannel, description="Channel to set (text or voice)"),
         server: discord.Option(str, description="Server name (default: 'default')", default="default")
     ):
         """Set channel for specific event types"""
@@ -169,6 +169,16 @@ class AdminChannels(discord.Cog):
                 return
                 
             guild_id = ctx.guild.id
+            
+            # Validate channel type for voice_counter
+            if channel_type == "voice_counter" and not isinstance(channel, discord.VoiceChannel):
+                embed = discord.Embed(
+                    title="❌ Invalid Channel Type",
+                    description="Voice counter requires a voice channel. Please select a voice channel.",
+                    color=0xFF0000
+                )
+                await ctx.followup.send(embed=embed, ephemeral=True)
+                return
             
             # Update server_channels configuration
             update_field = f"server_channels.{server}.{channel_type}"
