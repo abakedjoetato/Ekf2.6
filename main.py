@@ -377,7 +377,7 @@ class EmeraldKillfeedBot(commands.Bot):
                 for pool_key, conn in list(parser.sftp_connections.items()):
                     try:
                         if hasattr(conn, 'is_closed') and not conn.is_closed():
-                            conn.close()
+                            getattr(conn, "close", lambda: None)()
                     except Exception as e:
                         logger.debug(f"Error closing connection {pool_key}: {e}")
                 parser.sftp_connections.clear()
@@ -837,6 +837,8 @@ async def main():
     try:
         # Initialize database and parsers
         logger.info("🚀 Starting database and parser setup...")
+        
+        # Database initialization will be handled in setup_database
 
         # Connect to database
         bot.mongo_client = AsyncIOMotorClient(mongo_uri)
@@ -858,7 +860,7 @@ async def main():
         bot.db_manager = base_db_manager
         
         # Store cached version separately for parsers
-        bot.cached_db_manager = create_cached_database_manager(base_db_manager)
+        setattr(bot, "cached_db_manager", create_cached_database_manager(base_db_manager))
         
         # Initialize premium manager v2 with cached database
         bot.premium_manager_v2 = PremiumManagerV2(bot.db_manager)

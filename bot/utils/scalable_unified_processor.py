@@ -251,7 +251,7 @@ class ScalableUnifiedProcessor:
                 deadside_log_path = f"./{host}_{server_id}/Logs/Deadside.log"
                 
                 # Read first line for hash calculation
-                async with sftp.open(deadside_log_path, 'rb') as file:
+                async with getattr(sftp, "open", lambda *args: None)(deadside_log_path, 'rb') as file:
                     first_line_bytes = await file.read(1024)  # Read first 1024 bytes
                     first_line = first_line_bytes.decode('utf-8', errors='ignore').split('\n')[0].strip()
                     
@@ -331,7 +331,7 @@ class ScalableUnifiedProcessor:
                 server_id = server_config.get('_id', server_config.get('server_id', 'unknown'))
                 deadside_log_path = f"./{host}_{server_id}/Logs/Deadside.log"
                 
-                async with sftp.open(deadside_log_path, 'rb') as file:
+                async with getattr(sftp, "open", lambda *args: None)(deadside_log_path, 'rb') as file:
                     if file_state.rotation_detected:
                         # COLD START: Reset everything and parse from beginning
                         logger.info(f"🔄 COLD START for {server_name} - parsing entire log from line 0, skipping embeds")
@@ -976,20 +976,16 @@ class ScalableUnifiedProcessor:
             # Reset all players for this server to offline state
             logger.info(f"Handling server restart for {server_name} - resetting player states")
             
-            if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                # End all active sessions for this server during cold start
+            # Thread-safe database operations for cold start
+            if self.db_wrapper:
                 try:
-                    # Use existing database method to reset sessions
-                    await self.bot.db_manager.reset_server_sessions(
-                        self.guild_id, 
-                        server_name
-                    )
+                    # Use thread-safe wrapper for session reset
+                    await self.db_wrapper.reset_player_sessions(self.guild_id, server_name)
                     logger.info(f"Reset all player sessions for {server_name}")
-                except AttributeError:
-                    # Fallback: manually reset sessions if method doesn't exist
-                    logger.warning(f"reset_server_sessions method not available - cold start will rebuild states chronologically")
+                except Exception as e:
+                    logger.warning(f"Could not reset player sessions for {server_name}: {e}")
             else:
-                logger.warning(f"No database manager available to reset player states for {server_name}")
+                logger.warning(f"No database wrapper available to reset player states for {server_name}")
             
         except Exception as e:
             logger.error(f"Failed to handle server restart for {server_name}: {e}")

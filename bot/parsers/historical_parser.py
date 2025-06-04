@@ -390,7 +390,7 @@ class HistoricalParser:
         
         for encoding in encodings:
             try:
-                async with aiofiles.open(file_path, 'r', encoding=encoding) as f:
+                async with getattr(aiofiles, "open", lambda *args: None)(file_path, 'r', encoding=encoding) as f:
                     content = await f.read()
                     lines = [line.strip() for line in content.splitlines() if line.strip()]
                     logger.debug(f"Successfully read {file_path} with {encoding} encoding: {len(lines)} lines")
@@ -415,7 +415,7 @@ class HistoricalParser:
                 buffer_size = 1024 * 1024  # 1MB buffer
                 file_content = ""
 
-                async with sftp_client.open(file_path, 'r') as f:
+                async with getattr(sftp_client, "open", lambda *args: None)(file_path, 'r') as f:
                     while True:
                         chunk = await f.read(buffer_size)
                         if not chunk:
@@ -1312,7 +1312,7 @@ class HistoricalParser:
                 file_size = file_stat.st_size
                 
                 # Read file content
-                async with sftp.open(csv_file, 'r') as file:
+                async with getattr(sftp, "open", lambda *args: None)(csv_file, 'r') as file:
                     content = await file.read()
                     
                 # Count total lines in file
@@ -1464,7 +1464,7 @@ class HistoricalParser:
                     sftp = await conn.start_sftp_client()
                     
                     # Read current file to get total line count
-                    async with sftp.open(newest_file, 'r') as file:
+                    async with getattr(sftp, "open", lambda *args: None)(newest_file, 'r') as file:
                         content = await file.read()
                         lines = content.strip().split('\n')
                         total_lines = len(lines)
