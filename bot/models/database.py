@@ -50,6 +50,10 @@ class DatabaseManager:
         """Access to admin database operations"""
         return self.client.admin
 
+    async def initialize_database(self):
+        """Initialize database with proper setup"""
+        await self.initialize_indexes()
+
     async def initialize_indexes(self):
         """Create optimized database indexes with bulletproof conflict resolution"""
         try:

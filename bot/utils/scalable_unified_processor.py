@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from bot.utils.connection_pool import connection_manager
 from bot.utils.shared_parser_state import get_shared_state_manager, ParserState
 from bot.utils.message_rate_limiter import get_rate_limiter
-from bot.utils.thread_safe_db_wrapper import ThreadSafeDBWrapper, thread_safe_db_operation
+from bot.utils.thread_safe_db_wrapper import ThreadSafeDBWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,11 @@ class ScalableUnifiedProcessor:
         self._main_loop = None
         self._cold_start_player_states = {}
         self._voice_channel_updates_deferred = False
+        
+        # Initialize missing attributes
+        self._cold_start_mode = False
+        self._hot_start_state_changes = []
+        self._player_name_cache = {}
         
         # Set up loop management
         try:
@@ -877,7 +882,7 @@ class ScalableUnifiedProcessor:
                             
                             # Track servers with state changes for voice channel updates
                             if locals().get("state_changed", False):
-                                self._hot_start_state_changes.add(entry.server_name)
+                                self._hot_start_state_changes.append(entry.server_name)
                                 logger.debug(f"Hot start: Player {character_name} ({eosid[:8]}...) joined {entry.server_name}")
                             else:
                                 logger.debug(f"No state change for {character_name} (already online)")
@@ -968,7 +973,7 @@ class ScalableUnifiedProcessor:
                         
                         # Track servers with state changes for voice channel updates
                         if locals().get("state_changed", False):
-                            self._hot_start_state_changes.add(entry.server_name)
+                            self._hot_start_state_changes.append(entry.server_name)
                             logger.debug(f"Hot start: Player {eosid[:8]}... left {entry.server_name}")
                     
                     # Only send connection embed if state actually changed (online -> offline)

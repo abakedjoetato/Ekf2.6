@@ -569,7 +569,7 @@ class EmeraldKillfeedBot(commands.Bot):
 
             if self.unified_log_parser:
                 # Create threaded wrapper for unified parser  
-                self.threaded_unified = create_threaded_parser(self.unified_log_parser)
+                self.threaded_unified = ThreadedParserWrapper()
                 
                 try:
                     # Remove existing job if it exists
