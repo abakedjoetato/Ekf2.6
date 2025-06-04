@@ -21,12 +21,15 @@ class ScalableUnifiedProcessor:
         self.event_patterns = self._compile_event_patterns()
     
     def _compile_connection_patterns(self) -> Dict[str, re.Pattern]:
-        """Compile regex patterns for connection events"""
+        """Compile regex patterns for connection events - Updated for Deadside server format"""
         return {
-            'player_connect': re.compile(r'Player "([^"]+)" \(id=(\d+)\) has been connected'),
-            'player_disconnect': re.compile(r'Player "([^"]+)" \(id=(\d+)\) has been disconnected'),
-            'player_login': re.compile(r'Player "([^"]+)" is connected'),
-            'player_logout': re.compile(r'Player "([^"]+)" has been disconnected')
+            # Look for actual Deadside connection patterns (need to research these)
+            'player_connect': re.compile(r'LogSFPS.*Player.*connected', re.IGNORECASE),
+            'player_disconnect': re.compile(r'LogSFPS.*Player.*disconnected', re.IGNORECASE),
+            'player_login': re.compile(r'LogSFPS.*Player.*join', re.IGNORECASE),
+            'player_logout': re.compile(r'LogSFPS.*Player.*leave', re.IGNORECASE),
+            # Generic patterns for any player-related logs
+            'player_activity': re.compile(r'LogSFPS.*Player.*', re.IGNORECASE)
         }
     
     def _compile_event_patterns(self) -> Dict[str, re.Pattern]:
@@ -98,12 +101,32 @@ class ScalableUnifiedProcessor:
         events = []
         lines = log_data.split('\n')
         
+        logger.info(f"Processing {len(lines)} log lines from {server_config.get('name', 'Unknown')}")
+        
+        connection_count = 0
+        event_count = 0
+        
         for line in lines:
             parsed = self.parse_log_line(line)
             if parsed:
                 parsed['server_name'] = server_config.get('name', 'Unknown')
                 parsed['guild_id'] = server_config.get('guild_id')
+                parsed['server_id'] = server_config.get('server_id', 'Unknown')
                 events.append(parsed)
+                
+                if parsed['type'] == 'connection':
+                    connection_count += 1
+                elif parsed['type'] == 'event':
+                    event_count += 1
+        
+        logger.info(f"Parsed {len(events)} total events: {connection_count} connections, {event_count} game events")
+        
+        # Log sample of first few lines for debugging
+        if not events and len(lines) > 10:
+            logger.info("Sample log lines for debugging:")
+            for i, line in enumerate(lines[:5]):
+                if line.strip():
+                    logger.info(f"  Line {i}: {line[:100]}...")
         
         return events
     
