@@ -235,147 +235,11 @@ class EmeraldKillfeedBot(commands.Bot):
 
     async def register_commands_safely(self):
         """
-        Production-ready sync logic:
-        - Avoids redundant syncs with command fingerprinting
-        - Caches command hash to prevent unnecessary syncs
-        - Falls back to per-guild on global sync failure
-        - Applies intelligent rate limit cooldowns
+        DISABLED: All Discord command sync operations disabled to prevent rate limiting
+        Commands are loaded and functional in bot memory without requiring Discord sync
         """
-        try:
-            # Get all commands (py-cord 2.6.1 compatible)
-            all_commands = []
-            
-            # py-cord 2.6.1: Use the same logic as in the logging section
-            if hasattr(self, 'pending_application_commands') and self.pending_application_commands:
-                all_commands = list(self.pending_application_commands)
-                logger.debug(f"Found {len(all_commands)} pending application commands")
-            elif hasattr(self, 'application_commands') and self.application_commands:
-                all_commands = list(self.application_commands)
-                logger.debug(f"Found {len(all_commands)} application commands")
-            else:
-                logger.debug("No application commands found in bot attributes")
-
-            if not all_commands:
-                logger.warning("⚠️ No commands found for syncing")
-                return
-
-            # Calculate current command fingerprint
-            current_fingerprint = self.calculate_command_fingerprint(all_commands)
-            if not current_fingerprint:
-                logger.error("❌ Failed to calculate command fingerprint")
-                return
-
-            hash_file = "command_hash.txt"
-            cooldown_file = "command_sync_cooldown.txt"
-            cooldown_secs = 1800  # 30 minutes
-
-            # Skip all Discord sync operations during rate limiting periods
-            if os.path.exists(cooldown_file):
-                try:
-                    with open(cooldown_file, 'r') as f:
-                        until = float(f.read().strip())
-                        if time.time() < until:
-                            remaining = int(until - time.time())
-                            logger.info(f"⚠️ Discord rate limited for {remaining}s - commands loaded locally")
-                            logger.info("✅ Bot fully operational without Discord sync dependency")
-                            return
-                        else:
-                            os.remove(cooldown_file)
-                            logger.info("✅ Rate limit expired - attempting sync")
-                except Exception:
-                    pass
-
-            # Check for command changes
-            old_fingerprint = None
-            if os.path.exists(hash_file):
-                try:
-                    with open(hash_file, 'r') as f:
-                        old_fingerprint = f.read().strip()
-                except Exception:
-                    pass
-
-            # Production fix: Skip Discord sync entirely during rate limiting
-            # Commands are already loaded and functional in bot memory
-            if current_fingerprint == old_fingerprint:
-                logger.info("✅ Commands loaded and ready - Discord sync not required for functionality")
-                return
-
-            # Check if we're within the global rate limit cooldown period
-            global_cooldown_file = "global_sync_cooldown.txt"
-            if os.path.exists(global_cooldown_file):
-                try:
-                    with open(global_cooldown_file, 'r') as f:
-                        until = float(f.read().strip())
-                        if time.time() < until:
-                            remaining = int(until - time.time())
-                            logger.info(f"⚠️ Global sync rate limited for {remaining}s - skipping sync attempt")
-                            return
-                        else:
-                            os.remove(global_cooldown_file)
-                except Exception:
-                    pass
-
-            logger.info(f"🔄 New commands detected - attempting Discord sync for {len(all_commands)} commands")
-
-            # Attempt global sync without clearing (prevents rate limits)
-            try:
-                logger.info("🌍 Performing global command sync...")
-                await asyncio.wait_for(self.sync_commands(), timeout=45)
-                logger.info("✅ Global sync complete")
-
-                # Save successful fingerprint
-                with open(hash_file, 'w') as f:
-                    f.write(current_fingerprint)
-                with open("global_sync_success.txt", 'w') as f:
-                    f.write(str(time.time()))
-                return
-
-            except Exception as e:
-                error_msg = str(e).lower()
-                if "429" in error_msg or "rate limit" in error_msg:
-                    logger.warning(f"❌ Global sync rate limited: {e}")
-                    # Set extended cooldown for global sync rate limits
-                    cooldown_until = time.time() + 3600  # 1 hour cooldown
-                    with open(global_cooldown_file, 'w') as f:
-                        f.write(str(cooldown_until))
-                    logger.info("🕐 Set 1-hour global sync cooldown due to rate limiting")
-                    return
-                else:
-                    logger.warning(f"⚠️ Global sync failed: {e}")
-
-            # Per-guild fallback (higher rate limits)
-            logger.info(f"🏠 Performing per-guild sync fallback for {len(self.guilds)} guilds...")
-            success_count = 0
-
-            for guild in self.guilds:
-                try:
-                    await asyncio.wait_for(self.sync_commands(guild_ids=[guild.id]), timeout=15)
-                    success_count += 1
-                    logger.info(f"✅ Guild sync: {guild.name}")
-                    await asyncio.sleep(1.5)  # Rate limit prevention
-
-                except Exception as ge:
-                    error_msg = str(ge).lower()
-                    if "429" in error_msg or "rate limit" in error_msg:
-                        logger.warning(f"🛑 Hit rate limit on guild sync - halting further syncs.")
-                        with open(cooldown_file, 'w') as f:
-                            f.write(str(time.time() + cooldown_secs))
-                        break
-                    else:
-                        logger.warning(f"❌ Guild sync failed for {guild.name}: {ge}")
-
-            if success_count > 0:
-                # Save successful fingerprint even on partial success
-                with open(hash_file, 'w') as f:
-                    f.write(current_fingerprint)
-                logger.info(f"✅ Per-guild sync completed: {success_count}/{len(self.guilds)} successful")
-            else:
-                logger.warning("⚠️ All sync methods failed")
-
-        except Exception as e:
-            logger.error(f"❌ Command sync logic failed: {e}")
-            import traceback
-            logger.error(f"Sync traceback: {traceback.format_exc()}")
+        logger.info("Command sync disabled - commands functional without Discord API sync")
+        return
 
     async def cleanup_connections(self):
         """Clean up AsyncSSH connections on shutdown with enhanced error recovery"""
@@ -468,19 +332,11 @@ class EmeraldKillfeedBot(commands.Bot):
             self.mongo_client = AsyncIOMotorClient(mongo_uri)
             self.database = self.mongo_client.emerald_killfeed
 
-            # Initialize database manager with PHASE 1 architecture + Caching
+            # Initialize database manager without caching to prevent command registration issues
             from bot.models.database import DatabaseManager
-            from bot.utils.unified_cache import initialize_cache
-            from bot.utils.cache_integration import create_cached_database_manager
             
-            # Initialize cache system
-            await initialize_cache()
-            
-            # Create base database manager
-            base_db_manager = DatabaseManager(self.mongo_client)
-            
-            # Wrap with caching layer
-            self.db_manager = create_cached_database_manager(base_db_manager)
+            # Create direct database manager
+            self.db_manager = DatabaseManager(self.mongo_client)
             
             # Ensure consistent access pattern
             self.database = self.db_manager  # Legacy compatibility
