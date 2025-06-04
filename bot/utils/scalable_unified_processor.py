@@ -595,43 +595,62 @@ class ScalableUnifiedProcessor:
         except Exception as e:
             logger.error(f"Error sending event embeds batch: {e}")
     
-    def _create_event_embed(self, event: Dict[str, Any]) -> Optional[Any]:
-        """Create Discord embed for game event"""
+    async def _create_event_embed(self, event: Dict[str, Any]) -> Optional[tuple]:
+        """Create professional Discord embed using embed factory"""
         try:
-            import discord
-            from datetime import datetime, timezone
+            from bot.utils.embed_factory import EmbedFactory
             
             event_type = event.get('event')
             
-            if event_type == 'mission_start':
-                embed = discord.Embed(
-                    title="🎯 Mission Started",
-                    description=f"Mission **{event.get('mission_name', 'Unknown')}** is now active",
-                    color=0x00FF00,
-                    timestamp=datetime.now(timezone.utc)
-                )
-            elif event_type == 'mission_end':
-                embed = discord.Embed(
-                    title="🎯 Mission Ended",
-                    description=f"Mission **{event.get('mission_name', 'Unknown')}** has ended",
-                    color=0xFF0000,
-                    timestamp=datetime.now(timezone.utc)
-                )
+            if event_type in ['mission_start', 'mission_ready']:
+                embed_data = {
+                    'mission_id': event.get('mission_name', event.get('mission_id', 'Unknown')),
+                    'state': 'READY',
+                    'level': event.get('level', 1),
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_mission_embed(embed_data)
+                
+            elif event_type in ['mission_end', 'mission_complete']:
+                embed_data = {
+                    'mission_id': event.get('mission_name', event.get('mission_id', 'Unknown')),
+                    'state': 'COMPLETE',
+                    'level': event.get('level', 1),
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_mission_embed(embed_data)
+                
             elif event_type == 'airdrop':
-                embed = discord.Embed(
-                    title="📦 Airdrop Incoming",
-                    description="An airdrop is being deployed",
-                    color=0x0099FF,
-                    timestamp=datetime.now(timezone.utc)
-                )
+                embed_data = {
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'location': event.get('location', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_airdrop_embed(embed_data)
+                
+            elif event_type == 'helicrash':
+                embed_data = {
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'location': event.get('location', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_helicrash_embed(embed_data)
+                
+            elif event_type == 'trader':
+                embed_data = {
+                    'trader_name': event.get('trader_name', 'Unknown Trader'),
+                    'server_name': event.get('server_name', 'Unknown'),
+                    'timestamp': event.get('timestamp')
+                }
+                return await EmbedFactory.build_trader_embed(embed_data)
+                
             else:
                 return None
                 
-            embed.add_field(name="Server", value=event.get('server_name', 'Unknown'), inline=True)
-            return embed
-            
         except Exception as e:
-            logger.error(f"Error creating event embed: {e}")
+            logger.error(f"Error creating event embed with factory: {e}")
             return None
     
     def _get_channel_type_for_event(self, event_type: str) -> str:
