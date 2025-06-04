@@ -165,19 +165,25 @@ class ScalableUnifiedParser:
     async def _update_voice_channel_final(self, guild_id: int, server_id: str, server_name: str):
         """Update voice channel count once at the end to avoid spam"""
         try:
-            # Get total online + queued players for this server
-            total_count = await self.bot.db_manager.player_sessions.count_documents({
+            # Get online and queued player counts separately
+            online_count = await self.bot.db_manager.player_sessions.count_documents({
                 'guild_id': guild_id,
                 'server_id': server_id,
-                'state': {'$in': ['online', 'queued']}
+                'state': 'online'
             })
             
-            # Update voice channel
+            queued_count = await self.bot.db_manager.player_sessions.count_documents({
+                'guild_id': guild_id,
+                'server_id': server_id,
+                'state': 'queued'
+            })
+            
+            # Update voice channel with separate counts
             from bot.utils.voice_channel_manager import VoiceChannelManager
             vc_manager = VoiceChannelManager(self.bot)
-            await vc_manager.update_voice_channel_count(guild_id, server_id, total_count, 0)
+            await vc_manager.update_voice_channel_count(guild_id, server_id, online_count, queued_count)
             
-            logger.info(f"🔊 Voice channel updated: {server_name} - {total_count} players")
+            logger.info(f"🔊 Voice channel updated: {server_name} - {online_count} online, {queued_count} queued")
             
         except Exception as e:
             logger.error(f"Failed to update voice channel for {server_name}: {e}")
