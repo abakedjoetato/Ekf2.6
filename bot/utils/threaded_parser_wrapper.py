@@ -13,6 +13,28 @@ logger = logging.getLogger(__name__)
 class ThreadedParserWrapper:
     """Wrapper that moves parser operations to background threads"""
     
+    
+    def _isolate_loop_operations(self, parser_method):
+        """Isolate parser operations to prevent loop conflicts"""
+        import asyncio
+        
+        async def isolated_method():
+            try:
+                # Create new event loop for this thread if needed
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                return await parser_method()
+                
+            except Exception as e:
+                logger.error(f"Isolated operation failed: {e}")
+                raise
+        
+        return isolated_method
+
     def __init__(self, parser_instance):
         self.parser = parser_instance
         self.parser_name = parser_instance.__class__.__name__

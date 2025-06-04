@@ -129,7 +129,7 @@ class ScalableUnifiedProcessor:
                 return
             
             # Get guild configuration
-            guild_config = await self.bot.db_manager.get_guild(self.guild_id)
+            guild_config = await self._safe_db_call(self.bot.db_manager.get_guild, self.guild_id)
             if not guild_config:
                 return
             
@@ -1033,7 +1033,11 @@ class ScalableUnifiedProcessor:
                     
                     # Write with strong consistency to ensure immediate visibility
                     from pymongo import WriteConcern
-                    result = await self.bot.db_manager.player_sessions.with_options(
+                    
+                    # Use thread-safe database wrapper if available
+                    db_manager = getattr(self.bot, 'thread_safe_db', self.bot.db_manager)
+                    
+                    result = await db_manager.player_sessions.with_options(
                         write_concern=WriteConcern(w="majority", j=True)
                     ).replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
@@ -1061,11 +1065,11 @@ class ScalableUnifiedProcessor:
             # Force database persistence and cross-connection verification
             try:
                 # Verify with bot's connection
-                total_online = await self.bot.db_manager.player_sessions.count_documents({
+                total_online = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.count_documents({
                     'guild_id': self.guild_id,
                     'state': 'online'
                 })
-                emerald_online = await self.bot.db_manager.player_sessions.count_documents({
+                emerald_online = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.count_documents({
                     'guild_id': self.guild_id,
                     'server_name': 'Emerald EU',
                     'state': 'online'
@@ -1132,7 +1136,7 @@ class ScalableUnifiedProcessor:
                 return
             
             # Get guild config to find servers
-            guild_config = await self.bot.db_manager.get_guild(self.guild_id)
+            guild_config = await self._safe_db_call(self.bot.db_manager.get_guild, self.guild_id)
             if not guild_config:
                 return
             
@@ -1267,7 +1271,7 @@ class ScalableUnifiedProcessor:
                             
                             # Update player session with character name using strong consistency
                             from pymongo import WriteConcern
-                            result = await self.bot.db_manager.player_sessions.with_options(
+                            result = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.with_options(
                                 write_concern=WriteConcern(w="majority", j=True)
                             ).update_one(
                                 {"guild_id": self.guild_id, "player_id": eosid},
@@ -1361,7 +1365,7 @@ class ScalableUnifiedProcessor:
                     else:
                         # Hot start processing - update database with strong consistency
                         from pymongo import WriteConcern
-                        result = await self.bot.db_manager.player_sessions.with_options(
+                        result = await self._safe_db_call(lambda: self.bot.db_manager.player_sessions.with_options(
                             write_concern=WriteConcern(w="majority", j=True)
                         ).update_one(
                             {"guild_id": self.guild_id, "player_id": eosid, "state": "online"},
