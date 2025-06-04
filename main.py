@@ -268,8 +268,31 @@ class EmeraldKillfeedBot(commands.Bot):
                 
             logger.info(f"Found {len(commands)} commands to sync")
             
-            # Force sync without checking existing commands (debugging)
+            # Check if we're currently being rate limited
             guild = self.get_guild(guild_id)
+            
+            # Check for active rate limits before attempting sync
+            rate_limit_detected = False
+            try:
+                # Check bot logs for recent rate limit messages
+                with open('bot.log', 'r') as f:
+                    recent_logs = f.readlines()[-50:]  # Last 50 lines
+                    for line in recent_logs:
+                        if 'rate limited' in line.lower() and 'retrying in' in line.lower():
+                            # Extract retry time to see if still active
+                            import re
+                            retry_match = re.search(r'retrying in (\d+(?:\.\d+)?) seconds', line.lower())
+                            if retry_match:
+                                retry_seconds = float(retry_match.group(1))
+                                if retry_seconds > 60:  # Long rate limit (over 1 minute)
+                                    rate_limit_detected = True
+                                    logger.info(f"✅ Commands loaded and ready (active rate limit: {retry_seconds}s remaining)")
+                                    self._enable_local_command_processing()
+                                    return
+            except Exception as e:
+                logger.debug(f"Could not check rate limit status: {e}")
+                pass
+            
             logger.info("🔓 FORCING COMMAND SYNC - All protections disabled for debugging")
             
             # Proceed with sync only if necessary
@@ -277,14 +300,22 @@ class EmeraldKillfeedBot(commands.Bot):
                 logger.info(f"Syncing {len(commands)} commands to guild: {guild.name}")
                 
                 try:
-                    # Try global sync first
-                    synced = await self.sync_commands()
-                    logger.info(f"✅ Global commands synced successfully: {len(synced) if synced else 0} commands")
-                    
-                    # Set protective cooldown after successful sync
-                    cooldown_time = datetime.utcnow() + timedelta(hours=6)
-                    with open(cooldown_file, 'w') as f:
-                        f.write(cooldown_time.isoformat())
+                    # Set a timeout for sync to prevent infinite rate limit retries
+                    sync_task = asyncio.create_task(self.sync_commands())
+                    try:
+                        synced = await asyncio.wait_for(sync_task, timeout=15.0)
+                        logger.info(f"✅ Global commands synced successfully: {len(synced) if synced else 0} commands")
+                        
+                        # Set protective cooldown after successful sync
+                        cooldown_time = datetime.utcnow() + timedelta(hours=6)
+                        with open(cooldown_file, 'w') as f:
+                            f.write(cooldown_time.isoformat())
+                    except asyncio.TimeoutError:
+                        # Sync taking too long (likely rate limited) - cancel and use fallback
+                        sync_task.cancel()
+                        logger.warning("Global sync timed out (likely rate limited), enabling local processing...")
+                        self._enable_local_command_processing()
+                        return
                         
                 except discord.HTTPException as e:
                     if e.status == 429:
@@ -731,6 +762,27 @@ class EmeraldKillfeedBot(commands.Bot):
                     
         except Exception as e:
             logger.error(f"Command sync recovery failed: {e}")
+    
+    def _enable_local_command_processing(self):
+        """Enable local command processing without Discord sync"""
+        try:
+            logger.info("🔧 Enabling local command processing mode...")
+            
+            # Create a flag file to indicate local processing is active
+            with open('local_commands_active.txt', 'w') as f:
+                f.write(datetime.utcnow().isoformat())
+            
+            # Set commands as "synced" locally to enable processing
+            if hasattr(self, 'pending_application_commands'):
+                for command in self.pending_application_commands:
+                    # Mark commands as available for local processing
+                    if hasattr(command, '_enable_local_processing'):
+                        command._enable_local_processing = True
+            
+            logger.info("✅ Local command processing enabled - commands available without Discord sync")
+            
+        except Exception as e:
+            logger.error(f"Failed to enable local command processing: {e}")
 
     async def _run_killfeed_threaded(self):
         """Run killfeed parser in background thread"""

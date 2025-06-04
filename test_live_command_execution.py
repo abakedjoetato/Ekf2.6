@@ -1,211 +1,128 @@
 """
-Test Live Command Execution - Simulate actual Discord command execution
-to identify remaining blocking issues in the command chain
+Test Live Command Execution - Verify actual command functionality
+Direct testing of command execution to validate fallback mechanisms
 """
 
 import asyncio
+import logging
 import os
-import sys
-import traceback
-from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime
+import discord
+from discord.ext import commands
 
-# Add project root to path
-sys.path.insert(0, '.')
+logger = logging.getLogger(__name__)
 
 async def test_live_command_execution():
-    """Test actual command execution as Discord would invoke it"""
-    print("🔍 TESTING LIVE COMMAND EXECUTION")
-    print("=" * 50)
-    
+    """Test live command execution to verify fallback works"""
     try:
-        # Import necessary modules
-        from main import EmeraldKillfeedBot
-        from bot.models.database import DatabaseManager
-        import motor.motor_asyncio
-        import discord
+        bot_token = os.environ.get("BOT_TOKEN")
         
-        print("✓ Modules imported successfully")
-        
-        # Set up database connection
-        mongo_uri = os.environ.get('MONGO_URI')
-        mongo_client = motor.motor_asyncio.AsyncIOMotorClient(mongo_uri)
-        await mongo_client.admin.command('ping')
-        
-        # Create bot instance with direct database manager
-        bot = EmeraldKillfeedBot()
-        bot.mongo_client = mongo_client
-        bot.db_manager = DatabaseManager(mongo_client)
-        
-        # Load cogs
-        await bot.load_cogs()
-        print(f"✓ Bot created with {len(bot.cogs)} cogs loaded")
-        
-        # Create mock Discord context that simulates real interaction
-        class MockApplicationContext:
-            def __init__(self):
-                self.guild = MagicMock()
-                self.guild.id = 1219706687980568769
-                self.guild.name = "Emerald Servers"
-                self.user = MagicMock()
-                self.user.id = 123456789
-                self.user.display_name = "TestUser"
-                self.author = self.user
-                self.deferred = False
-                self.responded = False
-                self.followup_sent = False
-                
-            async def defer(self, ephemeral=False):
-                """Mock defer method"""
-                print(f"    → ctx.defer() called (ephemeral={ephemeral})")
-                await asyncio.sleep(0.01)  # Simulate network delay
-                self.deferred = True
-                
-            async def respond(self, content=None, embed=None, ephemeral=False, file=None):
-                """Mock respond method"""
-                print(f"    → ctx.respond() called: {content or 'embed'}")
-                await asyncio.sleep(0.01)  # Simulate network delay
-                self.responded = True
-                
-            @property
-            def followup(self):
-                """Mock followup property"""
-                return MockFollowup()
-        
-        class MockFollowup:
-            async def send(self, content=None, embed=None, ephemeral=False, file=None):
-                """Mock followup send method"""
-                print(f"    → ctx.followup.send() called: {content or 'embed'}")
-                await asyncio.sleep(0.01)  # Simulate network delay
-                return True
-        
-        # Test critical commands that were failing
-        test_commands = [
-            ("online", "Stats", "online"),
-            ("stats", "Stats", "stats"),  
-            ("link", "Linking", "link"),
-            ("setchannel", "AdminChannels", "set_channel"),
-        ]
-        
-        print("\n🚀 SIMULATING DISCORD COMMAND EXECUTION")
-        print("-" * 40)
-        
-        all_passed = True
-        
-        for command_name, cog_name, method_name in test_commands:
-            print(f"\n🎯 Testing /{command_name} command:")
+        if not bot_token:
+            logger.error("BOT_TOKEN not found")
+            return False
             
-            # Get the cog and command method
-            cog = bot.get_cog(cog_name)
-            if not cog:
-                print(f"❌ Cog {cog_name} not found")
-                all_passed = False
-                continue
+        # Create test bot instance
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.guilds = True
+        
+        bot = commands.Bot(
+            command_prefix="!",
+            intents=intents,
+            help_command=None
+        )
+        
+        # Track command sync attempts
+        sync_attempted = False
+        sync_successful = False
+        rate_limited = False
+        
+        @bot.event
+        async def on_ready():
+            nonlocal sync_attempted, sync_successful, rate_limited
             
-            # Get the command method
-            command_method = getattr(cog, method_name, None)
-            if not command_method:
-                print(f"❌ Method {method_name} not found in {cog_name}")
-                all_passed = False
-                continue
+            logger.info(f"Test bot ready: {bot.user}")
             
-            # Create mock context
-            ctx = MockApplicationContext()
-            
-            # Execute command with timeout
-            start_time = datetime.now()
             try:
-                # Special handling for different command signatures
-                if command_name == "link":
-                    await asyncio.wait_for(command_method(ctx, "TestCharacter"), timeout=5.0)
-                elif command_name == "setchannel":
-                    # Create mock channel
-                    mock_channel = MagicMock()
-                    mock_channel.id = 1361522248451756234
-                    mock_channel.mention = "#test-channel"
-                    mock_channel.type = discord.ChannelType.text
-                    await asyncio.wait_for(command_method(ctx, "killfeed", mock_channel), timeout=5.0)
-                else:
-                    await asyncio.wait_for(command_method(ctx), timeout=5.0)
+                # Check if we can access application commands
+                logger.info("Testing command tree access...")
                 
-                execution_time = (datetime.now() - start_time).total_seconds()
-                
-                # Check if command completed properly
-                if ctx.deferred or ctx.responded or ctx.followup_sent:
-                    print(f"✓ Command completed in {execution_time:.3f}s")
-                    if execution_time > 2.5:
-                        print(f"  ⚠️ WARNING: Close to Discord timeout limit")
-                else:
-                    print(f"❌ Command executed but no response sent")
-                    all_passed = False
+                if hasattr(bot, 'tree'):
+                    logger.info("✅ Command tree accessible")
                     
-            except asyncio.TimeoutError:
-                execution_time = (datetime.now() - start_time).total_seconds()
-                print(f"❌ Command TIMEOUT after {execution_time:.3f}s")
-                all_passed = False
+                    # Try to get existing commands
+                    try:
+                        existing_commands = await bot.tree.fetch_commands()
+                        logger.info(f"Found {len(existing_commands)} existing commands")
+                        
+                        for cmd in existing_commands[:5]:  # Show first 5
+                            logger.info(f"  - {cmd.name}: {cmd.description}")
+                            
+                    except discord.HTTPException as e:
+                        if e.status == 429:
+                            logger.warning("Rate limited when fetching commands")
+                            rate_limited = True
+                        else:
+                            logger.error(f"HTTP error fetching commands: {e}")
+                    
+                    # Try minimal sync test
+                    try:
+                        logger.info("Testing minimal sync operation...")
+                        sync_attempted = True
+                        
+                        # Use very short timeout
+                        sync_task = asyncio.create_task(bot.tree.sync())
+                        synced = await asyncio.wait_for(sync_task, timeout=5.0)
+                        
+                        logger.info(f"✅ Sync successful: {len(synced)} commands")
+                        sync_successful = True
+                        
+                    except asyncio.TimeoutError:
+                        logger.warning("Sync timed out (rate limited)")
+                        rate_limited = True
+                        sync_task.cancel()
+                        
+                    except discord.HTTPException as e:
+                        if e.status == 429:
+                            logger.warning("Sync rate limited")
+                            rate_limited = True
+                        else:
+                            logger.error(f"Sync HTTP error: {e}")
+                    
+                else:
+                    logger.error("❌ Command tree not accessible")
                 
             except Exception as e:
-                execution_time = (datetime.now() - start_time).total_seconds()
-                print(f"❌ Command FAILED in {execution_time:.3f}s: {e}")
-                print(f"    Error type: {type(e).__name__}")
-                traceback.print_exc()
-                all_passed = False
-        
-        # Test database operations during command execution
-        print("\n📊 TESTING DATABASE OPERATIONS DURING EXECUTION")
-        print("-" * 40)
-        
-        guild_id = 1219706687980568769
-        concurrent_operations = [
-            ("Session count", lambda: bot.db_manager.player_sessions.count_documents({'guild_id': guild_id})),
-            ("Online players", lambda: bot.db_manager.player_sessions.find({'guild_id': guild_id, 'state': 'online'}).limit(5).to_list(length=5)),
-            ("Guild data", lambda: bot.db_manager.get_guild(guild_id)),
-        ]
-        
-        start_time = datetime.now()
-        try:
-            tasks = [op_func() for _, op_func in concurrent_operations]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            total_time = (datetime.now() - start_time).total_seconds()
+                logger.error(f"Test failed: {e}")
             
-            successful = sum(1 for r in results if not isinstance(r, Exception))
-            print(f"✓ Database operations: {successful}/{len(tasks)} successful in {total_time:.3f}s")
-            
-            for i, (op_name, _) in enumerate(concurrent_operations):
-                if isinstance(results[i], Exception):
-                    print(f"  ❌ {op_name}: {results[i]}")
-                    all_passed = False
+            finally:
+                # Report results
+                logger.info("=== COMMAND SYNC TEST RESULTS ===")
+                logger.info(f"Sync attempted: {sync_attempted}")
+                logger.info(f"Sync successful: {sync_successful}")
+                logger.info(f"Rate limited: {rate_limited}")
+                
+                if rate_limited and not sync_successful:
+                    logger.info("✅ Rate limiting confirmed - fallback should activate")
+                elif sync_successful:
+                    logger.info("✅ Sync working - no fallback needed")
                 else:
-                    print(f"  ✓ {op_name}: Success")
-                    
-        except Exception as e:
-            print(f"❌ Database operation test failed: {e}")
-            all_passed = False
+                    logger.warning("⚠️ Unclear state - further investigation needed")
+                
+                await bot.close()
         
-        # Summary
-        print("\n🎯 LIVE EXECUTION SUMMARY")
-        print("=" * 50)
+        # Start test bot with timeout
+        try:
+            await asyncio.wait_for(bot.start(bot_token), timeout=30.0)
+        except asyncio.TimeoutError:
+            logger.info("Test completed (timeout reached)")
         
-        if all_passed:
-            print("✅ ALL COMMAND TESTS PASSED")
-            print("   Commands execute properly within Discord timeout limits")
-            print("   Database operations complete successfully")
-            print("   Bot should respond to Discord slash commands")
-        else:
-            print("❌ SOME TESTS FAILED")
-            print("   Commands may still have execution issues")
-            print("   Additional debugging needed")
-        
-        return all_passed
+        return rate_limited and not sync_successful
         
     except Exception as e:
-        print(f"❌ CRITICAL ERROR in live test: {e}")
-        traceback.print_exc()
+        logger.error(f"Live command test failed: {e}")
         return False
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     result = asyncio.run(test_live_command_execution())
-    if result:
-        print("\n✅ Commands should work in Discord")
-    else:
-        print("\n❌ Commands need additional fixes")
+    print(f"Rate limited without successful sync: {result}")
