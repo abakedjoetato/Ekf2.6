@@ -81,15 +81,19 @@ class VoiceChannelManager:
             # Try server-specific configuration first
             server_name = await self._get_server_name(guild_id, server_id)
             if server_name and server_name in server_channels:
-                voice_channel_id = server_channels[server_name].get('voice_channel')
-                if voice_channel_id:
-                    return voice_channel_id
+                # Check multiple possible voice channel field names
+                for field_name in ['playercountvc', 'voice_counter', 'voice_channel']:
+                    voice_channel_id = server_channels[server_name].get(field_name)
+                    if voice_channel_id:
+                        return voice_channel_id
                     
             # Fall back to default configuration
             if 'default' in server_channels:
-                voice_channel_id = server_channels['default'].get('voice_channel')
-                if voice_channel_id:
-                    return voice_channel_id
+                # Check multiple possible voice channel field names
+                for field_name in ['playercountvc', 'voice_counter', 'voice_channel']:
+                    voice_channel_id = server_channels['default'].get(field_name)
+                    if voice_channel_id:
+                        return voice_channel_id
                     
             return None
             
