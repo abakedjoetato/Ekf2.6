@@ -420,8 +420,8 @@ class HistoricalParser:
                     async with sftp_client.open(file_path, 'r') as f:
                         while True:
                             chunk = await f.read(buffer_size)
-                        if not chunk:
-                            break
+                            if not chunk:
+                                break
 
                         # Handle binary data
                         if isinstance(chunk, bytes):
