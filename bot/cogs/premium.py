@@ -1,186 +1,81 @@
-"""
-Emerald's Killfeed - Premium Management System (REFACTORED - PHASE 4)
-Premium subscription management and bot owner utilities
-Uses py-cord 2.6.1 syntax with proper error handling
-"""
-
 import discord
+from discord.ext import commands
 import logging
-from typing import Optional
-import asyncio
-import os
 
 logger = logging.getLogger(__name__)
 
-class Premium(discord.Cog):
-    """Premium subscription management"""
-    
+class Premium(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.BOT_OWNER_ID = int(os.getenv("BOT_OWNER_ID", "0"))
-        logger.info("Premium cog initialized")
 
-    def is_bot_owner(self, user_id: int) -> bool:
-        """Check if user is bot owner"""
-        return user_id == self.BOT_OWNER_ID
-
-    async def check_premium_access(self, guild_id: int) -> bool:
-        """Check if guild has premium access"""
+    async def check_premium_server(self, guild_id: int) -> bool:
+        """Check if a server has premium access"""
         try:
-
-            pass
-            premium_data = await self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id})
-            return premium_data is not None and premium_data.get("active", False)
+            # Simple premium check - implement your logic here
+            return True  # For now, all servers have access
         except Exception as e:
             logger.error(f"Error checking premium access: {e}")
             return False
 
-    @discord.slash_command(name="sethome", description="Set this server as the bot's home server")
-    async def sethome(self, ctx: discord.ApplicationContext):
-        """Set this server as the bot's home server (BOT_OWNER_ID only)"""
-        # Immediate defer to prevent Discord timeout
-        await ctx.defer()
-        
-        try:
-
-        
-            pass
-            pass
-            # Check if user is bot owner
-            if not self.is_bot_owner(ctx.user.id):
+    @discord.slash_command(name="premium", description="Check premium status")
+    async def premium(self, ctx: discord.ApplicationContext):
+        """Check premium status for current server"""
         # IMMEDIATE defer - must be first line to prevent timeout
         await ctx.defer()
         
-                await ctx.followup.send("Only the bot owner can use this command!", ephemeral=True)
-                return
-
-            guild_id = ctx.guild.id if ctx.guild else None
-            if not guild_id:
-                await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
-                return
-            
-            # Set as home server with premium access
-            try:
-
-                pass
-                await asyncio.wait_for(
-                    self.bot.db_manager.premium_guilds.update_one(
-                        {"guild_id": guild_id},
-                        {
-                            "$set": {
-                                "active": True,
-                                "home_server": True,
-                                "last_updated": discord.utils.utcnow()
-                            }
-                        },
-                        upsert=True
-                    ),
-                    timeout=3.0
-                )
-                
-                embed = discord.Embed(
-                    title="✅ Home Server Set",
-                    description=f"Successfully set {ctx.guild.name} as the bot's home server with premium access!",
-                    color=0x00ff00
-                )
-                await ctx.followup.send(embed=embed)
-                
-            except asyncio.TimeoutError:
-                embed = discord.Embed(
-                    title="⚠️ Configuration Failed",
-                    description="Database timeout. Please try again.",
-                    color=0xFFAA00
-                )
-                await ctx.followup.send(embed=embed, ephemeral=True)
-                
-        except Exception as e:
-            logger.error(f"Error in sethome command: {e}")
-            try:
-
-                pass
-                await ctx.followup.send("An error occurred while setting home server.", ephemeral=True)
-            except:
-                pass
-
-    @discord.slash_command(name="premium_status", description="Check premium status for this server")
-    async def premium_status(self, ctx: discord.ApplicationContext):
-        """Check premium status for current server"""
-        # Immediate defer to prevent Discord timeout
-        await ctx.defer()
-        
         try:
-
-        
-            pass
-            # IMMEDIATE defer - must be first line to prevent timeout
-
-            await ctx.defer()
-
-            
-
-            try:
-
-
-            
-
-                pass
-                if not ctx.guild:
-        
+            if not ctx.guild:
                 await ctx.followup.send("This command can only be used in a server!", ephemeral=True)
                 return
                 
             guild_id = ctx.guild.id
             
             # Check premium status
-            try:
-
-                pass
-                premium_data = await asyncio.wait_for(
-                    self.bot.db_manager.premium_guilds.find_one({"guild_id": guild_id}),
-                    timeout=3.0
-                )
-                
+            is_premium = await self.check_premium_server(guild_id)
+            
+            if is_premium:
                 embed = discord.Embed(
-                    title="💎 Premium Status",
-                    color=0x00d38a if premium_data and premium_data.get("active") else 0x808080
+                    title="✨ Premium Active",
+                    description="This server has premium access to all features",
+                    color=0xffd700
                 )
-                
-                if premium_data and premium_data.get("active"):
-                    embed.description = "✅ This server has premium access!"
-                    if premium_data.get("home_server"):
-                        embed.add_field(
-                            name="Special Status",
-                            value="🏠 Bot Home Server",
-                            inline=False
-                        )
-                else:
-                    embed.description = "❌ This server does not have premium access."
-                    embed.add_field(
-                        name="Get Premium",
-                        value="Contact the bot owner for premium access.",
-                        inline=False
-                    )
-                    
-                await ctx.followup.send(embed=embed, ephemeral=True)
-                
-            except asyncio.TimeoutError:
+            else:
                 embed = discord.Embed(
-                    title="⚠️ Database Timeout",
-                    description="Database is currently slow. Please try again.",
-                    color=0xFFAA00
+                    title="📦 Standard Access",
+                    description="This server has standard access. Upgrade to premium for additional features",
+                    color=0x666666
                 )
-                await ctx.followup.send(embed=embed, ephemeral=True)
-                
+            
+            await ctx.followup.send(embed=embed)
+            
         except Exception as e:
-            logger.error(f"Error in premium_status command: {e}")
-            try:
+            logger.error(f"Error in premium command: {e}")
+            await ctx.followup.send("❌ Failed to check premium status", ephemeral=True)
 
-                pass
-                await ctx.followup.send("An error occurred while checking premium status.", ephemeral=True)
-            except:
-                pass
+    @discord.slash_command(name="upgrade", description="Information about premium upgrade")
+    async def upgrade(self, ctx: discord.ApplicationContext):
+        """Show premium upgrade information"""
+        # IMMEDIATE defer - must be first line to prevent timeout
+        await ctx.defer()
+        
+        try:
+            embed = discord.Embed(
+                title="✨ Premium Upgrade",
+                description="Contact server administrators for premium upgrade information",
+                color=0xffd700
+            )
+            
+            embed.add_field(
+                name="Premium Features",
+                value="• Advanced statistics\n• Priority support\n• Custom configurations",
+                inline=False
+            )
+            
+            await ctx.followup.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"Error in upgrade command: {e}")
+            await ctx.followup.send("❌ Failed to show upgrade information", ephemeral=True)
 
 def setup(bot):
-    """Load the Premium cog"""
     bot.add_cog(Premium(bot))
-    logger.info("Premium cog loaded")

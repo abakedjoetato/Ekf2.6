@@ -34,6 +34,7 @@ class Economy(discord.Cog):
         try:
 
             pass
+            pass
             if hasattr(self.bot, 'premium_manager_v2'):
                 return await self.bot.premium_manager_v2.has_premium_access(guild_id)
             else:
@@ -53,6 +54,7 @@ class Economy(discord.Cog):
         try:
 
             pass
+            pass
             # Economy is guild-wide premium feature - check if guild has any premium access
             return await self.bot.db_manager.has_premium_access(guild_id)
         except Exception as e:
@@ -64,6 +66,7 @@ class Economy(discord.Cog):
         """Add wallet transaction event for tracking"""
         try:
 
+            pass
             pass
             await self.bot.db_manager.add_wallet_event(
                 guild_id, discord_id, amount, event_type, description
@@ -81,6 +84,7 @@ class Economy(discord.Cog):
 
         
             pass
+            pass
             # IMMEDIATE defer - must be first line to prevent timeout
 
             await ctx.defer()
@@ -88,7 +92,16 @@ class Economy(discord.Cog):
             
 
         try:
+
+
+            
+
+            pass
             if not ctx.guild:
+
+                await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
+
+                return
                 await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
                 return
                 
@@ -133,7 +146,12 @@ class Economy(discord.Cog):
         try:
 
             pass
+            pass
             if not ctx.guild:
+
+                await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
+
+                return
         # IMMEDIATE defer - must be first line to prevent timeout
         
         # IMMEDIATE defer - must be first line to prevent timeout
@@ -191,7 +209,12 @@ class Economy(discord.Cog):
         try:
 
             pass
+            pass
             if not ctx.guild:
+
+                await ctx.followup.send("❌ This command must be used in a server", ephemeral=True)
+
+                return
                 await ctx.respond("❌ This command must be used in a server", ephemeral=True)
                 return
 
