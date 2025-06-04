@@ -156,7 +156,7 @@ class ScalableUnifiedProcessor:
                 try:
                     # Get current player count from database
                     if hasattr(self.bot.db_manager, 'get_active_player_count'):
-                        player_count = await self.bot.db_manager.get_active_player_count(
+                        player_count = await self.db_wrapper.get_active_player_count(
                             self.guild_id, server_name
                         )
                     else:
@@ -341,7 +341,7 @@ class ScalableUnifiedProcessor:
                         # Reset all player sessions to offline
                         try:
                             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
-                                await self.bot.db_manager.player_sessions.update_many(
+                                await self.db_wrapper.player_sessions.update_many(
                                     {"guild_id": self.guild_id, "server_name": server_name},
                                     {"$set": {"state": "offline", "last_updated": datetime.now(timezone.utc)}}
                                 )
@@ -1038,7 +1038,7 @@ class ScalableUnifiedProcessor:
             
             for player_id, session_data in self._cold_start_player_states.items():
                 try:
-                    result = await self.bot.db_manager.player_sessions.replace_one(
+                    result = await self.db_wrapper.player_sessions.replace_one(
                         {'guild_id': session_data['guild_id'], 'player_id': player_id},
                         session_data,
                         upsert=True
@@ -1454,7 +1454,7 @@ class ScalableUnifiedProcessor:
             
             if self.bot and hasattr(self.bot, 'db_manager') and self.bot.db_manager:
                 # Record the kill
-                await self.bot.db_manager.record_kill(
+                await self.db_wrapper.record_kill(
                     guild_id=self.guild_id,
                     killer_name=killer,
                     victim_name=victim,

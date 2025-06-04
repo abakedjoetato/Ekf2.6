@@ -176,10 +176,10 @@ class Premium(discord.Cog):
                 
                 # Get or create guild (access db_manager safely)
                 if hasattr(bot, 'db_manager'):
-                    guild_config = await bot.db_manager.get_guild(guild_id)
+                    guild_config = await asyncio.wait_for(await bot.db_manager.get_guild(guild_id), timeout=30.0)
                     if not guild_config:
                         guild_name = interaction.guild.name if interaction.guild else "Unknown Guild"
-                        guild_config = await bot.db_manager.create_guild(guild_id, guild_name)
+                        guild_config = await asyncio.wait_for(await bot.db_manager.create_guild(guild_id, guild_name), timeout=30.0)
                 else:
                     await interaction.followup.send("Database system not available!", ephemeral=True)
                     return
@@ -212,13 +212,13 @@ class Premium(discord.Cog):
                 }
 
                 # Add server to guild config
-                add_result = await bot.db_manager.add_server_to_guild(guild_id, server_config)
+                add_result = await asyncio.wait_for(await bot.db_manager.add_server_to_guild(guild_id, server_config), timeout=30.0)
                 
                 if add_result:
                     logger.info(f"✅ Server {serverid} successfully added to guild {guild_id}")
                     
                     # Verify server was saved by checking database
-                    guild_config = await bot.db_manager.get_guild(guild_id)
+                    guild_config = await asyncio.wait_for(await bot.db_manager.get_guild(guild_id), timeout=30.0)
                     servers_count = len(guild_config.get('servers', [])) if guild_config else 0
                     logger.info(f"📊 Guild now has {servers_count} servers configured")
                     
